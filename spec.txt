@@ -1,0 +1,59 @@
+neulang (at the moment just some sample code)
+
+interesting/important propreties in no particular order
+	contextually imperative, state can change but only within your own scope (the closure's scope)
+	loops are really recursion under-the-hood; because you can't change variables in higher scopes, loops return values which you must bind in higher scopes
+	you can return early with (return), but only within your local scope (if you're in a loop return acts superfically as a break statement would in other langauges)
+	strongly typed (although note at a later date we hope to go to inferred/implicit strong typing over explicit strong typing) with the following types
+		byte (for raw binary data, single characters, TRUE, and FALSE; most efficient to store, range [0,255])
+		num (the only numeric type, consists internally of 2 bignum integers (numerator and denominator); no nasty floats here! storage is fast, gcd is run after arithmetic, integers just have a denominator of 1)
+		[sub-type]array (includes length (type num), strings are byte arrays; act as pascal strings because we get length free with array)
+		pair (singly-linked list cell, equivilent to lisp cons cell)
+		[return-type]sub (a lambda expression/closure which returns the given return type)
+		
+	internal-ish types
+		symbol (variable name)
+		evaluation (to-be-evaluated variable, looks like $symbol)
+	
+	for and while loops always return the type of the last statment or return statement reference; however because we currently have no type inference you have to declare it with [return-type]for
+	if statements do not have a scope and should not (cannot?) be returned, because I'm not sure a good way to deal with that
+	all strings are string literals, there is no escape; strings start at one " and end at the next "; in order to get values inside strings explicit concatenation (the , (comma) operator does this); there is a pre-defined $qut (pronounced "cut") for literal quote values, or you can use the str-ascii function which returns a byte array of length 1 with the given value (effectively a 1-character-long string to concatenate with).  there is also a built in $eol for the newline character
+	all input is done by means of the (in) subroutine and all output is done by means of the (out) subroutine; these are intentionally short as you're expected to use them often; the hope is 
+	we do not support subroutine/function/variable overloading; we encourage developers to put the a type within the function name, and we use this convention for some builtin functions, such as ar-byte-emp and ar-num-emp
+	a raw string with nothing else on the line is also seen as output, because a call shouldn't really be needed for that
+	the "recurse" keyword allows anonymous functions to recurse
+	because of scoping rules, the implementation is planned to make data-wise copies when a variable is passed (as an argument) to a lower scope or returned to a higher scope, but otherwise not re-allocate memory, since data can be changed within the local scope
+	
+	should if statements have a return type? it may make tail recursion simpler to implement
+	
+	built-ins (key words) and their uses
+		(let[type] <symbol> <value>) -> sets the value of the symbol to a value of the given type
+		(bind <symbol> <const or struct>) -> like "let" for constants and structures
+		([return-type]sub <argument list> <body>) -> a lambda expression, evaluates to a closure
+		(if <condition> <true-body> [else <false-body>]) -> simple conditional construct
+	
+	built-ins (standard library functions) and their uses
+		(ar-size <array>) -> returns the size of the given array, in number of elements
+		(ar-idx <array> <index>) -> returns the element at given index in the array (we 0-index ALWAYS)
+		(, <string> <string> <string> ...) -> returns the concatenation of the given strings
+
+"mod" branch - an alternate syntax I'm considering for the same internals
+	//outer-prefix denotation, built-ins having the symbol be a call but user-defined functions require an evaluation ($), so they can never be in conflict
+	
+	//I think this is an interesting place between lisp and other languages in terms of syntax, and it's maybe a place we want to be
+	//also with a 0-argument function no argument parents are required; $output-something for example
+	//primitives may still require parens though, because otherwise there would be no way to tell them apart from other symbols
+	
+	//note that parens are still the only grouping element, and operators are still n-operand "+(a b c d e)"
+	//variable-argument functions are treated by taking a special type of list argument
+	//the entire argument list then gets passed to that closure as a single variable, the list argument
+	
+	//for example, this if statement is if( <condition> <body> ), but evaluates like (if <condition> <body>)
+	//if is a built-in, and so is valid here
+	//each symbol used as a function call is checked against the primitives list
+	//if it's not there, then it's a compile-time error
+	if(>(2 3)
+		//user-defined functions require an evaluation construct so it's not literally interpreted as a symbol
+		out($we-broke-math(">" 2 3))
+	)
+
