@@ -5,17 +5,17 @@
 
 //search for a string in a substring, the "sub"routine
 //arguments needle (to find) and haystack (what to search in)
-(let[sub] str-find ([num]sub (haystack needle)
+(let[sub] str-find (sub[num] (haystack needle)
 	
 	//note that $hay-index is a value (a num) and hay-index is a symbol; this is kind of tcl-like
 	//because $haystack is a string we can use array functions on it, in this case size (length? php used count, idk)
 	//the explicit return isn't strictly necessary, it's just for clarity
-	(return ([num]for (let[num] hay-index 0) (< $hay-index (ar-size $haystack)) (inc hay-index)
+	(return (for[num] (let[num] hay-index 0) (< $hay-index (ar-size $haystack)) (inc hay-index)
 		
 		//we use words like and, or, and not for boolean conditionals
 		//the condition is while we haven't run off the end of the string or run out of characters in they haystack to search through
 		//note that we are setting the return value of the for loop to the not-found variable/symbol
-		(let[byte] found ([byte]for (let[num] ned-index 0) (and (< $ned-index (ar-size $needle)) (< (+ (ar-size $needle) $hay-index) (ar-size $haystack))) (inc ned-index)
+		(let[byte] found (for[byte] (let[num] ned-index 0) (and (< $ned-index (ar-size $needle)) (< (+ (ar-size $needle) $hay-index) (ar-size $haystack))) (inc ned-index)
 			
 			//again we use an array function for a string (which is a byte array); now index
 			//note this is a "byte" comparison (byte is also our boolean type)
@@ -40,7 +40,7 @@
 			TRUE
 		))
 		
-		(if found
+		(if $found
 			//this return MUST be explicit, so the after clause doesn't get executed
 			(return $hay-index)
 		)
@@ -52,18 +52,18 @@
 
 //a little subset of fgrep to try to demonstrate the method
 //returns an array of lines which matched
-(let[sub] fgrep ([[[byte]array]array]sub (search-term filename)
+(let[sub] fgrep (sub[[[byte]]] (search-term filename)
 	
 	//contents is an array of lines, or you know, an array of byte arrays
 	//maybe I should re-think that typing...
 	//str-explode is named after php's string explode; shitty language, but that was a great name for a function
-	(let[[[byte]array]array] contents (str-explode (in $filename) $eol))
+	(let[[[byte]]] contents (str-explode (in $filename) $eol))
 	
 	//note this is read-only to the for loop (since we want it before the first iteration), and will be re-set when the loop completes
-	(let[[[byte]array]array] matches (ar-ar-byte-emp))
+	(let[[[byte]]] matches (ar-ar-byte-emp))
 	
 	//this loop returns all the matching lines
-	(let[[[byte]array]array] matches ([[[byte]array]array]for (let [num]line-num 0) (< $line-num (ar-size $contents)) (inc line-num)
+	(let[[[byte]]] matches (for[[[byte]]] (let[num] line-num 0) (< $line-num (ar-size $contents)) (inc line-num)
 		
 		//if this line matched
 		(if (>= ($str-find (ar-idx $contents $line-num) $search-term) 0)
