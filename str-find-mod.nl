@@ -20,7 +20,7 @@ let[sub](str-find [num]sub((haystack needle)
 			//again we use an array function for a string (which is a byte array); now index
 			//note this is a "byte" comparison (byte is also our boolean type)
 			//if a character didn't match/was out of place
-			if(!=(ar-idx($haystack +($hay-index $ned-index)) ar-idx($needle $ned-index)))
+			if(!=(ar-idx($haystack +($hay-index $ned-index)) ar-idx($needle $ned-index))
 				//remember that, or, more accurately, return it up
 				
 				//a return can be explicit (within a loop explicit returns act like break statements)
@@ -40,7 +40,7 @@ let[sub](str-find [num]sub((haystack needle)
 			TRUE
 		))
 		
-		if(found
+		if($found
 			//this return MUST be explicit, so the after clause doesn't get executed
 			return($hay-index)
 		)
@@ -49,6 +49,15 @@ let[sub](str-find [num]sub((haystack needle)
 		-1
 	))
 ))
+
+//this is something I'm considering doing to allow tests to be written into the code
+//they should basically act as an assert-fail; if the test fails, nothing else should run
+//if possible they should be run at compile time
+expect(=(str-find("this is a test" "t") 0))
+expect(=(str-find("this is a test" " ") 4))
+expect(=(str-find("this is a test" "test") 10))
+//error case
+expect(=(str-find("this is a test" "-") -1))
 
 //a little subset of fgrep to try to demonstrate the method
 //returns an array of lines which matched

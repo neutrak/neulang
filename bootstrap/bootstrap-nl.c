@@ -25,8 +25,8 @@ typedef enum {
 	SUB, //closure (subroutine)
 	
 	//internal types (might still be user visible, but mostly an implementation detail)
-//	SYMBOL, //variable names, for the symbol table, internally this is a [byte]array
-//	EVALUATION, //to-be-evaluated symbol, denoted $symbol
+	SYMBOL, //variable names, for the symbol table, internally this is a [byte]array
+	EVALUATION, //to-be-evaluated symbol, denoted $symbol
 } nl_type;
 
 //environment frame (one global, then one per closure)
@@ -93,6 +93,12 @@ struct nl_val {
 			//body (linked list of statements to execute)
 			nl_val *body;
 		} sub;
+		
+		//symbol (variable name) value
+		struct {
+			//the string which has the real name
+			nl_val *name;
+		} sym;
 	} d;
 };
 
@@ -135,6 +141,9 @@ nl_val *nl_val_malloc(nl_type t){
 			ret->d.sub.body=NULL;
 			ret->d.sub.env=NULL;
 			break;
+		case SYMBOL:
+			ret->d.sym.name=NULL;
+			break;
 		default:
 			break;
 	}
@@ -175,6 +184,10 @@ void nl_val_free(nl_val *exp){
 			nl_val_free(exp->d.sub.body);
 			free(exp->d.sub.env);
 			break;
+		//symbols need a recursive call for the string that's their name
+		case SYMBOL:
+			nl_val_free(exp->d.sym.name);
+			break;
 		default:
 			break;
 	}
@@ -193,9 +206,15 @@ void nl_gcd_reduce(nl_val *v){
 		return;
 	}
 	
-	//find greatest common divisor of numerator and denominator
-	long long int a=v->d.num.n;
-	long long int b=v->d.num.d;
+	//if both numerator AND denominator are negative, make them positive for ease
+	if(((v->d.num.n)<0) && ((v->d.num.d)<0)){
+		(v->d.num.n)/=-1;
+		(v->d.num.d)/=-1;
+	}
+	
+	//find greatest common divisor of numerator and denominator (negatives are ignored for this)
+	long long int a=abs(v->d.num.n);
+	long long int b=abs(v->d.num.d);
 	while(b!=0){
 		long long int temp=b;
 		
@@ -242,7 +261,9 @@ void nl_array_push(nl_val *a, nl_val *v){
 		}
 		
 		//free the old memory, and make the array reference the new memory
-		free(a->d.array.v);
+		if(a->d.array.v!=NULL){
+			free(a->d.array.v);
+		}
 		a->d.array.v=new_array_v;
 		
 		//update size parameters
@@ -309,13 +330,19 @@ nl_val *nl_read_num(FILE *fp){
 		c=getc(fp);
 	}
 	
+	//handle numerical expressions starting with . (absolute value less than 1)
+	if(c=='.'){
+		reading_decimal=TRUE;
+		c=getc(fp);
+	}
+	
 	//read a number
 	while(!nl_is_whitespace(c)){
-		//denominator
+		//numerator
 		if(isdigit(c) && !(reading_denom) && !(reading_decimal)){
 			(ret->d.num.n)*=10;
 			(ret->d.num.n)+=(c-'0');
-		//numerator
+		//denominator
 		}else if(isdigit(c) && (reading_denom) && !(reading_decimal)){
 			(ret->d.num.d)*=10;
 			(ret->d.num.d)+=(c-'0');
@@ -354,7 +381,6 @@ nl_val *nl_read_num(FILE *fp){
 	return ret;
 }
 
-//TODO: WRITE THIS!!!!
 //read a string (byte array)
 nl_val *nl_read_string(FILE *fp){
 	nl_val *ret=NULL;
@@ -367,17 +393,6 @@ nl_val *nl_read_string(FILE *fp){
 	
 	//allocate a byte array
 	ret=nl_val_malloc(ARRAY);
-/*
-	ret->d.array.size=3;
-	ret->d.array.v=malloc((ret->d.array.size)*(sizeof(nl_val*)));
-	ret->d.array.stored_size=3;
-	int n;
-	for(n=0;n<(ret->d.array.size);n++){
-		ret->d.array.v[n]=nl_val_malloc(BYTE);
-	}
-	ret->d.array.v[1]->d.byte.v=1;
-	ret->d.array.v[2]->d.byte.v='a';
-*/
 	
 	c=getc(fp);
 	
@@ -392,24 +407,72 @@ nl_val *nl_read_string(FILE *fp){
 	return ret;
 }
 
+//read a single character (byte)
+nl_val *nl_read_char(FILE *fp){
+	nl_val *ret=NULL;
+	
+	char c=getc(fp);
+	if(c!='\''){
+		fprintf(stderr,"Err: character literal didn't start with \'; WHAT DID YOU DO? (started with \'%c\')\n",c);
+		return ret;
+	}
+	
+	//allocate a byte
+	ret=nl_val_malloc(BYTE);
+	
+	c=getc(fp);
+	ret->d.byte.v=c;
+	
+	c=getc(fp);
+	if(c!='\''){
+		fprintf(stderr,"Warn: single-character literal didn't end with \'; (ended with \'%c\')\n",c);
+	}
+	
+	return ret;
+}
+
+//TODO: read an expression list
+
+//TODO: read an evaluation
+
+//read a symbol (just a string with a wrapper) (with a rapper? drop them beats man)
+nl_val *nl_read_symbol(FILE *fp){
+	nl_val *ret=NULL;
+	
+	char c=getc(fp);
+	if(!isalpha(c)){
+		fprintf(stderr,"Err: symbol didn't start with alpha; WHAT DID YOU DO? (started with \'%c\')\n",c);
+		return ret;
+	}
+	ungetc(c,fp);
+	
+	//allocate a symbol for the return
+	ret=nl_val_malloc(SYMBOL);
+	
+	//allocate a byte array for the name
+	nl_val *name=nl_val_malloc(ARRAY);
+	
+	c=getc(fp);
+	
+	//read until end quote, THERE IS NO ESCAPE
+	while(!nl_is_whitespace(c)){
+		nl_val *ar_entry=nl_val_malloc(BYTE);
+		ar_entry->d.byte.v=c;
+		nl_array_push(name,ar_entry);
+		
+		c=getc(fp);
+	}
+	
+	//encapsulate the name string in a symbol
+	ret->d.sym.name=name;
+	return ret;
+}
+
+
 //TODO: WRITE THIS!!!!
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp){
 
-	
-/*
-	//TODO: remove this, it's just for debugging
-	nl_val *ret=nl_val_malloc(ARRAY);
-	ret->d.array.size=3;
-	ret->d.array.v=malloc((ret->d.array.size)*(sizeof(nl_val*)));
-	int n;
-	for(n=0;n<(ret->d.array.size);n++){
-		ret->d.array.v[n]=nl_val_malloc(BYTE);
-	}
-	ret->d.array.v[1]->d.byte.v=1;
-	ret->d.array.v[2]->d.byte.v='a';
-*/
-	
 /*
 	//TODO: remove this, it's just for debugging
 	nl_val *ret=nl_val_malloc(PAIR);
@@ -427,8 +490,8 @@ nl_val *nl_read_exp(FILE *fp){
 	//read a character from the given file
 	char c=getc(fp);
 	
-	//if it starts with a digit or '-' then it's a number
-	if(isdigit(c) || (c=='-')){
+	//if it starts with a digit or '-' or '.' then it's a number
+	if(isdigit(c) || (c=='-') || (c=='.')){
 		ungetc(c,fp);
 		ret=nl_read_num(fp);
 	//if it starts with a quote read a string (byte array)
@@ -438,18 +501,20 @@ nl_val *nl_read_exp(FILE *fp){
 	//if it starts with a single quote, read a character (byte)
 	}else if(c=='\''){
 		ungetc(c,fp);
-//		ret=nl_read_char(fp);
-	//if it starts with a ( it's a compound expression (a list of expressions)
+		ret=nl_read_char(fp);
+	//TODO: if it starts with a ( read a compound expression (a list of expressions)
 	}else if(c=='('){
-		ungetc(c,fp);
+//		ungetc(c,fp);
 //		ret=nl_read_exp_list(fp);
-		
 	//TODO: if it starts with a $ read an evaluation
-//	}else if(){
-		
+	}else if(c=='$'){
+//		ungetc(c,fp);
+//		ret=nl_read_evaluation(fp);
 	//TODO: if it starts with a letter read a symbol
-//	}else if(){
-		
+	}else if(isalpha(c)){
+		ungetc(c,fp);
+		ret=nl_read_symbol(fp);
+		//TODO: check if this is a keyword (maybe not in this function, maybe in eval)
 	}else{
 		fprintf(stderr,"Err: invalid symbol at start of expression, \'%c\' (will start reading again from next character)\n",c);
 	}
@@ -502,6 +567,15 @@ void nl_out(FILE *fp, nl_val *exp){
 		case SUB:
 			fprintf(fp,"closure");
 			break;
+		case SYMBOL:
+			fprintf(fp,"symbol ");
+			if(exp->d.sym.name!=NULL){
+				unsigned int n;
+				for(n=0;n<(exp->d.sym.name->d.array.size);n++){
+					nl_out(fp,(exp->d.sym.name->d.array.v[n]));
+				}
+			}
+			break;
 		default:
 			fprintf(fp,"Err: Unknown type");
 			break;
@@ -537,16 +611,19 @@ int main(int argc, char *argv[]){
 		//free the original expression
 		nl_free(exp);
 		
-		//output the result of evaluation
+		//output (print) the result of evaluation
 		nl_out(stdout,result);
 		
 		//free the resulting expression
 		nl_val_free(result);
 */
+		//pretty formatting
 		printf("\n");
 		
 		//TODO: remove this, it's just for debugging
-//		end_program=TRUE;
+		end_program=TRUE;
+		
+		//loop (completing the REPL)
 	}
 	
 	//de-allocate the global environment
