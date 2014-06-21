@@ -106,6 +106,7 @@ struct nl_val {
 
 //BEGIN FORWARD DECLARATIONS --------------------------------------------------------------------------------------
 void nl_out(FILE *fp, nl_val *exp);
+nl_val *nl_read_exp(FILE *fp);
 //END FORWARD DECLARATIONS ----------------------------------------------------------------------------------------
 
 
@@ -337,7 +338,7 @@ nl_val *nl_read_num(FILE *fp){
 	}
 	
 	//read a number
-	while(!nl_is_whitespace(c)){
+	while(!nl_is_whitespace(c) && c!=')'){
 		//numerator
 		if(isdigit(c) && !(reading_denom) && !(reading_decimal)){
 			(ret->d.num.n)*=10;
@@ -364,6 +365,10 @@ nl_val *nl_read_num(FILE *fp){
 		}
 		
 		c=getc(fp);
+	}
+	
+	if(c==')'){
+		ungetc(c,fp);
 	}
 	
 	//incorporate negative values if a negative sign preceded the expression
@@ -431,7 +436,39 @@ nl_val *nl_read_char(FILE *fp){
 	return ret;
 }
 
-//TODO: read an expression list
+//read an expression list
+nl_val *nl_read_exp_list(FILE *fp){
+	nl_val *ret=NULL;
+	
+	char c=getc(fp);
+	if(c!='('){
+		fprintf(stderr,"Err: expression list didn't start with (; WHAT DID YOU DO? (started with \'%c\')\n",c);
+		return ret;
+	}
+	
+	//allocate a pair (the first element of a linked list)
+	ret=nl_val_malloc(PAIR);
+	
+	nl_val *list_cell=ret;
+	
+	//read the first expression
+	nl_val *next_exp=nl_read_exp(fp);
+	
+	//continue reading expressions until we hit a NULL
+	while(next_exp!=NULL){
+		list_cell->d.pair.f=next_exp;
+		list_cell->d.pair.r=NULL;
+		
+		next_exp=nl_read_exp(fp);
+		if(next_exp!=NULL){
+			list_cell->d.pair.r=nl_val_malloc(PAIR);
+			list_cell=list_cell->d.pair.r;
+		}
+	}
+	
+	//return a reference to the first list element
+	return ret;
+}
 
 //TODO: read an evaluation
 
@@ -455,12 +492,16 @@ nl_val *nl_read_symbol(FILE *fp){
 	c=getc(fp);
 	
 	//read until end quote, THERE IS NO ESCAPE
-	while(!nl_is_whitespace(c)){
+	while(!nl_is_whitespace(c) && c!=')'){
 		nl_val *ar_entry=nl_val_malloc(BYTE);
 		ar_entry->d.byte.v=c;
 		nl_array_push(name,ar_entry);
 		
 		c=getc(fp);
+	}
+	
+	if(c==')'){
+		ungetc(c,fp);
 	}
 	
 	//encapsulate the name string in a symbol
@@ -472,15 +513,6 @@ nl_val *nl_read_symbol(FILE *fp){
 //TODO: WRITE THIS!!!!
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp){
-
-/*
-	//TODO: remove this, it's just for debugging
-	nl_val *ret=nl_val_malloc(PAIR);
-	ret->d.pair.f=nl_val_malloc(BYTE);
-	ret->d.pair.f->d.byte.v='B';
-	ret->d.pair.r=NULL;
-	
-*/
 	//initialize the return to null
 	nl_val *ret=NULL;
 	
@@ -504,8 +536,11 @@ nl_val *nl_read_exp(FILE *fp){
 		ret=nl_read_char(fp);
 	//TODO: if it starts with a ( read a compound expression (a list of expressions)
 	}else if(c=='('){
-//		ungetc(c,fp);
-//		ret=nl_read_exp_list(fp);
+		ungetc(c,fp);
+		ret=nl_read_exp_list(fp);
+	//an empty list is just a NULL value, so leave ret as NULL
+	}else if(c==')'){
+		
 	//TODO: if it starts with a $ read an evaluation
 	}else if(c=='$'){
 //		ungetc(c,fp);
@@ -562,19 +597,20 @@ void nl_out(FILE *fp, nl_val *exp){
 			fprintf(fp,"]");
 			break;
 		case PRI:
-			fprintf(fp,"primitive procedure");
+			fprintf(fp,"<primitive procedure>");
 			break;
 		case SUB:
-			fprintf(fp,"closure");
+			fprintf(fp,"<closure/subroutine>");
 			break;
 		case SYMBOL:
-			fprintf(fp,"symbol ");
+			fprintf(fp,"<symbol ");
 			if(exp->d.sym.name!=NULL){
 				unsigned int n;
 				for(n=0;n<(exp->d.sym.name->d.array.size);n++){
 					nl_out(fp,(exp->d.sym.name->d.array.v[n]));
 				}
 			}
+			fprintf(fp,">");
 			break;
 		default:
 			fprintf(fp,"Err: Unknown type");
