@@ -38,7 +38,11 @@ typedef struct nl_env_frame {
 //a primitive value structure, the basic unit of evalution in neulang
 typedef struct nl_val nl_val;
 struct nl_val {
+	//type
 	nl_type t;
+	
+	//constant or not flag (default TRUE from nl_val_malloc, set false when value is bound to a variable)
+	char cnst;
 	
 	//union to save memory; called d (short for data)
 	union {
@@ -115,9 +119,11 @@ nl_val *nl_read_exp(FILE *fp);
 
 //BEGIN MEMORY MANAGEMENT SUBROUTINES -----------------------------------------------------------------------------
 
+//allocate a value, and initialize it so that we're not doing anything too crazy
 nl_val *nl_val_malloc(nl_type t){
 	nl_val *ret=malloc(sizeof(nl_val));
 	ret->t=t;
+	ret->cnst=TRUE;
 	switch(ret->t){
 		case BYTE:
 			ret->d.byte.v=0;
@@ -152,6 +158,7 @@ nl_val *nl_val_malloc(nl_type t){
 	return ret;
 }
 
+//free a value; this recursively frees complex data types
 void nl_val_free(nl_val *exp){
 	if(exp==NULL){
 		return;
@@ -289,6 +296,50 @@ void nl_array_pop(nl_val *a){
 
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
+
+//evaluate the given expression in the given environment
+nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
+	nl_val *ret=NULL;
+	
+	//null is self-evaluating
+	if(exp==NULL){
+		return exp;
+	}
+	
+	switch(exp->t){
+		//self-evaluating expressions (all constant values)
+		case BYTE:
+		case NUM:
+		case ARRAY:
+		case PRI:
+		case SUB:
+		//symbols are self-evaluating, in the case of primitive calls the pair evaluation checks for them as keywords, without calling out to eval
+		case SYMBOL:
+			ret=exp;
+			break;
+		
+		//complex cases
+		//pairs eagerly evaluate then (if first argument isn't a keyword) call out to apply
+		case PAIR:
+			//TODO: make this check the first list entry, if it is a symbol then check it against keyword and primitive list
+			//otherwise eagerly evaluate then call out to apply
+			ret=exp;
+			break;
+		//evaluations look up value in the environment
+		case EVALUATION:
+			//TODO: make this look up the expression in the environment and return a copy of the result
+			ret=exp;
+			break;
+		//default self-evaluating
+		default:
+			ret=exp;
+			break;
+	}
+	
+	//return the result of evaluation
+	return ret;
+}
+
 //END EVALUTION SUBROUTINES ---------------------------------------------------------------------------------------
 
 //BEGIN I/O SUBROUTINES -------------------------------------------------------------------------------------------
@@ -476,12 +527,14 @@ nl_val *nl_read_exp_list(FILE *fp){
 nl_val *nl_read_symbol(FILE *fp){
 	nl_val *ret=NULL;
 	
-	char c=getc(fp);
-	if(!isalpha(c)){
-		fprintf(stderr,"Err: symbol didn't start with alpha; WHAT DID YOU DO? (started with \'%c\')\n",c);
-		return ret;
-	}
-	ungetc(c,fp);
+//	char c=getc(fp);
+//	if(!isalpha(c)){
+//		fprintf(stderr,"Err: symbol didn't start with alpha; WHAT DID YOU DO? (started with \'%c\')\n",c);
+//		return ret;
+//	}
+//	ungetc(c,fp);
+	
+	char c;
 	
 	//allocate a symbol for the return
 	ret=nl_val_malloc(SYMBOL);
@@ -491,7 +544,7 @@ nl_val *nl_read_symbol(FILE *fp){
 	
 	c=getc(fp);
 	
-	//read until end quote, THERE IS NO ESCAPE
+	//read until whitespace or list-termination character
 	while(!nl_is_whitespace(c) && c!=')'){
 		nl_val *ar_entry=nl_val_malloc(BYTE);
 		ar_entry->d.byte.v=c;
@@ -522,8 +575,8 @@ nl_val *nl_read_exp(FILE *fp){
 	//read a character from the given file
 	char c=getc(fp);
 	
-	//if it starts with a digit or '-' or '.' then it's a number
-	if(isdigit(c) || (c=='-') || (c=='.')){
+	//if it starts with a digit or '.' then it's a number
+	if(isdigit(c) || (c=='.')){
 		ungetc(c,fp);
 		ret=nl_read_num(fp);
 	//if it starts with a quote read a string (byte array)
@@ -545,13 +598,15 @@ nl_val *nl_read_exp(FILE *fp){
 	}else if(c=='$'){
 //		ungetc(c,fp);
 //		ret=nl_read_evaluation(fp);
-	//TODO: if it starts with a letter read a symbol
-	}else if(isalpha(c)){
+	//if it starts with a letter read a symbol
+//	}else if(isalpha(c)){
+	//if it starts with anything not already handled read a symbol
+	}else{
 		ungetc(c,fp);
 		ret=nl_read_symbol(fp);
 		//TODO: check if this is a keyword (maybe not in this function, maybe in eval)
-	}else{
-		fprintf(stderr,"Err: invalid symbol at start of expression, \'%c\' (will start reading again from next character)\n",c);
+//	}else{
+//		fprintf(stderr,"Err: invalid symbol at start of expression, \'%c\' (will start reading next expression)\n",c);
 	}
 	
 	//ignore everything until the next whitespace
@@ -637,22 +692,24 @@ int main(int argc, char *argv[]){
 		printf("\n");
 		
 		//TODO: remove this it's only for debugging
-		nl_out(stdout,exp);
-		nl_val_free(exp);
+//		nl_out(stdout,exp);
+//		nl_val_free(exp);
 		
-/*
 		//evalute the expression in the global environment
 		nl_val *result=nl_eval(exp,global_env);
 		
+		//TODO: should expressions be free-d in nl_eval?
+		//this way (freeing separately) could cause double-frees if the result is the same as the exp (self-evaluating expressions)
+		
 		//free the original expression
-		nl_free(exp);
+//		nl_val_free(exp);
 		
 		//output (print) the result of evaluation
 		nl_out(stdout,result);
 		
 		//free the resulting expression
 		nl_val_free(result);
-*/
+		
 		//pretty formatting
 		printf("\n");
 		
