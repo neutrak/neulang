@@ -104,10 +104,13 @@ struct nl_val {
 
 //environment frame (one global, then one per closure)
 struct nl_env_frame {
-	//TODO: store symbols
+	//store symbols
 	nl_val *symbol_array;
-	//TODO: store values
+	//store values
 	nl_val *value_array;
+	
+	//the environment above this one (THIS MUST BE FREE'D SEPERATELY)
+	nl_env_frame* up_scope;
 }; 
 
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
@@ -208,11 +211,14 @@ void nl_val_free(nl_val *exp){
 }
 
 //allocate an environment frame
-nl_env_frame *nl_env_frame_malloc(){
+nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope){
 	nl_env_frame *ret=(nl_env_frame*)(malloc(sizeof(nl_env_frame)));
 	
 	ret->symbol_array=nl_val_malloc(ARRAY);
 	ret->value_array=nl_val_malloc(ARRAY);
+	
+	//the environment above this (NULL for global)
+	ret->up_scope=up_scope;
 	
 	return ret;
 }
@@ -221,6 +227,8 @@ nl_env_frame *nl_env_frame_malloc(){
 void nl_env_frame_free(nl_env_frame *env){
 	nl_val_free(env->symbol_array);
 	nl_val_free(env->value_array);
+	
+	//note that we do NOT free the above environment here; if you want to do that do it elsewhere
 	
 	free(env);
 }
@@ -702,7 +710,7 @@ int main(int argc, char *argv[]){
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
 	
 	//create the global environment
-	nl_env_frame *global_env=nl_env_frame_malloc();
+	nl_env_frame *global_env=nl_env_frame_malloc(NULL);
 	
 	char end_program=FALSE;
 	while(!end_program){
