@@ -29,11 +29,7 @@ typedef enum {
 	EVALUATION, //to-be-evaluated symbol, denoted $symbol
 } nl_type;
 
-//environment frame (one global, then one per closure)
-typedef struct nl_env_frame {
-	//TODO: store symbols
-	//TODO: store values
-} nl_env_frame;
+typedef struct nl_env_frame nl_env_frame;
 
 //a primitive value structure, the basic unit of evalution in neulang
 typedef struct nl_val nl_val;
@@ -106,6 +102,14 @@ struct nl_val {
 	} d;
 };
 
+//environment frame (one global, then one per closure)
+struct nl_env_frame {
+	//TODO: store symbols
+	nl_val *symbol_array;
+	//TODO: store values
+	nl_val *value_array;
+}; 
+
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
 
 //BEGIN FORWARD DECLARATIONS --------------------------------------------------------------------------------------
@@ -121,7 +125,7 @@ nl_val *nl_read_exp(FILE *fp);
 
 //allocate a value, and initialize it so that we're not doing anything too crazy
 nl_val *nl_val_malloc(nl_type t){
-	nl_val *ret=malloc(sizeof(nl_val));
+	nl_val *ret=(nl_val*)(malloc(sizeof(nl_val)));
 	ret->t=t;
 	ret->cnst=TRUE;
 	switch(ret->t){
@@ -201,6 +205,24 @@ void nl_val_free(nl_val *exp){
 	}
 	
 	free(exp);
+}
+
+//allocate an environment frame
+nl_env_frame *nl_env_frame_malloc(){
+	nl_env_frame *ret=(nl_env_frame*)(malloc(sizeof(nl_env_frame)));
+	
+	ret->symbol_array=nl_val_malloc(ARRAY);
+	ret->value_array=nl_val_malloc(ARRAY);
+	
+	return ret;
+}
+
+//free an environment frame
+void nl_env_frame_free(nl_env_frame *env){
+	nl_val_free(env->symbol_array);
+	nl_val_free(env->value_array);
+	
+	free(env);
 }
 
 //END MEMORY MANAGEMENT SUBROUTINES -------------------------------------------------------------------------------
@@ -680,7 +702,7 @@ int main(int argc, char *argv[]){
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
 	
 	//create the global environment
-	nl_env_frame *global_env=malloc(sizeof(nl_env_frame));
+	nl_env_frame *global_env=nl_env_frame_malloc();
 	
 	char end_program=FALSE;
 	while(!end_program){
@@ -689,11 +711,7 @@ int main(int argc, char *argv[]){
 		//read an expression in
 		nl_val *exp=nl_read_exp(stdin);
 		
-		printf("\n");
-		
-		//TODO: remove this it's only for debugging
-//		nl_out(stdout,exp);
-//		nl_val_free(exp);
+//		printf("\n");
 		
 		//evalute the expression in the global environment
 		nl_val *result=nl_eval(exp,global_env);
@@ -720,7 +738,7 @@ int main(int argc, char *argv[]){
 	}
 	
 	//de-allocate the global environment
-	free(global_env);
+	nl_env_frame_free(global_env);
 	
 	//play nicely on *nix
 	return 0;
