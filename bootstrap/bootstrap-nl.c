@@ -118,6 +118,7 @@ struct nl_env_frame {
 //BEGIN FORWARD DECLARATIONS --------------------------------------------------------------------------------------
 void nl_out(FILE *fp, nl_val *exp);
 nl_val *nl_read_exp(FILE *fp);
+void nl_array_push(nl_val *a, nl_val *v);
 //END FORWARD DECLARATIONS ----------------------------------------------------------------------------------------
 
 
@@ -208,6 +209,55 @@ void nl_val_free(nl_val *exp){
 	}
 	
 	free(exp);
+}
+
+//copy a value data-wise into new memory, without changing the original
+nl_val *nl_val_cp(const nl_val *v){
+	//a null value is copied as a null value
+	if(v==NULL){
+		return NULL;
+	}
+	
+	nl_val *ret=nl_val_malloc(v->t);
+	switch(ret->t){
+		case BYTE:
+			ret->d.byte.v=v->d.byte.v;
+			break;
+		case NUM:
+			ret->d.num.n=v->d.num.n;
+			ret->d.num.d=v->d.num.d;
+			break;
+		//recurse to copy list elements
+		case PAIR:
+			ret->d.pair.f=nl_val_cp(v->d.pair.f);
+			ret->d.pair.r=nl_val_cp(v->d.pair.r);
+			break;
+		//recurse to copy array elements, pushing each into the new array
+		case ARRAY:
+			{
+				int n;
+				for(n=0;(n<(v->d.array.size));n++){
+					nl_array_push(ret,nl_val_cp(v->d.array.v[n]));
+				}
+			}
+			break;
+		case PRI:
+			ret->d.pri.function=v->d.pri.function;
+			break;
+		//TODO: recurse and copy body and environment (should environment be constant? if so I think we need ref counting)
+		case SUB:
+			ret->d.sub.body=NULL;
+			ret->d.sub.env=NULL;
+			break;
+		//recurse to copy name elements
+		case SYMBOL:
+			ret->d.sym.name=nl_val_cp(v->d.sym.name);
+			break;
+		default:
+			break;
+	}
+	
+	return ret;
 }
 
 //allocate an environment frame
@@ -729,6 +779,12 @@ int main(int argc, char *argv[]){
 		
 		//free the original expression
 //		nl_val_free(exp);
+		
+		//TODO: remove this, it's just for debugging
+		nl_val *copy=nl_val_cp(result);
+		nl_out(stdout,copy);
+		nl_val_free(copy);
+		printf("\n");
 		
 		//output (print) the result of evaluation
 		nl_out(stdout,result);
