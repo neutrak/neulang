@@ -283,6 +283,29 @@ void nl_env_frame_free(nl_env_frame *env){
 	free(env);
 }
 
+//make a neulang string from a c string
+nl_val *nl_str_from_c_str(const char *c_str){
+	nl_val *ret=nl_val_malloc(ARRAY);
+	
+	int n=0;
+	while(c_str[n]!='\0'){
+		nl_val *character=nl_val_malloc(BYTE);
+		character->d.byte.v=c_str[n];
+		nl_array_push(ret,character);
+		
+		n++;
+	}
+	
+	return ret;
+}
+
+//make a neulang symbol from a c string
+nl_val *nl_sym_from_c_str(const char *c_str){
+	nl_val *ret=nl_val_malloc(SYMBOL);
+	ret->d.sym.name=nl_str_from_c_str(c_str);
+	return ret;
+}
+
 //END MEMORY MANAGEMENT SUBROUTINES -------------------------------------------------------------------------------
 
 //BEGIN C-NL-STDLIB SUBROUTINES -----------------------------------------------------------------------------------
@@ -317,6 +340,123 @@ void nl_gcd_reduce(nl_val *v){
 	(v->d.num.d)/=a;
 	
 	//and now it's reduced! isn't that great?
+}
+
+//compare two neulang values; returns -1 if a<b, 0 if a==b, and 1 if a>b
+//this is value comparison, NOT pointer comparison
+int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
+	//first handle nulls; anything is larger than null
+	if((v_a==NULL) && (v_b==NULL)){
+		return 0;
+	}
+	if(v_a==NULL){
+		return -1;
+	}
+	if(v_b==NULL){
+		return 1;
+	}
+	
+	//check type equality
+	if((v_a->t)!=(v_b->t)){
+		fprintf(stderr,"Err: comparison between different types is nonsensical, assuming a<b...\n");
+		return -1;
+	}
+	
+	//okay, now the fun stuff
+	switch(v_a->t){
+		//bytes are equal if their values are equal
+		case BYTE:
+			if((v_a->d.byte.v)<(v_b->d.byte.v)){
+				return -1;
+			}else if((v_a->d.byte.v)==(v_b->d.byte.v)){
+				return 0;
+			}else{
+				return 1;
+			}
+			break;
+		//rational numbers are equal if they are equal with a common divisor
+		case NUM:
+			{
+				//first get a common denominator
+//				long long int common_denominator=(v_a->d.num.d)*(v_b->d.num.d);
+				long long int v_a_n=(v_a->d.num.n)*(v_b->d.num.d);
+				long long int v_b_n=(v_b->d.num.n)*(v_a->d.num.d);
+				
+				//now compare numerators with that new divisor
+				if(v_a_n<v_b_n){
+					return -1;
+				}else if(v_a_n==v_b_n){
+					return 0;
+				}else{
+					return 1;
+				}
+			}
+			break;
+		//lists are equal if each element is equal and they are of equal length
+		//recursively check through the list
+		case PAIR:
+			{
+				//check the first item
+				int f_cmp=nl_val_cmp(v_a->d.pair.f,v_b->d.pair.f);
+				//if it's not equal stop here, we've found a result
+				if(f_cmp!=0){
+					return f_cmp;
+				//otherwise keep going (remember the end of the list is nulls, which are considered equal (since they're both null))
+				//if one list is shorter than the other than the longer list will be considered bigger, providing elements up to that point are the same
+				}else{
+					return nl_val_cmp(v_a->d.pair.r,v_b->d.pair.r);
+				}
+			}
+			break;
+		//arrays are equal if each element is equal and they are of equal length
+		//(we recursively check through the array)
+		case ARRAY:
+			{
+				//look through the array
+				int n;
+				for(n=0;(n<v_a->d.array.size) && (n<v_b->d.array.size);n++){
+					int element_cmp=nl_val_cmp(v_a->d.array.v[n],v_b->d.array.v[n]);
+					
+					//if we find an unequal element stop and return the comparison result for that element
+					if(element_cmp!=0){
+						return element_cmp;
+					}
+				}
+				
+				//if all elements were equal until we hit the end of an array, then base equality on array length
+				if((v_a->d.array.size)<(v_b->d.array.size)){
+					return -1;
+				}else if((v_a->d.array.size)==(v_b->d.array.size)){
+					return 0;
+				}else{
+					return 1;
+				}
+			}
+			break;
+		//primitive procedures are only equal if they are pointer-equal
+		//unequal here is assumed to be -1; no actual pointer-lower is checked since that varies by compiler
+		case PRI:
+			if((v_a->d.pri.function)==(v_b->d.pri.function)){
+				return 0;
+			}else{
+				return 1;
+			}
+			break;
+		//TODO: subroutine equality
+//		case SUB:
+//			ret->d.sub.body=NULL;
+//			ret->d.sub.env=NULL;
+//			break;
+		//symbols are equal if their names (byte arrays) are equal
+		case SYMBOL:
+			return nl_val_cmp(v_a->d.sym.name,v_b->d.sym.name);
+			break;
+		default:
+			break;
+	}
+	
+	//if we got here and didn't return assume equality
+	return 0;
 }
 
 //TODO: write all array library functions
@@ -365,17 +505,56 @@ void nl_array_push(nl_val *a, nl_val *v){
 	a->d.array.v[(new_size-1)]=v;
 }
 
-//pop a value off of the end of an array
+//pop a value off of the end of an array, resizing if needed
 void nl_array_pop(nl_val *a){
 	
 }
 
+//insert a value into an array, resizing if needed
+void nl_array_ins(nl_val *a, nl_val *v, nl_val *index){
+	
+}
 
+//remove a value from an array, resizing if needed
+void nl_array_rm(nl_val *a, nl_val *index){
+	
+}
 
 //END C-NL-STDLIB SUBROUTINES -------------------------------------------------------------------------------------
 
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
+
+//TODO: proper evaluation of keywords!
+//evaluate a keyword expression (or primitive function, if keyword isn't found)
+nl_val *nl_eval_keyword(nl_val *keyword_exp){
+	nl_val *keyword=keyword_exp->d.pair.f;
+	nl_val *arguments=keyword_exp->d.pair.r;
+	
+	//allocate keywords
+	nl_val *if_keyword=nl_sym_from_c_str("if");
+	
+	//check for if statements
+	if(nl_val_cmp(keyword,if_keyword)==0){
+		//TODO: handle if statements
+		fprintf(stdout,"\nGot an if statement!\n");
+		nl_out(stdout,keyword);
+		fprintf(stdout,"\n");
+		nl_out(stdout,arguments);
+		fprintf(stdout,"\n");
+	//TODO: check for all other keywords
+	}else{
+		//TODO: in the default case check for primitive procedures bound to this symbol
+	}
+	
+	//free keywords
+	nl_val_free(if_keyword);
+	
+	//free the original expression (frees the entire list, keyword, arguments, and all)
+	nl_val_free(keyword_exp);
+	
+	return NULL;
+}
 
 //evaluate the given expression in the given environment
 nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
@@ -401,9 +580,17 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 		//complex cases
 		//pairs eagerly evaluate then (if first argument isn't a keyword) call out to apply
 		case PAIR:
-			//TODO: make this check the first list entry, if it is a symbol then check it against keyword and primitive list
+			//make this check the first list entry, if it is a symbol then check it against keyword and primitive list
+			if((exp->d.pair.f!=NULL) && (exp->d.pair.f->t==SYMBOL)){
+				ret=nl_eval_keyword(exp);
 			//otherwise eagerly evaluate then call out to apply
-			ret=exp;
+			}else if(exp->d.pair.f!=NULL){
+				//TODO: eager evaluation, call apply
+				
+			//null lists are self-evaluating (the empty list)
+			}else{
+				ret=exp;
+			}
 			break;
 		//evaluations look up value in the environment
 		case EVALUATION:
@@ -642,8 +829,6 @@ nl_val *nl_read_symbol(FILE *fp){
 	return ret;
 }
 
-
-//TODO: WRITE THIS!!!!
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp){
 	//initialize the return to null
@@ -667,7 +852,7 @@ nl_val *nl_read_exp(FILE *fp){
 	}else if(c=='\''){
 		ungetc(c,fp);
 		ret=nl_read_char(fp);
-	//TODO: if it starts with a ( read a compound expression (a list of expressions)
+	//if it starts with a ( read a compound expression (a list of expressions)
 	}else if(c=='('){
 		ungetc(c,fp);
 		ret=nl_read_exp_list(fp);
