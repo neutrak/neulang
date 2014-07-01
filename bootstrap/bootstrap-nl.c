@@ -40,6 +40,9 @@ struct nl_val {
 	//constant or not flag (default TRUE from nl_val_malloc, set false when value is bound to a variable)
 	char cnst;
 	
+	//count the references to this value
+	unsigned int ref;
+	
 	//union to save memory; called d (short for data)
 	union {
 		//byte value
@@ -119,6 +122,7 @@ struct nl_env_frame {
 void nl_out(FILE *fp, nl_val *exp);
 nl_val *nl_read_exp(FILE *fp);
 void nl_array_push(nl_val *a, nl_val *v);
+nl_val *nl_eval(nl_val *exp, nl_env_frame *env);
 //END FORWARD DECLARATIONS ----------------------------------------------------------------------------------------
 
 
@@ -127,11 +131,14 @@ void nl_array_push(nl_val *a, nl_val *v);
 
 //BEGIN MEMORY MANAGEMENT SUBROUTINES -----------------------------------------------------------------------------
 
+//TODO: fuck it, just reference count the damn thing; I don't even care anymore
+
 //allocate a value, and initialize it so that we're not doing anything too crazy
 nl_val *nl_val_malloc(nl_type t){
 	nl_val *ret=(nl_val*)(malloc(sizeof(nl_val)));
 	ret->t=t;
 	ret->cnst=TRUE;
+	ret->ref=1;
 	switch(ret->t){
 		case BYTE:
 			ret->d.byte.v=0;
@@ -169,6 +176,13 @@ nl_val *nl_val_malloc(nl_type t){
 //free a value; this recursively frees complex data types
 void nl_val_free(nl_val *exp){
 	if(exp==NULL){
+		return;
+	}
+	
+	//decrease references on this object
+	exp->ref--;
+	//if there are still references left then don't free it quite yet
+	if(exp->ref>0){
 		return;
 	}
 	
@@ -525,23 +539,120 @@ void nl_array_rm(nl_val *a, nl_val *index){
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
 
+//TODO: handle nested statements correctly (not leaking memory)
+//evaluate an if statement with the given arguments
+nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
+	//return value
+	nl_val *ret=NULL;
+	
+	//allocate internal keywords
+	nl_val *else_keyword=nl_sym_from_c_str("else");
+	
+	if((arguments==NULL) || (arguments->t!=PAIR)){
+		fprintf(stderr,"Err: invalid condition given to if statement");
+		nl_val_free(else_keyword);
+		return NULL;
+	}
+	
+	//the condition is the first argument
+	nl_val *cond=arguments->d.pair.f;
+	
+	//a holder for temporary results
+	nl_val *tmp_result=NULL;
+	//NOTE: freeing tmp_result is hairy because many expressions are self-evaluating
+	//to combat that effect, this holds the last expression that was evaluated, so we can check pointer-equality and determine self-evaluation
+	nl_val *last_exp=NULL;
+	
+	//check if the condition is true
+	if((cond!=NULL) && (((cond->t==BYTE) && (cond->d.byte.v!=0)) || ((cond->t==NUM) && (cond->d.num.n!=0)))){
+		printf("nl_eval_if debug 0, hitting true case...\n");
+		
+		//true eval
+		while((arguments!=NULL) && (arguments->t==PAIR)){
+			//if we hit an else statement then break out (skipping over false case)
+			if((arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
+				printf("nl_eval_if debug 1, stopping at else statement...\n");
+				break;
+			}
+			
+			//otherwise make the eval of this the new temporary result and go to the next list element
+			if(tmp_result!=last_exp){
+				nl_val_free(tmp_result);
+			}
+			last_exp=arguments->d.pair.f;
+			tmp_result=nl_eval(arguments->d.pair.f,env);
+			arguments=arguments->d.pair.r;
+		}
+		
+		//for self-evaluating expressions, make a copy here
+		if(tmp_result==last_exp){
+			tmp_result=nl_val_cp(tmp_result);
+		}
+		
+		printf("nl_eval_if debug 2, got a result of ");
+		nl_out(stdout,tmp_result);
+		printf("\n");
+		
+		//when we're done with the list then break out
+		ret=tmp_result;
+	}else{
+		printf("nl_eval_if debug 3, hitting false case...\n");
+		
+		//false eval
+		
+		//skip over true case
+		while((arguments!=NULL) && (arguments->t==PAIR)){
+			//if we hit an else statement then break out
+			if((arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
+				break;
+			}
+			
+			//otherwise just skip to the next list element
+			arguments=arguments->d.pair.r;
+		}
+		
+		//if we actually hit an else statement just then (rather than the list end)
+		if(nl_val_cmp(arguments->d.pair.f,else_keyword)==0){
+			//evaluate false case
+			while((arguments!=NULL) && (arguments->t==PAIR)){
+				if(tmp_result!=last_exp){
+					nl_val_free(tmp_result);
+				}
+				last_exp=arguments->d.pair.f;
+				tmp_result=nl_eval(arguments->d.pair.f,env);
+				arguments=arguments->d.pair.r;
+			}
+		}
+		
+		//for self-evaluating expressions, make a copy here
+		if(tmp_result==last_exp){
+			tmp_result=nl_val_cp(tmp_result);
+		}
+		
+		ret=tmp_result;
+	}
+	
+	//free internal keytwords and return
+	nl_val_free(else_keyword);
+	return ret;
+}
+
 //TODO: proper evaluation of keywords!
 //evaluate a keyword expression (or primitive function, if keyword isn't found)
-nl_val *nl_eval_keyword(nl_val *keyword_exp){
+nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 	nl_val *keyword=keyword_exp->d.pair.f;
 	nl_val *arguments=keyword_exp->d.pair.r;
+	
+	nl_val *ret=NULL;
 	
 	//allocate keywords
 	nl_val *if_keyword=nl_sym_from_c_str("if");
 	
 	//check for if statements
 	if(nl_val_cmp(keyword,if_keyword)==0){
-		//TODO: handle if statements
-		fprintf(stdout,"\nGot an if statement!\n");
-		nl_out(stdout,keyword);
-		fprintf(stdout,"\n");
-		nl_out(stdout,arguments);
-		fprintf(stdout,"\n");
+		//handle if statements
+		ret=nl_eval_if(arguments,env);
+		
 	//TODO: check for all other keywords
 	}else{
 		//TODO: in the default case check for primitive procedures bound to this symbol
@@ -553,7 +664,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp){
 	//free the original expression (frees the entire list, keyword, arguments, and all)
 	nl_val_free(keyword_exp);
 	
-	return NULL;
+	return ret;
 }
 
 //evaluate the given expression in the given environment
@@ -582,7 +693,7 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 		case PAIR:
 			//make this check the first list entry, if it is a symbol then check it against keyword and primitive list
 			if((exp->d.pair.f!=NULL) && (exp->d.pair.f->t==SYMBOL)){
-				ret=nl_eval_keyword(exp);
+				ret=nl_eval_keyword(exp,env);
 			//otherwise eagerly evaluate then call out to apply
 			}else if(exp->d.pair.f!=NULL){
 				//TODO: eager evaluation, call apply
