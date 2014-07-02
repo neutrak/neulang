@@ -99,6 +99,9 @@ struct nl_val {
 		
 		//symbol (variable name) value
 		struct {
+			//type this symbol is bound to (SYMBOL for unbound)
+			nl_type t;
+			
 			//the string which has the real name
 			nl_val *name;
 		} sym;
@@ -127,6 +130,7 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env);
 
 
 //BEGIN GLOBAL DATA -----------------------------------------------------------------------------------------------
+char end_program;
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
 
 //BEGIN MEMORY MANAGEMENT SUBROUTINES -----------------------------------------------------------------------------
@@ -152,6 +156,7 @@ nl_val *nl_val_malloc(nl_type t){
 			ret->d.pair.r=NULL;
 			break;
 		case ARRAY:
+//			ret->d.array.t=BYTE;
 			ret->d.array.v=NULL;
 			ret->d.array.size=0;
 			ret->d.array.stored_size=0;
@@ -160,10 +165,12 @@ nl_val *nl_val_malloc(nl_type t){
 			ret->d.pri.function=NULL;
 			break;
 		case SUB:
+			ret->d.sub.t=NUM;
 			ret->d.sub.body=NULL;
 			ret->d.sub.env=NULL;
 			break;
 		case SYMBOL:
+			ret->d.sym.t=SYMBOL;
 			ret->d.sym.name=NULL;
 			break;
 		default:
@@ -173,6 +180,7 @@ nl_val *nl_val_malloc(nl_type t){
 	return ret;
 }
 
+//NOTE: reference decrementing is handled here as well
 //free a value; this recursively frees complex data types
 void nl_val_free(nl_val *exp){
 	if(exp==NULL){
@@ -539,7 +547,6 @@ void nl_array_rm(nl_val *a, nl_val *index){
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
 
-//TODO: handle nested statements correctly (not leaking memory)
 //evaluate an if statement with the given arguments
 nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 	//return value
@@ -555,17 +562,21 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 	}
 	
 	//the condition is the first argument
-	nl_val *cond=arguments->d.pair.f;
+	nl_val *cond=nl_eval(arguments->d.pair.f,env);
+	
+	//replace the expression with its evaluation moving forward
+	arguments->d.pair.f=cond;
 	
 	//a holder for temporary results
+	//(these replace arguments as we move through the expression) (reference counting keeps memory handled)
 	nl_val *tmp_result=NULL;
-	//NOTE: freeing tmp_result is hairy because many expressions are self-evaluating
-	//to combat that effect, this holds the last expression that was evaluated, so we can check pointer-equality and determine self-evaluation
-	nl_val *last_exp=NULL;
 	
 	//check if the condition is true
 	if((cond!=NULL) && (((cond->t==BYTE) && (cond->d.byte.v!=0)) || ((cond->t==NUM) && (cond->d.num.n!=0)))){
 		printf("nl_eval_if debug 0, hitting true case...\n");
+		
+		//advance past the condition itself
+		arguments=arguments->d.pair.r;
 		
 		//true eval
 		while((arguments!=NULL) && (arguments->t==PAIR)){
@@ -575,18 +586,13 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 				break;
 			}
 			
-			//otherwise make the eval of this the new temporary result and go to the next list element
-			if(tmp_result!=last_exp){
-				nl_val_free(tmp_result);
-			}
-			last_exp=arguments->d.pair.f;
 			tmp_result=nl_eval(arguments->d.pair.f,env);
+			arguments->d.pair.f=tmp_result;
 			arguments=arguments->d.pair.r;
 		}
 		
-		//for self-evaluating expressions, make a copy here
-		if(tmp_result==last_exp){
-			tmp_result=nl_val_cp(tmp_result);
+		if(tmp_result!=NULL){
+			tmp_result->ref++;
 		}
 		
 		printf("nl_eval_if debug 2, got a result of ");
@@ -612,27 +618,23 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 		}
 		
 		//if we actually hit an else statement just then (rather than the list end)
-		if(nl_val_cmp(arguments->d.pair.f,else_keyword)==0){
+		if((arguments!=NULL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
 			//evaluate false case
 			while((arguments!=NULL) && (arguments->t==PAIR)){
-				if(tmp_result!=last_exp){
-					nl_val_free(tmp_result);
-				}
-				last_exp=arguments->d.pair.f;
 				tmp_result=nl_eval(arguments->d.pair.f,env);
+				arguments->d.pair.f=tmp_result;
 				arguments=arguments->d.pair.r;
 			}
 		}
 		
-		//for self-evaluating expressions, make a copy here
-		if(tmp_result==last_exp){
-			tmp_result=nl_val_cp(tmp_result);
+		if(tmp_result!=NULL){
+			tmp_result->ref++;
 		}
 		
 		ret=tmp_result;
 	}
 	
-	//free internal keytwords and return
+	//free internal keywords and return
 	nl_val_free(else_keyword);
 	return ret;
 }
@@ -647,11 +649,16 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 	
 	//allocate keywords
 	nl_val *if_keyword=nl_sym_from_c_str("if");
+	nl_val *exit_keyword=nl_sym_from_c_str("exit");
 	
 	//check for if statements
 	if(nl_val_cmp(keyword,if_keyword)==0){
 		//handle if statements
 		ret=nl_eval_if(arguments,env);
+		
+	}else if(nl_val_cmp(keyword,exit_keyword)==0){
+		end_program=TRUE;
+		ret=NULL;
 		
 	//TODO: check for all other keywords
 	}else{
@@ -660,8 +667,11 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 	
 	//free keywords
 	nl_val_free(if_keyword);
+	nl_val_free(exit_keyword);
 	
 	//free the original expression (frees the entire list, keyword, arguments, and all)
+	//note that this list changed as we evaluated, and is likely not exactly what we started with
+	//	^ that's a good thing, because what we started with was free'd in that case
 	nl_val_free(keyword_exp);
 	
 	return ret;
@@ -685,6 +695,7 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 		case SUB:
 		//symbols are self-evaluating, in the case of primitive calls the pair evaluation checks for them as keywords, without calling out to eval
 		case SYMBOL:
+			exp->ref++;
 			ret=exp;
 			break;
 		
@@ -693,6 +704,7 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 		case PAIR:
 			//make this check the first list entry, if it is a symbol then check it against keyword and primitive list
 			if((exp->d.pair.f!=NULL) && (exp->d.pair.f->t==SYMBOL)){
+				exp->ref++;
 				ret=nl_eval_keyword(exp,env);
 			//otherwise eagerly evaluate then call out to apply
 			}else if(exp->d.pair.f!=NULL){
@@ -700,19 +712,25 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 				
 			//null lists are self-evaluating (the empty list)
 			}else{
+				exp->ref++;
 				ret=exp;
 			}
 			break;
 		//evaluations look up value in the environment
 		case EVALUATION:
 			//TODO: make this look up the expression in the environment and return a copy of the result
+			exp->ref++;
 			ret=exp;
 			break;
 		//default self-evaluating
 		default:
+			exp->ref++;
 			ret=exp;
 			break;
 	}
+	
+	//free the original expression (if it was self-evaluating it got a reference increment earlier so this is okay)
+	nl_val_free(exp);
 	
 	//return the result of evaluation
 	return ret;
@@ -951,8 +969,12 @@ nl_val *nl_read_exp(FILE *fp){
 	//read a character from the given file
 	char c=getc(fp);
 	
-	//if it starts with a digit or '.' then it's a number
-	if(isdigit(c) || (c=='.')){
+	//peek a character after that, for two-char tokens
+	char next_c=getc(fp);
+	ungetc(next_c,fp);
+	
+	//if it starts with a digit or '.' then it's a number, or if it starts with '-' followed by a digit
+	if(isdigit(c) || (c=='.') || ((c=='-') && isdigit(next_c))){
 		ungetc(c,fp);
 		ret=nl_read_num(fp);
 	//if it starts with a quote read a string (byte array)
@@ -970,6 +992,13 @@ nl_val *nl_read_exp(FILE *fp){
 	//an empty list is just a NULL value, so leave ret as NULL
 	}else if(c==')'){
 		
+	//the double-slash denotes a comment, as in gnu89 C
+	}else if(c=='/' && next_c=='/'){
+		//ignore everything until the next newline, then try to read again
+		while(c!='\n'){
+			c=getc(fp);
+		}
+		ret=nl_read_exp(fp);
 	//TODO: if it starts with a $ read an evaluation
 	}else if(c=='$'){
 //		ungetc(c,fp);
@@ -1055,32 +1084,33 @@ void nl_out(FILE *fp, nl_val *exp){
 int main(int argc, char *argv[]){
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
 	
+	FILE *fp=stdin;
+	
+	//if we were given a file, open it
+	if(argc>1){
+		fp=fopen(argv[1],"r");
+		if(fp==NULL){
+			fprintf(stderr,"Err: Could not open input file \"%s\"\n",argv[1]);
+			return 1;
+		}
+	}
+	
 	//create the global environment
 	nl_env_frame *global_env=nl_env_frame_malloc(NULL);
 	
-	char end_program=FALSE;
+	end_program=FALSE;
 	while(!end_program){
 		printf("nl >> ");
 		
 		//read an expression in
-		nl_val *exp=nl_read_exp(stdin);
+		nl_val *exp=nl_read_exp(fp);
 		
 //		printf("\n");
 		
 		//evalute the expression in the global environment
 		nl_val *result=nl_eval(exp,global_env);
 		
-		//TODO: should expressions be free-d in nl_eval?
-		//this way (freeing separately) could cause double-frees if the result is the same as the exp (self-evaluating expressions)
-		
-		//free the original expression
-//		nl_val_free(exp);
-		
-		//TODO: remove this, it's just for debugging
-		nl_val *copy=nl_val_cp(result);
-		nl_out(stdout,copy);
-		nl_val_free(copy);
-		printf("\n");
+		//expressions should be free-d in nl_eval, unless they are self-evaluating
 		
 		//output (print) the result of evaluation
 		nl_out(stdout,result);
@@ -1091,14 +1121,16 @@ int main(int argc, char *argv[]){
 		//pretty formatting
 		printf("\n");
 		
-		//TODO: remove this, it's just for debugging
-		end_program=TRUE;
-		
 		//loop (completing the REPL)
 	}
 	
 	//de-allocate the global environment
 	nl_env_frame_free(global_env);
+	
+	//if we were reading from a file then close that file
+	if((fp!=NULL) && (fp!=stdin)){
+		fclose(fp);
+	}
 	
 	//play nicely on *nix
 	return 0;
