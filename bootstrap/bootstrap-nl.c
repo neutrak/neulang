@@ -105,6 +105,11 @@ struct nl_val {
 			//the string which has the real name
 			nl_val *name;
 		} sym;
+		
+		//evaluation (variable lookup)
+		struct {
+			nl_val *sym;
+		} eval;
 	} d;
 };
 
@@ -126,6 +131,7 @@ void nl_out(FILE *fp, nl_val *exp);
 nl_val *nl_read_exp(FILE *fp);
 void nl_array_push(nl_val *a, nl_val *v);
 nl_val *nl_eval(nl_val *exp, nl_env_frame *env);
+int nl_val_cmp(const nl_val *v_a, const nl_val *v_b);
 //END FORWARD DECLARATIONS ----------------------------------------------------------------------------------------
 
 
@@ -172,6 +178,9 @@ nl_val *nl_val_malloc(nl_type t){
 		case SYMBOL:
 			ret->d.sym.t=SYMBOL;
 			ret->d.sym.name=NULL;
+			break;
+		case EVALUATION:
+			ret->d.eval.sym=NULL;
 			break;
 		default:
 			break;
@@ -226,6 +235,10 @@ void nl_val_free(nl_val *exp){
 		case SYMBOL:
 			nl_val_free(exp->d.sym.name);
 			break;
+		//for an evaluation free the symbol
+		case EVALUATION:
+			nl_val_free(exp->d.eval.sym);
+			break;
 		default:
 			break;
 	}
@@ -273,7 +286,12 @@ nl_val *nl_val_cp(const nl_val *v){
 			break;
 		//recurse to copy name elements
 		case SYMBOL:
+			ret->d.sym.t=v->d.sym.t;
 			ret->d.sym.name=nl_val_cp(v->d.sym.name);
+			break;
+		//recurse to copy symbol
+		case EVALUATION:
+			ret->d.eval.sym=nl_val_cp(v->d.eval.sym);
 			break;
 		default:
 			break;
@@ -303,6 +321,72 @@ void nl_env_frame_free(nl_env_frame *env){
 	//note that we do NOT free the above environment here; if you want to do that do it elsewhere
 	
 	free(env);
+}
+
+//bind the given symbol to the given value in the given environment frame
+//note that we do NOT change anything in the above scopes; this preserves referential transparency
+void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
+	//can't bind to a null environment
+	if(env==NULL){
+		return;
+	}
+	
+	char found=FALSE;
+	
+	//look through the symbols
+	int n;
+	for(n=0;n<(env->symbol_array->d.array.size);n++){
+		//if we found this symbol
+		if(nl_val_cmp(symbol,env->symbol_array->d.array.v[n])==0){
+			//update the value (removing a reference to the old value)
+			nl_val_free(env->value_array->d.array.v[n]);
+			env->value_array->d.array.v[n]=value;
+			
+			//this is a new reference to that value
+			if(value!=NULL){
+				value->ref++;
+			}
+			
+			//note that the symbol is already stored
+			//it will get free'd later by the calling code, we'll keep the existing version
+			
+			found=TRUE;
+			break;
+		}
+	}
+	
+	//if we didn't find this symbol in the environment, then go ahead and make it now
+	if(!found){
+		nl_array_push(env->symbol_array,symbol);
+		symbol->ref++;
+		nl_array_push(env->value_array,value);
+		if(value!=NULL){
+			value->ref++;
+		}
+	}
+}
+
+//look up the symbol in the given environment frame
+//note that this WILL go up to higher scopes, if there are any
+nl_val *nl_lookup(nl_val *symbol, nl_env_frame *env){
+	//a null environment can't contain anything
+	if(env==NULL){
+		return NULL;
+	}
+	
+	//look through the symbols
+	int n;
+	for(n=0;n<(env->symbol_array->d.array.size);n++){
+		//if we found this symbol
+		if(nl_val_cmp(symbol,env->symbol_array->d.array.v[n])==0){
+			//return the associated value
+			return env->value_array->d.array.v[n];
+		}
+	}
+	
+	//if we got here and didn't return, then this symbol wasn't bound in the current environment
+	//so look up (to a higher scope)
+	return nl_lookup(symbol,env->up_scope);
 }
 
 //make a neulang string from a c string
@@ -473,6 +557,9 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 		case SYMBOL:
 			return nl_val_cmp(v_a->d.sym.name,v_b->d.sym.name);
 			break;
+		case EVALUATION:
+			return nl_val_cmp(v_a->d.eval.sym,v_b->d.eval.sym);
+			break;
 		default:
 			break;
 	}
@@ -486,7 +573,7 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v){
 	//this operation is undefined on null and non-array values
-	if((a==NULL) || (a->t!=ARRAY) || (v==NULL)){
+	if((a==NULL) || (a->t!=ARRAY)){
 		return;
 	}
 	
@@ -547,6 +634,26 @@ void nl_array_rm(nl_val *a, nl_val *index){
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
 
+//evaluate all the elements in a list, replacing them with their evaluations
+void nl_eval_elements(nl_val *list, nl_env_frame *env){
+	while((list!=NULL) && (list->t==PAIR)){
+		nl_val *ev_result=nl_eval(list->d.pair.f,env);
+		nl_val_free(list->d.pair.f);
+		list->d.pair.f=ev_result;
+		
+		list=list->d.pair.r;
+	}
+}
+
+//apply a given subroutine to its arguments
+nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env){
+	nl_eval_elements(arguments,env);
+	//TODO: bind arguments to internal sub symbols, substitute the body in, and actually do the apply
+	
+	//TODO: remove this, it's just for debugging
+	return arguments;
+}
+
 //evaluate an if statement with the given arguments
 nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 	//return value
@@ -556,7 +663,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 	nl_val *else_keyword=nl_sym_from_c_str("else");
 	
 	if((arguments==NULL) || (arguments->t!=PAIR)){
-		fprintf(stderr,"Err: invalid condition given to if statement");
+		fprintf(stderr,"Err: invalid condition given to if statement\n");
 		nl_val_free(else_keyword);
 		return NULL;
 	}
@@ -601,7 +708,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 		
 		//when we're done with the list then break out
 		ret=tmp_result;
-	}else{
+	}else if(cond!=NULL){
 		printf("nl_eval_if debug 3, hitting false case...\n");
 		
 		//false eval
@@ -632,6 +739,8 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 		}
 		
 		ret=tmp_result;
+	}else{
+		fprintf(stderr,"Err: if statement condition evaluated to NULL\n");
 	}
 	
 	//free internal keywords and return
@@ -650,24 +759,71 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 	//allocate keywords
 	nl_val *if_keyword=nl_sym_from_c_str("if");
 	nl_val *exit_keyword=nl_sym_from_c_str("exit");
+	nl_val *lit_keyword=nl_sym_from_c_str("lit");
+	//TODO: make let require a type argument (maybe the first argument is just its own symbol which represents the type?)
+	nl_val *let_keyword=nl_sym_from_c_str("let");
 	
 	//check for if statements
 	if(nl_val_cmp(keyword,if_keyword)==0){
 		//handle if statements
 		ret=nl_eval_if(arguments,env);
 		
+	//check for exits
 	}else if(nl_val_cmp(keyword,exit_keyword)==0){
 		end_program=TRUE;
 		ret=NULL;
 		
+	//check for literals (equivilent to scheme quote)
+	}else if(nl_val_cmp(keyword,lit_keyword)==0){
+		//if there was only one argument, just return that
+		if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.r==NULL)){
+			arguments->d.pair.f->ref++;
+			ret=arguments->d.pair.f;
+		//if there was a list of multiple arguments, return all of them
+		}else if(arguments!=NULL){
+			arguments->ref++;
+			ret=arguments;
+		}
+		
+	//check for let statements (assignment operations)
+	}else if(nl_val_cmp(keyword,let_keyword)==0){
+		//if we got a symbol followed by something else, eval that thing and bind
+		if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==SYMBOL) && (arguments->d.pair.r!=NULL) && (arguments->d.pair.r->t==PAIR)){
+			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env);
+			nl_bind(arguments->d.pair.f,bound_value,env);
+			//return a copy of the value that was just bound (this is also sort of an internal test to ensure it was bound right)
+			ret=nl_val_cp(nl_lookup(arguments->d.pair.f,env));
+			
+			//since what we just returned was a copy, the original won't be free'd by the calling code
+			//so we're one reference too high at the moment
+			if(bound_value!=NULL){
+				bound_value->ref--;
+			}
+			
+			//null-out the list elements we got rid of
+			arguments->d.pair.r->d.pair.f=NULL;
+		}else{
+			fprintf(stderr,"Err: wrong syntax for let statement\n");
+		}
 	//TODO: check for all other keywords
 	}else{
-		//TODO: in the default case check for primitive procedures bound to this symbol
+		//in the default case check for subroutines bound to this symbol
+		nl_val *prim_sub=nl_lookup(keyword,env);
+		if((prim_sub!=NULL) && (prim_sub->t==PRI)){
+			nl_apply(prim_sub,arguments,env);
+		}else{
+			fprintf(stderr,"Err: unknown keyword ");
+			nl_out(stderr,keyword);
+			fprintf(stderr,"\n");
+		}
 	}
+	
 	
 	//free keywords
 	nl_val_free(if_keyword);
 	nl_val_free(exit_keyword);
+	nl_val_free(lit_keyword);
+	nl_val_free(let_keyword);
 	
 	//free the original expression (frees the entire list, keyword, arguments, and all)
 	//note that this list changed as we evaluated, and is likely not exactly what we started with
@@ -718,9 +874,9 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 			break;
 		//evaluations look up value in the environment
 		case EVALUATION:
-			//TODO: make this look up the expression in the environment and return a copy of the result
-			exp->ref++;
-			ret=exp;
+			//look up the expression in the environment and return a copy of the result
+			//the reason this is a copy is so that pointer-equality won't be true, and changing one var doesn't change another
+			ret=nl_val_cp(nl_lookup(exp->d.eval.sym,env));
 			break;
 		//default self-evaluating
 		default:
@@ -999,10 +1155,10 @@ nl_val *nl_read_exp(FILE *fp){
 			c=getc(fp);
 		}
 		ret=nl_read_exp(fp);
-	//TODO: if it starts with a $ read an evaluation
+	//if it starts with a $ read an evaluation (a symbol to be looked up)
 	}else if(c=='$'){
-//		ungetc(c,fp);
-//		ret=nl_read_evaluation(fp);
+		ret=nl_val_malloc(EVALUATION);
+		ret->d.eval.sym=nl_read_symbol(fp);
 	//if it starts with a letter read a symbol
 //	}else if(isalpha(c)){
 	//if it starts with anything not already handled read a symbol
@@ -1024,6 +1180,7 @@ nl_val *nl_read_exp(FILE *fp){
 
 void nl_out(FILE *fp, nl_val *exp){
 	if(exp==NULL){
+		fprintf(fp,"NULL");
 		return;
 	}
 	
@@ -1072,6 +1229,16 @@ void nl_out(FILE *fp, nl_val *exp){
 			}
 			fprintf(fp,">");
 			break;
+		case EVALUATION:
+			fprintf(fp,"<evaluation ");
+			if((exp->d.eval.sym!=NULL) && (exp->d.eval.sym->d.sym.name!=NULL)){
+				unsigned int n;
+				for(n=0;n<(exp->d.eval.sym->d.sym.name->d.array.size);n++){
+					nl_out(fp,(exp->d.eval.sym->d.sym.name->d.array.v[n]));
+				}
+			}
+			fprintf(fp,">");
+			break;
 		default:
 			fprintf(fp,"Err: Unknown type");
 			break;
@@ -1079,6 +1246,19 @@ void nl_out(FILE *fp, nl_val *exp){
 }
 
 //END I/O SUBROUTINES ---------------------------------------------------------------------------------------------
+
+//bind all primitive subroutines in the given environment frame
+void nl_bind_stdlib(nl_env_frame *env){
+	//TODO: write the standard library, bind it here
+/*
+	nl_bind(nl_sym_from_c_str("+"),nl_sym_from_c_str("+"),env);
+	nl_bind(nl_sym_from_c_str("-"),nl_sym_from_c_str("-"),env);
+	nl_bind(nl_sym_from_c_str("*"),nl_sym_from_c_str("*"),env);
+	nl_bind(nl_sym_from_c_str("/"),nl_sym_from_c_str("/"),env);
+	nl_bind(nl_sym_from_c_str("%"),nl_sym_from_c_str("%"),env);
+	nl_bind(nl_sym_from_c_str(","),nl_sym_from_c_str(","),env);
+*/
+}
 
 //runtime!
 int main(int argc, char *argv[]){
@@ -1097,6 +1277,9 @@ int main(int argc, char *argv[]){
 	
 	//create the global environment
 	nl_env_frame *global_env=nl_env_frame_malloc(NULL);
+	
+	//bind the standard library functions in the global environment
+	nl_bind_stdlib(global_env);
 	
 	end_program=FALSE;
 	while(!end_program){

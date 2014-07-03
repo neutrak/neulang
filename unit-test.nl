@@ -27,9 +27,9 @@ else
 f
 r
 
-//TODO: evaluations
-$test
-$%-
+//evaluations (explicit literal required so we don't look them up in the environment)
+(lit $test)
+(lit $%-)
 
 //the empty list
 ()
@@ -75,6 +75,41 @@ else
 
 // END if statement testing -------------------------------------------------------------------------------
 
+// BEGIN let statement testing ----------------------------------------------------------------------------
+
+//invalid syntax
+//EXPECT: NULL
+(let)
+(let a)
+
+//assign a numeric value
+(let a 5)
+//EXPECT: 5
+$a
+
+//assign a string
+(let b "asdf")
+//EXPECT: "asdf"
+$b
+
+//copy a value
+(let c $a)
+//EXPECT: 5
+$c
+
+//re-set the value for a, ensure that c's value is unchanged
+(let a -4.1)
+//EXPECT: -4.1
+$a
+//EXPECT: 5
+$c
+
+//unassigned variables have value NULL, so set that now
+(let a $d)
+//EXPECT: NULL
+$a
+
+// END let statement testing ------------------------------------------------------------------------------
 
 // EXIT
 (exit)
