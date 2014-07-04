@@ -109,6 +109,11 @@ $c
 //EXPECT: NULL
 $a
 
+//variables cannot be re-bound to a different type
+(let b 1)
+//EXPECT: "asdf"
+$b
+
 // END let statement testing ------------------------------------------------------------------------------
 
 // EXIT

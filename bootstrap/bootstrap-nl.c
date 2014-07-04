@@ -338,6 +338,18 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	for(n=0;n<(env->symbol_array->d.array.size);n++){
 		//if we found this symbol
 		if(nl_val_cmp(symbol,env->symbol_array->d.array.v[n])==0){
+			//if this symbol was already bound and the type we're trying to re-bind has a different type, don't bind!
+			if((value!=NULL) && (value->t!=(env->symbol_array->d.array.v[n]->d.sym.t))){
+				fprintf(stderr,"Err: re-binding ");
+				nl_out(stderr,symbol);
+				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,env->symbol_array->d.array.v[n]->d.sym.t);
+				nl_val_free(value);
+				
+//				found=TRUE;
+//				break;
+				return;
+			}
+			
 			//update the value (removing a reference to the old value)
 			nl_val_free(env->value_array->d.array.v[n]);
 			env->value_array->d.array.v[n]=value;
@@ -357,11 +369,16 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	
 	//if we didn't find this symbol in the environment, then go ahead and make it now
 	if(!found){
+		//bind symbol
 		nl_array_push(env->symbol_array,symbol);
 		symbol->ref++;
+		
 		nl_array_push(env->value_array,value);
 		if(value!=NULL){
+			//give the symbol the type that the bound value has (effectively inferring typing at runtime)
+			//note that NULL is a generic value and doesn't change the type; (a value initially bound to NULL will be forever a symbol)
 			value->ref++;
+			symbol->d.sym.t=value->t;
 		}
 	}
 }
@@ -791,6 +808,13 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 		if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==SYMBOL) && (arguments->d.pair.r!=NULL) && (arguments->d.pair.r->t==PAIR)){
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env);
 			nl_bind(arguments->d.pair.f,bound_value,env);
+			
+			//if this bind was unsuccessful (for example a type error) then re-set bound_value to NULL so we don't try to access it
+			//(it was already free'd)
+			if(nl_lookup(arguments->d.pair.f,env)!=bound_value){
+				bound_value=NULL;
+			}
+			
 			//return a copy of the value that was just bound (this is also sort of an internal test to ensure it was bound right)
 			ret=nl_val_cp(nl_lookup(arguments->d.pair.f,env));
 			
