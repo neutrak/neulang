@@ -388,6 +388,9 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 nl_val *nl_lookup(nl_val *symbol, nl_env_frame *env){
 	//a null environment can't contain anything
 	if(env==NULL){
+		fprintf(stderr,"Err: unbound symbol ");
+		nl_out(stderr,symbol);
+		fprintf(stderr,"\n");
 		return NULL;
 	}
 	
@@ -873,10 +876,39 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 		case ARRAY:
 		case PRI:
 		case SUB:
-		//symbols are self-evaluating, in the case of primitive calls the pair evaluation checks for them as keywords, without calling out to eval
-		case SYMBOL:
 			exp->ref++;
 			ret=exp;
+			break;
+		//symbols are generally self-evaluating
+		//in the case of primitive calls the pair evaluation checks for them as keywords, without calling out to eval
+		//however some primitive constants evaluate to specific values (TRUE, FALSE, NULL)
+		case SYMBOL:
+			{
+				nl_val *true_keyword=nl_sym_from_c_str("TRUE");
+				nl_val *false_keyword=nl_sym_from_c_str("FALSE");
+				nl_val *null_keyword=nl_sym_from_c_str("NULL");
+				
+				//TRUE keyword
+				if(nl_val_cmp(exp,true_keyword)==0){
+					ret=nl_val_malloc(BYTE);
+					ret->d.byte.v=1;
+				//FALSE keyword
+				}else if(nl_val_cmp(exp,false_keyword)==0){
+					ret=nl_val_malloc(BYTE);
+					ret->d.byte.v=0;
+				//NULL keyword
+				}else if(nl_val_cmp(exp,null_keyword)==0){
+					ret=NULL;
+				}else{
+					exp->ref++;
+					ret=exp;
+				}
+				
+				//free keyword symbols
+				nl_val_free(true_keyword);
+				nl_val_free(false_keyword);
+				nl_val_free(null_keyword);
+			}
 			break;
 		
 		//complex cases

@@ -27,6 +27,11 @@ else
 f
 r
 
+//special symbols
+TRUE
+FALSE
+NULL
+
 //evaluations (explicit literal required so we don't look them up in the environment)
 (lit $test)
 (lit $%-)
@@ -41,6 +46,8 @@ r
 //null return from conditional
 //EXPECT: NULL
 (if 1)
+//EXPECT: NULL
+(if FALSE 5)
 
 //true condition, return 0
 //EXPECT: 0
@@ -113,6 +120,20 @@ $a
 (let b 1)
 //EXPECT: "asdf"
 $b
+
+//some special symbols evaluate to byte values, for boolean and char expressions
+//so test those
+(let bool TRUE)
+$bool
+(let bool FALSE)
+$bool
+//NULLs are generic and are always allowed
+(let bool NULL)
+$bool
+
+//assignment from nested if statements
+(let if_check (if TRUE -4.2 else (if FALSE 4 else 3)))
+$if_check
 
 // END let statement testing ------------------------------------------------------------------------------
 
