@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 
 //BEGIN GLOBAL CONSTANTS ------------------------------------------------------------------------------------------
 
@@ -13,125 +14,11 @@
 //END GLOBAL CONSTANTS --------------------------------------------------------------------------------------------
 
 //BEGIN DATA STRUCTURES -------------------------------------------------------------------------------------------
-
-//primitive data types; the user should be able to abstract these with a struct
-typedef enum {
-	//external (user-visible) types
-	BYTE, //single-byte value (characters, booleans)
-	NUM, //rational number support, consists of 2 bignum ints; for an integer the denominator portion will be 1
-	PAIR, //cons cell
-	ARRAY, //contiguous memory section
-	PRI, //primitive procedure (C code)
-	SUB, //closure (subroutine)
-	
-	//internal types (might still be user visible, but mostly an implementation detail)
-	SYMBOL, //variable names, for the symbol table, internally this is a [byte]array
-	EVALUATION, //to-be-evaluated symbol, denoted $symbol
-} nl_type;
-
-typedef struct nl_env_frame nl_env_frame;
-
-//a primitive value structure, the basic unit of evalution in neulang
-typedef struct nl_val nl_val;
-struct nl_val {
-	//type
-	nl_type t;
-	
-	//constant or not flag (default TRUE from nl_val_malloc, set false when value is bound to a variable)
-	char cnst;
-	
-	//count the references to this value
-	unsigned int ref;
-	
-	//union to save memory; called d (short for data)
-	union {
-		//byte value
-		struct {
-			char v;
-		} byte;
-		
-		//(rational) num value
-		struct {
-			//numerator
-			long long int n;
-			//denominator (note that only the numerator is signed)
-			long long int d;
-		} num;
-		
-		//pair value
-		struct {
-			//"first"
-			nl_val *f;
-			//"rest"
-			nl_val *r;
-		} pair;
-		
-		//array value
-		//TODO: make this continguous instead of an array of pointers to who-knows-where
-		//note that all neulang arrays internally store a size
-		struct {
-			//sub-type of the array
-//			nl_type t;
-			
-			//the memory itself and the number of elements stored
-			nl_val **v;
-			unsigned int size;
-			
-			//how much storage is used internally; this is so dynamic resizing is a little more efficient
-			unsigned int stored_size;
-		} array;
-		
-		//primitive procedure value
-		struct {
-			nl_val *(*function)(nl_val *arglist);
-		} pri;
-		
-		//subroutine value
-		struct {
-			//return type of the subroutine
-			nl_type t;
-			
-			//environment (since this is a closure)
-			nl_env_frame *env;
-			//body (linked list of statements to execute)
-			nl_val *body;
-		} sub;
-		
-		//symbol (variable name) value
-		struct {
-			//type this symbol is bound to (SYMBOL for unbound)
-			nl_type t;
-			
-			//the string which has the real name
-			nl_val *name;
-		} sym;
-		
-		//evaluation (variable lookup)
-		struct {
-			nl_val *sym;
-		} eval;
-	} d;
-};
-
-//environment frame (one global, then one per closure)
-struct nl_env_frame {
-	//store symbols
-	nl_val *symbol_array;
-	//store values
-	nl_val *value_array;
-	
-	//the environment above this one (THIS MUST BE FREE'D SEPERATELY)
-	nl_env_frame* up_scope;
-}; 
-
+#include "nl_structures.h"
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
 
 //BEGIN FORWARD DECLARATIONS --------------------------------------------------------------------------------------
-void nl_out(FILE *fp, nl_val *exp);
-nl_val *nl_read_exp(FILE *fp);
-void nl_array_push(nl_val *a, nl_val *v);
-nl_val *nl_eval(nl_val *exp, nl_env_frame *env);
-int nl_val_cmp(const nl_val *v_a, const nl_val *v_b);
+#include "nl_declarations.h"
 //END FORWARD DECLARATIONS ----------------------------------------------------------------------------------------
 
 
@@ -141,7 +28,7 @@ char end_program;
 
 //BEGIN MEMORY MANAGEMENT SUBROUTINES -----------------------------------------------------------------------------
 
-//TODO: fuck it, just reference count the damn thing; I don't even care anymore
+//fuck it, just reference count the damn thing; I don't even care anymore
 
 //allocate a value, and initialize it so that we're not doing anything too crazy
 nl_val *nl_val_malloc(nl_type t){
@@ -171,7 +58,8 @@ nl_val *nl_val_malloc(nl_type t){
 			ret->d.pri.function=NULL;
 			break;
 		case SUB:
-			ret->d.sub.t=NUM;
+//			ret->d.sub.t=NUM;
+			ret->d.sub.args=NULL;
 			ret->d.sub.body=NULL;
 			ret->d.sub.env=NULL;
 			break;
@@ -228,8 +116,9 @@ void nl_val_free(nl_val *exp){
 			break;
 		//subroutines need the body an closure environment free'd
 		case SUB:
+			nl_val_free(exp->d.sub.args);
 			nl_val_free(exp->d.sub.body);
-			free(exp->d.sub.env);
+			nl_env_frame_free(exp->d.sub.env);
 			break;
 		//symbols need a recursive call for the string that's their name
 		case SYMBOL:
@@ -247,7 +136,7 @@ void nl_val_free(nl_val *exp){
 }
 
 //copy a value data-wise into new memory, without changing the original
-nl_val *nl_val_cp(const nl_val *v){
+nl_val *nl_val_cp(nl_val *v){
 	//a null value is copied as a null value
 	if(v==NULL){
 		return NULL;
@@ -279,10 +168,23 @@ nl_val *nl_val_cp(const nl_val *v){
 		case PRI:
 			ret->d.pri.function=v->d.pri.function;
 			break;
-		//TODO: recurse and copy body and environment (should environment be constant? if so I think we need ref counting)
+		//TODO: recurse and copy body and environment (should environment be constant between copies?)
 		case SUB:
-			ret->d.sub.body=NULL;
-			ret->d.sub.env=NULL;
+//			ret->d.sub.args=NULL;
+//			ret->d.sub.body=NULL;
+//			ret->d.sub.env=NULL;
+			
+			//this is a direct pointer copy; we increment the references just to keep track of everything
+			v->ref++;
+			ret=v;
+			
+			//TODO: don't do this, it's super duper inefficient and may break stuff behavior-wise (not sure yet)
+			//copy everything data-wise
+//			ret->d.sub.args=nl_val_cp(v->d.sub.args);
+//			ret->d.sub.body=nl_val_cp(v->d.sub.body);
+//			ret->d.sub.env=nl_env_frame_malloc(v->d.sub.env->up_scope);
+//			ret->d.sub.env->symbol_array=nl_val_cp(v->d.sub.env->symbol_array);
+//			ret->d.sub.env->value_array=nl_val_cp(v->d.sub.env->value_array);
 			break;
 		//recurse to copy name elements
 		case SYMBOL:
@@ -328,6 +230,7 @@ void nl_env_frame_free(nl_env_frame *env){
 void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	//can't bind to a null environment
 	if(env==NULL){
+		fprintf(stderr,"Err: Cannot bind to a null environment\n");
 		return;
 	}
 	
@@ -435,220 +338,7 @@ nl_val *nl_sym_from_c_str(const char *c_str){
 //END MEMORY MANAGEMENT SUBROUTINES -------------------------------------------------------------------------------
 
 //BEGIN C-NL-STDLIB SUBROUTINES -----------------------------------------------------------------------------------
-
-//gcd-reduce a rational number
-void nl_gcd_reduce(nl_val *v){
-	//ignore null and non-rational values
-	if((v==NULL) || (v->t!=NUM)){
-		return;
-	}
-	
-	//if both numerator AND denominator are negative, make them positive for ease
-	if(((v->d.num.n)<0) && ((v->d.num.d)<0)){
-		(v->d.num.n)/=-1;
-		(v->d.num.d)/=-1;
-	}
-	
-	//find greatest common divisor of numerator and denominator (negatives are ignored for this)
-	long long int a=abs(v->d.num.n);
-	long long int b=abs(v->d.num.d);
-	while(b!=0){
-		long long int temp=b;
-		
-		//try to divide, if there is a remainder then try some more
-		b=a%b;
-		
-		a=temp;
-	}
-	
-	//a is now the greatest common divisor between numerator and denominator, so divide both by that
-	(v->d.num.n)/=a;
-	(v->d.num.d)/=a;
-	
-	//and now it's reduced! isn't that great?
-}
-
-//compare two neulang values; returns -1 if a<b, 0 if a==b, and 1 if a>b
-//this is value comparison, NOT pointer comparison
-int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
-	//first handle nulls; anything is larger than null
-	if((v_a==NULL) && (v_b==NULL)){
-		return 0;
-	}
-	if(v_a==NULL){
-		return -1;
-	}
-	if(v_b==NULL){
-		return 1;
-	}
-	
-	//check type equality
-	if((v_a->t)!=(v_b->t)){
-		fprintf(stderr,"Err: comparison between different types is nonsensical, assuming a<b...\n");
-		return -1;
-	}
-	
-	//okay, now the fun stuff
-	switch(v_a->t){
-		//bytes are equal if their values are equal
-		case BYTE:
-			if((v_a->d.byte.v)<(v_b->d.byte.v)){
-				return -1;
-			}else if((v_a->d.byte.v)==(v_b->d.byte.v)){
-				return 0;
-			}else{
-				return 1;
-			}
-			break;
-		//rational numbers are equal if they are equal with a common divisor
-		case NUM:
-			{
-				//first get a common denominator
-//				long long int common_denominator=(v_a->d.num.d)*(v_b->d.num.d);
-				long long int v_a_n=(v_a->d.num.n)*(v_b->d.num.d);
-				long long int v_b_n=(v_b->d.num.n)*(v_a->d.num.d);
-				
-				//now compare numerators with that new divisor
-				if(v_a_n<v_b_n){
-					return -1;
-				}else if(v_a_n==v_b_n){
-					return 0;
-				}else{
-					return 1;
-				}
-			}
-			break;
-		//lists are equal if each element is equal and they are of equal length
-		//recursively check through the list
-		case PAIR:
-			{
-				//check the first item
-				int f_cmp=nl_val_cmp(v_a->d.pair.f,v_b->d.pair.f);
-				//if it's not equal stop here, we've found a result
-				if(f_cmp!=0){
-					return f_cmp;
-				//otherwise keep going (remember the end of the list is nulls, which are considered equal (since they're both null))
-				//if one list is shorter than the other than the longer list will be considered bigger, providing elements up to that point are the same
-				}else{
-					return nl_val_cmp(v_a->d.pair.r,v_b->d.pair.r);
-				}
-			}
-			break;
-		//arrays are equal if each element is equal and they are of equal length
-		//(we recursively check through the array)
-		case ARRAY:
-			{
-				//look through the array
-				int n;
-				for(n=0;(n<v_a->d.array.size) && (n<v_b->d.array.size);n++){
-					int element_cmp=nl_val_cmp(v_a->d.array.v[n],v_b->d.array.v[n]);
-					
-					//if we find an unequal element stop and return the comparison result for that element
-					if(element_cmp!=0){
-						return element_cmp;
-					}
-				}
-				
-				//if all elements were equal until we hit the end of an array, then base equality on array length
-				if((v_a->d.array.size)<(v_b->d.array.size)){
-					return -1;
-				}else if((v_a->d.array.size)==(v_b->d.array.size)){
-					return 0;
-				}else{
-					return 1;
-				}
-			}
-			break;
-		//primitive procedures are only equal if they are pointer-equal
-		//unequal here is assumed to be -1; no actual pointer-lower is checked since that varies by compiler
-		case PRI:
-			if((v_a->d.pri.function)==(v_b->d.pri.function)){
-				return 0;
-			}else{
-				return 1;
-			}
-			break;
-		//TODO: subroutine equality
-//		case SUB:
-//			ret->d.sub.body=NULL;
-//			ret->d.sub.env=NULL;
-//			break;
-		//symbols are equal if their names (byte arrays) are equal
-		case SYMBOL:
-			return nl_val_cmp(v_a->d.sym.name,v_b->d.sym.name);
-			break;
-		case EVALUATION:
-			return nl_val_cmp(v_a->d.eval.sym,v_b->d.eval.sym);
-			break;
-		default:
-			break;
-	}
-	
-	//if we got here and didn't return assume equality
-	return 0;
-}
-
-//TODO: write all array library functions
-
-//push a value onto the end of an array
-void nl_array_push(nl_val *a, nl_val *v){
-	//this operation is undefined on null and non-array values
-	if((a==NULL) || (a->t!=ARRAY)){
-		return;
-	}
-	
-	unsigned int new_stored_size=a->d.array.stored_size;
-	unsigned int new_size=(a->d.array.size)+1;
-	
-	//if we need to allocate more space do that now, and copy the old data into the new location (freeing the old one)
-	if(new_size>=new_stored_size){
-		//a brand new array starts at size 1
-		if(new_stored_size==0){
-			new_stored_size=1;
-		//when we run out of space, double the available space (don't want to be doing this all the time)
-		}else{
-			new_stored_size*=2;
-		}
-		nl_val **new_array_v=(nl_val**)(malloc((new_stored_size)*(sizeof(nl_val*))));
-		
-		//copy in the old data
-		int n;
-		for(n=0;n<(new_size-1);n++){
-			new_array_v[n]=(a->d.array.v[n]);
-		}
-		
-		//free the old memory, and make the array reference the new memory
-		if(a->d.array.v!=NULL){
-			free(a->d.array.v);
-		}
-		a->d.array.v=new_array_v;
-		
-		//update size parameters
-		a->d.array.stored_size=new_stored_size;
-	}
-	
-	//update size
-	a->d.array.size=new_size;
-	
-	//copy in the new data
-	a->d.array.v[(new_size-1)]=v;
-}
-
-//pop a value off of the end of an array, resizing if needed
-void nl_array_pop(nl_val *a){
-	
-}
-
-//insert a value into an array, resizing if needed
-void nl_array_ins(nl_val *a, nl_val *v, nl_val *index){
-	
-}
-
-//remove a value from an array, resizing if needed
-void nl_array_rm(nl_val *a, nl_val *index){
-	
-}
-
+#include "nl_stdlib.h"
 //END C-NL-STDLIB SUBROUTINES -------------------------------------------------------------------------------------
 
 
@@ -667,6 +357,15 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 
 //apply a given subroutine to its arguments
 nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env){
+#ifdef _DEBUG
+	printf("nl_apply debug 0, trying to apply ");
+	nl_out(stdout,sub);
+	printf("\n");
+#endif
+	if(!(sub!=NULL && (sub->t==PRI && sub->t==SUB))){
+		fprintf(stderr,"Err: invalid type given to apply, expected subroutine or primitve procedure, got %i\n",sub->t);
+	}
+	
 	nl_eval_elements(arguments,env);
 	//TODO: bind arguments to internal sub symbols, substitute the body in, and actually do the apply
 	
@@ -709,7 +408,9 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 		while((arguments!=NULL) && (arguments->t==PAIR)){
 			//if we hit an else statement then break out (skipping over false case)
 			if((arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
+#ifdef _DEBUG
 				printf("nl_eval_if debug 1, stopping at else statement...\n");
+#endif
 				break;
 			}
 			
@@ -722,14 +423,18 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 			tmp_result->ref++;
 		}
 		
+#ifdef _DEBUG
 		printf("nl_eval_if debug 2, got a result of ");
 		nl_out(stdout,tmp_result);
 		printf("\n");
+#endif
 		
 		//when we're done with the list then break out
 		ret=tmp_result;
 	}else if(cond!=NULL){
+#ifdef _DEBUG
 		printf("nl_eval_if debug 3, hitting false case...\n");
+#endif
 		
 		//false eval
 		
@@ -768,6 +473,40 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 	return ret;
 }
 
+//evaluate a sub statement with the given arguments
+nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
+	nl_val *ret=NULL;
+
+#ifdef _DEBUG
+	printf("nl_eval_sub debug 0, got arguments ");
+	nl_out(stdout,arguments);
+	printf("\n");
+#endif
+	
+	//invalid syntax case
+	if(!((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==PAIR))){
+		fprintf(stderr,"Err: first argument to subroutine expression isn't a list (should be the list of arguments); invalid syntax!\n");
+		nl_val_free(ret);
+		return NULL;
+	}
+	
+	//allocate some memory for this and start filling it
+	ret=nl_val_malloc(SUB);
+	ret->d.sub.args=arguments->d.pair.f;
+	ret->d.sub.args->ref++;
+	
+	//create a new environment for this closure which links up to the existing environment
+	ret->d.sub.env=nl_env_frame_malloc(env);
+	
+	//the rest of the arguments are the body
+	ret->d.sub.body=arguments->d.pair.r;
+	if(ret->d.sub.body!=NULL){
+		ret->d.sub.body->ref++;
+	}
+	
+	return ret;
+}
+
 //TODO: proper evaluation of keywords!
 //evaluate a keyword expression (or primitive function, if keyword isn't found)
 nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
@@ -781,7 +520,9 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 	nl_val *exit_keyword=nl_sym_from_c_str("exit");
 	nl_val *lit_keyword=nl_sym_from_c_str("lit");
 	//TODO: make let require a type argument (maybe the first argument is just its own symbol which represents the type?)
+	// ^ for the moment we just check re-binds against first-bound type; this is closer to the strong inferred typing I initially envisioned anyway
 	nl_val *let_keyword=nl_sym_from_c_str("let");
+	nl_val *sub_keyword=nl_sym_from_c_str("sub");
 	
 	//check for if statements
 	if(nl_val_cmp(keyword,if_keyword)==0){
@@ -832,6 +573,14 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 		}else{
 			fprintf(stderr,"Err: wrong syntax for let statement\n");
 		}
+	//TODO: fix sub statement handling so we don't leak memory (I think it's leaking because nl_val_cp sets pointer equality)
+	//check for subroutine definitions (lambda expressions which are used as closures)
+/*
+	}else if(nl_val_cmp(keyword,sub_keyword)==0){
+		//handle sub statements
+		ret=nl_eval_sub(arguments,env);
+		
+*/
 	//TODO: check for all other keywords
 	}else{
 		//in the default case check for subroutines bound to this symbol
@@ -851,6 +600,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 	nl_val_free(exit_keyword);
 	nl_val_free(lit_keyword);
 	nl_val_free(let_keyword);
+	nl_val_free(sub_keyword);
 	
 	//free the original expression (frees the entire list, keyword, arguments, and all)
 	//note that this list changed as we evaluated, and is likely not exactly what we started with
@@ -920,8 +670,8 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 				ret=nl_eval_keyword(exp,env);
 			//otherwise eagerly evaluate then call out to apply
 			}else if(exp->d.pair.f!=NULL){
-				//TODO: eager evaluation, call apply
-				
+				//call apply; this will do eager evaluation on arguments and then run through the body (in the case of a closure)
+//				ret=nl_apply(nl_eval(exp->d.pair.f,env),exp->d.pair.r,env);
 			//null lists are self-evaluating (the empty list)
 			}else{
 				exp->ref++;

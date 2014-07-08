@@ -39,6 +39,10 @@ NULL
 //the empty list
 ()
 
+(//comment parsing
+//test
+)
+
 // END parsing for various types --------------------------------------------------------------------------
 
 // BEGIN if statement testing -----------------------------------------------------------------------------
@@ -130,12 +134,45 @@ $bool
 //NULLs are generic and are always allowed
 (let bool NULL)
 $bool
+//but setting a variable to null doesn't re-set its type, so this should be a failure
+(let bool "asdf")
+//EXPECT: NULL
+$bool
 
 //assignment from nested if statements
 (let if_check (if TRUE -4.2 else (if FALSE 4 else 3)))
 $if_check
 
 // END let statement testing ------------------------------------------------------------------------------
+
+// BEGIN sub statement testing ----------------------------------------------------------------------------
+
+//firstly, invalid syntax
+(sub)
+(sub "a")
+(sub 5)
+(sub ())
+
+//now something real, a subroutine with no args that returns the string "abc"
+(sub () "abc")
+
+//now apply a sub
+((sub () "b"))
+
+(if FALSE
+//now assign a sub to a variable
+(let a-test-sub (sub ()
+	"this is a test"
+	(if TRUE
+		"haha"
+	else
+		"hehe"
+	)
+	(return 1)
+))
+)
+
+// END sub statement testing ------------------------------------------------------------------------------
 
 // EXIT
 (exit)
