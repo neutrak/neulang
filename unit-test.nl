@@ -43,6 +43,11 @@ NULL
 //test
 )
 
+/*/
+this is only a multi-line comment test
+k I think it works
+*/
+
 // END parsing for various types --------------------------------------------------------------------------
 
 // BEGIN if statement testing -----------------------------------------------------------------------------
@@ -87,6 +92,11 @@ else
 // END if statement testing -------------------------------------------------------------------------------
 
 // BEGIN let statement testing ----------------------------------------------------------------------------
+
+(let a-number /* this
+is a very
+weird test */ 5)
+$a-number
 
 //invalid syntax
 //EXPECT: NULL
@@ -156,10 +166,6 @@ $if_check
 //now something real, a subroutine with no args that returns the string "abc"
 (sub () "abc")
 
-//now apply a sub
-((sub () "b"))
-
-(if FALSE
 //now assign a sub to a variable
 (let a-test-sub (sub ()
 	"this is a test"
@@ -170,7 +176,14 @@ $if_check
 	)
 	(return 1)
 ))
-)
+$a-test-sub
+
+//now apply a sub
+((sub () "b"))
+((sub () 5) 6 7 8)
+
+($a-test-sub "muhahahahaha")
+
 
 // END sub statement testing ------------------------------------------------------------------------------
 

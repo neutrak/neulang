@@ -14,13 +14,9 @@
 //END GLOBAL CONSTANTS --------------------------------------------------------------------------------------------
 
 //BEGIN DATA STRUCTURES -------------------------------------------------------------------------------------------
+//NOTE: this also includes forward declarations for all functions (including standard library ones)
 #include "nl_structures.h"
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
-
-//BEGIN FORWARD DECLARATIONS --------------------------------------------------------------------------------------
-#include "nl_declarations.h"
-//END FORWARD DECLARATIONS ----------------------------------------------------------------------------------------
-
 
 //BEGIN GLOBAL DATA -----------------------------------------------------------------------------------------------
 char end_program;
@@ -142,8 +138,15 @@ nl_val *nl_val_cp(nl_val *v){
 		return NULL;
 	}
 	
-	nl_val *ret=nl_val_malloc(v->t);
-	switch(ret->t){
+	nl_val *ret=NULL;
+	
+	//if we're not doing a data-wise copy don't allocate new memory
+	//(primitive subroutines and closures are copied pointer-wise)
+	if((v->t!=PRI) && (v->t!=SUB)){
+		ret=nl_val_malloc(v->t);
+	}
+	
+	switch(v->t){
 		case BYTE:
 			ret->d.byte.v=v->d.byte.v;
 			break;
@@ -165,26 +168,13 @@ nl_val *nl_val_cp(nl_val *v){
 				}
 			}
 			break;
+		//TODO: should we recurse and copy body and environment for closures? (should environment be constant between copies?)
+		//pointer-wise copies; primitive procedures and closure subroutines
 		case PRI:
-			ret->d.pri.function=v->d.pri.function;
-			break;
-		//TODO: recurse and copy body and environment (should environment be constant between copies?)
 		case SUB:
-//			ret->d.sub.args=NULL;
-//			ret->d.sub.body=NULL;
-//			ret->d.sub.env=NULL;
-			
 			//this is a direct pointer copy; we increment the references just to keep track of everything
 			v->ref++;
 			ret=v;
-			
-			//TODO: don't do this, it's super duper inefficient and may break stuff behavior-wise (not sure yet)
-			//copy everything data-wise
-//			ret->d.sub.args=nl_val_cp(v->d.sub.args);
-//			ret->d.sub.body=nl_val_cp(v->d.sub.body);
-//			ret->d.sub.env=nl_env_frame_malloc(v->d.sub.env->up_scope);
-//			ret->d.sub.env->symbol_array=nl_val_cp(v->d.sub.env->symbol_array);
-//			ret->d.sub.env->value_array=nl_val_cp(v->d.sub.env->value_array);
 			break;
 		//recurse to copy name elements
 		case SYMBOL:
@@ -260,6 +250,9 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			//this is a new reference to that value
 			if(value!=NULL){
 				value->ref++;
+				
+				//once bound values are no longer constant
+				value->cnst=FALSE;
 			}
 			
 			//note that the symbol is already stored
@@ -280,8 +273,12 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 		if(value!=NULL){
 			//give the symbol the type that the bound value has (effectively inferring typing at runtime)
 			//note that NULL is a generic value and doesn't change the type; (a value initially bound to NULL will be forever a symbol)
-			value->ref++;
 			symbol->d.sym.t=value->t;
+			
+			value->ref++;
+			
+			//once bound values are no longer constant
+			value->cnst=FALSE;
 		}
 	}
 }
@@ -337,11 +334,6 @@ nl_val *nl_sym_from_c_str(const char *c_str){
 
 //END MEMORY MANAGEMENT SUBROUTINES -------------------------------------------------------------------------------
 
-//BEGIN C-NL-STDLIB SUBROUTINES -----------------------------------------------------------------------------------
-#include "nl_stdlib.h"
-//END C-NL-STDLIB SUBROUTINES -------------------------------------------------------------------------------------
-
-
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
 
 //evaluate all the elements in a list, replacing them with their evaluations
@@ -357,20 +349,31 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 
 //apply a given subroutine to its arguments
 nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env){
+	nl_val *ret=NULL;
+	
 #ifdef _DEBUG
 	printf("nl_apply debug 0, trying to apply ");
 	nl_out(stdout,sub);
 	printf("\n");
 #endif
-	if(!(sub!=NULL && (sub->t==PRI && sub->t==SUB))){
+	if(!(sub!=NULL && (sub->t==PRI || sub->t==SUB))){
 		fprintf(stderr,"Err: invalid type given to apply, expected subroutine or primitve procedure, got %i\n",sub->t);
+		return NULL;
+#ifdef _DEBUG
+	}else{
+		printf("nl_apply debug 1, got a primitive or closure, continuing on\n");
+#endif
 	}
 	
-	nl_eval_elements(arguments,env);
+//	nl_eval_elements(arguments,env);
 	//TODO: bind arguments to internal sub symbols, substitute the body in, and actually do the apply
 	
 	//TODO: remove this, it's just for debugging
-	return arguments;
+	ret=nl_val_cp(arguments);
+	
+//	ret=nl_val_cp(sub->d.sub.body);
+	
+	return ret;
 }
 
 //evaluate an if statement with the given arguments
@@ -575,18 +578,16 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 		}
 	//TODO: fix sub statement handling so we don't leak memory (I think it's leaking because nl_val_cp sets pointer equality)
 	//check for subroutine definitions (lambda expressions which are used as closures)
-/*
 	}else if(nl_val_cmp(keyword,sub_keyword)==0){
 		//handle sub statements
 		ret=nl_eval_sub(arguments,env);
 		
-*/
 	//TODO: check for all other keywords
 	}else{
 		//in the default case check for subroutines bound to this symbol
 		nl_val *prim_sub=nl_lookup(keyword,env);
 		if((prim_sub!=NULL) && (prim_sub->t==PRI)){
-			nl_apply(prim_sub,arguments,env);
+			ret=nl_apply(prim_sub,arguments,env);
 		}else{
 			fprintf(stderr,"Err: unknown keyword ");
 			nl_out(stderr,keyword);
@@ -670,8 +671,19 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 				ret=nl_eval_keyword(exp,env);
 			//otherwise eagerly evaluate then call out to apply
 			}else if(exp->d.pair.f!=NULL){
+				//evaluate the first element, the thing we're going to apply to the arguments
+				exp->d.pair.f->ref++;
+				nl_val *sub=nl_eval(exp->d.pair.f,env);
+				
 				//call apply; this will do eager evaluation on arguments and then run through the body (in the case of a closure)
-//				ret=nl_apply(nl_eval(exp->d.pair.f,env),exp->d.pair.r,env);
+				ret=nl_apply(sub,exp->d.pair.r,env);
+#ifdef _DEBUG
+				printf("nl_eval debug 0, returned from apply with value ");
+				nl_out(stdout,ret);
+				printf("\n");
+#endif
+				//clean up the evaluation of the first element; if we use it again we'll re-make it with another eval call
+				nl_val_free(sub);
 			//null lists are self-evaluating (the empty list)
 			}else{
 				exp->ref++;
@@ -683,6 +695,11 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 			//look up the expression in the environment and return a copy of the result
 			//the reason this is a copy is so that pointer-equality won't be true, and changing one var doesn't change another
 			ret=nl_val_cp(nl_lookup(exp->d.eval.sym,env));
+			
+			//this data-wise copy is constant
+			if(ret!=NULL && !((ret->t==PRI) || (ret->t==SUB))){
+				ret->cnst=TRUE;
+			}
 			break;
 		//default self-evaluating
 		default:
@@ -961,6 +978,16 @@ nl_val *nl_read_exp(FILE *fp){
 			c=getc(fp);
 		}
 		ret=nl_read_exp(fp);
+	//the /* ... */ multi-line comment style, as in gnu89 C
+	}else if(c=='/' && next_c=='*'){
+		next_c=getc(fp);
+		next_c=getc(fp);
+		
+		while(!((c=='*') && (next_c=='/'))){
+			c=next_c;
+			next_c=getc(fp);
+		}
+		ret=nl_read_exp(fp);
 	//if it starts with a $ read an evaluation (a symbol to be looked up)
 	}else if(c=='$'){
 		ret=nl_val_malloc(EVALUATION);
@@ -984,6 +1011,7 @@ nl_val *nl_read_exp(FILE *fp){
 	return ret;
 }
 
+//output a neulang value
 void nl_out(FILE *fp, nl_val *exp){
 	if(exp==NULL){
 		fprintf(fp,"NULL");

@@ -123,3 +123,116 @@ struct nl_env_frame {
 
 #endif
 
+
+#ifndef _NL_DECLARATIONS
+#define _NL_DECLARATIONS
+
+//BEGIN NL DECLARATIONS -------------------------------------------------------------------------------------------
+
+//allocate a value, and initialize it so that we're not doing anything too crazy
+nl_val *nl_val_malloc(nl_type t);
+
+//NOTE: reference decrementing is handled here as well
+//free a value; this recursively frees complex data types
+void nl_val_free(nl_val *exp);
+
+//copy a value data-wise into new memory, without changing the original
+nl_val *nl_val_cp(nl_val *v);
+
+//allocate an environment frame
+nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope);
+
+//free an environment frame
+void nl_env_frame_free(nl_env_frame *env);
+
+//bind the given symbol to the given value in the given environment frame
+//note that we do NOT change anything in the above scopes; this preserves referential transparency
+void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env);
+
+//look up the symbol in the given environment frame
+//note that this WILL go up to higher scopes, if there are any
+nl_val *nl_lookup(nl_val *symbol, nl_env_frame *env);
+
+//make a neulang string from a c string
+nl_val *nl_str_from_c_str(const char *c_str);
+
+//make a neulang symbol from a c string
+nl_val *nl_sym_from_c_str(const char *c_str);
+
+//evaluate all the elements in a list, replacing them with their evaluations
+void nl_eval_elements(nl_val *list, nl_env_frame *env);
+
+//apply a given subroutine to its arguments
+nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env);
+
+//evaluate an if statement with the given arguments
+nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env);
+
+//evaluate a sub statement with the given arguments
+nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env);
+
+//evaluate a keyword expression (or primitive function, if keyword isn't found)
+nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env);
+
+//evaluate the given expression in the given environment
+nl_val *nl_eval(nl_val *exp, nl_env_frame *env);
+
+//check if a givne character counts as whitespace in neulang
+char nl_is_whitespace(char c);
+
+//skip fp past any leading whitespaces
+void nl_skip_whitespace(FILE *fp);
+
+//read a number
+nl_val *nl_read_num(FILE *fp);
+
+//read a string (byte array)
+nl_val *nl_read_string(FILE *fp);
+
+//read a single character (byte)
+nl_val *nl_read_char(FILE *fp);
+
+//read an expression list
+nl_val *nl_read_exp_list(FILE *fp);
+
+//read a symbol (just a string with a wrapper) (with a rapper? drop them beats man)
+nl_val *nl_read_symbol(FILE *fp);
+
+//read an expression from the given input stream
+nl_val *nl_read_exp(FILE *fp);
+
+//output a neulang value
+void nl_out(FILE *fp, nl_val *exp);
+
+//bind all primitive subroutines in the given environment frame
+void nl_bind_stdlib(nl_env_frame *env);
+
+//runtime!
+int main(int argc, char *argv[]);
+
+
+// Forward declarations for standard library functions ----------------
+
+//gcd-reduce a rational number
+void nl_gcd_reduce(nl_val *v);
+
+//compare two neulang values; returns -1 if a<b, 0 if a==b, and 1 if a>b
+//this is value comparison, NOT pointer comparison
+int nl_val_cmp(const nl_val *v_a, const nl_val *v_b);
+
+//push a value onto the end of an array
+void nl_array_push(nl_val *a, nl_val *v);
+
+//pop a value off of the end of an array, resizing if needed
+void nl_array_pop(nl_val *a);
+
+//insert a value into an array, resizing if needed
+void nl_array_ins(nl_val *a, nl_val *v, nl_val *index);
+
+//remove a value from an array, resizing if needed
+void nl_array_rm(nl_val *a, nl_val *index);
+
+//END NL DECLARATIONS ---------------------------------------------------------------------------------------------
+
+#endif
+
