@@ -196,6 +196,9 @@ nl_val *nl_val_cp(nl_val *v){
 nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope){
 	nl_env_frame *ret=(nl_env_frame*)(malloc(sizeof(nl_env_frame)));
 	
+	//environments are read/write by default (after all, this language is procedural, if only contextually)
+	ret->rw=TRUE;
+	
 	ret->symbol_array=nl_val_malloc(ARRAY);
 	ret->value_array=nl_val_malloc(ARRAY);
 	
@@ -217,11 +220,24 @@ void nl_env_frame_free(nl_env_frame *env){
 
 //bind the given symbol to the given value in the given environment frame
 //note that we do NOT change anything in the above scopes; this preserves referential transparency
-void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
+//^ there is one exception to that, which is for new vars in a non-rw env (an application frame, aka call stack entry)
+//returns TRUE for success, FALSE for failure
+char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	//can't bind to a null environment
 	if(env==NULL){
-		fprintf(stderr,"Err: Cannot bind to a null environment\n");
-		return;
+		fprintf(stderr,"Err: cannot bind to a null environment\n");
+		return FALSE;
+#ifdef _DEBUG
+	}else if(env->rw==FALSE){
+		printf("nl_bind debug 0, got a read-only environment while binding symbol ");
+		nl_out(stdout,symbol);
+		printf("...\n");
+#endif
+	}
+	
+	if(symbol==NULL){
+		fprintf(stderr,"Err: cannot bind a null symbol\n");
+		return FALSE;
 	}
 	
 	char found=FALSE;
@@ -240,7 +256,7 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 				
 //				found=TRUE;
 //				break;
-				return;
+				return FALSE;
 			}
 			
 			//update the value (removing a reference to the old value)
@@ -265,6 +281,12 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	
 	//if we didn't find this symbol in the environment, then go ahead and make it now
 	if(!found){
+		//if this environment isn't re-writable then don't even bother; just try a higher scope
+		//this is the ONE time that we CAN change something in an above scope, and it's only done because we re-use scopes as a call stack (implementation detail)
+		if(env->rw==FALSE){
+			return(nl_bind(symbol,value,env->up_scope));
+		}
+		
 		//bind symbol
 		nl_array_push(env->symbol_array,symbol);
 		symbol->ref++;
@@ -281,6 +303,8 @@ void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			value->cnst=FALSE;
 		}
 	}
+	
+	return TRUE;
 }
 
 //look up the symbol in the given environment frame
@@ -340,7 +364,11 @@ nl_val *nl_sym_from_c_str(const char *c_str){
 void nl_eval_elements(nl_val *list, nl_env_frame *env){
 	while((list!=NULL) && (list->t==PAIR)){
 		nl_val *ev_result=nl_eval(list->d.pair.f,env);
-		nl_val_free(list->d.pair.f);
+		
+		//gc anything that wasn't self-evaluating
+		if(ev_result!=(list->d.pair.f)){
+			nl_val_free(list->d.pair.f);
+		}
 		list->d.pair.f=ev_result;
 		
 		list=list->d.pair.r;
@@ -365,13 +393,62 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env){
 #endif
 	}
 	
-//	nl_eval_elements(arguments,env);
-	//TODO: bind arguments to internal sub symbols, substitute the body in, and actually do the apply
+	nl_eval_elements(arguments,env);
 	
-	//TODO: remove this, it's just for debugging
-	ret=nl_val_cp(arguments);
-	
-//	ret=nl_val_cp(sub->d.sub.body);
+	//bind arguments to internal sub symbols, substitute the body in, and actually do the apply
+	if(sub->t==SUB){
+		//create an apply environment with an up_scope of the closure environment
+		nl_env_frame *apply_env=nl_env_frame_malloc(sub->d.sub.env);
+		
+		nl_val *arg_syms=sub->d.sub.args;
+		nl_val *arg_vals=arguments;
+		while((arg_syms!=NULL) && (arg_syms->t==PAIR) && (arg_vals!=NULL) && (arg_vals->t==PAIR)){
+			//bind the argument to its associated symbol
+			if(nl_bind(arg_syms->d.pair.f,arg_vals->d.pair.f,apply_env)){
+//				arg_syms->d.pair.f->ref++;
+//				arg_vals->d.pair.f->ref++;
+			}
+			
+			arg_syms=arg_syms->d.pair.r;
+			arg_vals=arg_vals->d.pair.r;
+		}
+		//set the apply env read-only so any new vars go into the closure env
+		apply_env->rw=FALSE;
+		
+#ifdef _DEBUG
+		printf("nl_apply debug 2, bound args, going into evaluation...\n");
+#endif
+		
+		//TODO: handle return and recur keywords correctly in here somewhere/somehow
+		
+		//now evaluate the body in the application env
+		nl_val *body=sub->d.sub.body;
+		while((body!=NULL) && (body->t==PAIR)){
+			//make a copy so as not to change the actual subroutine body statements themselves
+//			nl_val *to_eval=nl_val_cp(body->d.pair.f);
+			nl_val *to_eval=body->d.pair.f;
+			to_eval->ref++;
+			
+			//always set this to ret, so ret ends up with the last-evaluated thing
+			ret=nl_eval(to_eval,apply_env);
+			nl_val_free(to_eval);
+			
+			//if this expression wasn't self-evaluating
+			if(to_eval!=ret){
+				//clean up
+//				nl_val_free(to_eval);
+			}
+			
+			body=body->d.pair.r;
+		}
+		
+		if(ret!=NULL){
+			ret->ref++;
+		}
+		
+		//now clean up the apply environment (call stack)
+		nl_env_frame_free(apply_env);
+	}
 	
 	return ret;
 }
@@ -554,7 +631,9 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 		//if we got a symbol followed by something else, eval that thing and bind
 		if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==SYMBOL) && (arguments->d.pair.r!=NULL) && (arguments->d.pair.r->t==PAIR)){
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env);
-			nl_bind(arguments->d.pair.f,bound_value,env);
+			if(!nl_bind(arguments->d.pair.f,bound_value,env)){
+				fprintf(stderr,"Err: let couldn't bind symbol to value\n");
+			}
 			
 			//if this bind was unsuccessful (for example a type error) then re-set bound_value to NULL so we don't try to access it
 			//(it was already free'd)

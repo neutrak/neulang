@@ -79,7 +79,7 @@ struct nl_val {
 		//subroutine value
 		struct {
 			//return type of the subroutine
-			nl_type t;
+//			nl_type t;
 			
 			//arguments (linked list of symbols to bind to values during apply)
 			nl_val *args;
@@ -109,6 +109,9 @@ struct nl_val {
 
 //environment frame (one global, then one per closure)
 struct nl_env_frame {
+	//true if this environment is writable, otherwise false (read-only)
+	char rw;
+	
 	//store symbols
 	nl_val *symbol_array;
 	//store values
@@ -147,7 +150,9 @@ void nl_env_frame_free(nl_env_frame *env);
 
 //bind the given symbol to the given value in the given environment frame
 //note that we do NOT change anything in the above scopes; this preserves referential transparency
-void nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env);
+//^ there is one exception to that, which is for new vars in a non-rw env (an application frame, aka call stack entry)
+//returns TRUE for success, FALSE for failure
+char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env);
 
 //look up the symbol in the given environment frame
 //note that this WILL go up to higher scopes, if there are any

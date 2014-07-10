@@ -12,10 +12,13 @@ endif
 " keywords
 syn keyword nl_keywords exit let if else lit sub return
 syn keyword nl_symbols TRUE FALSE NULL
-syn keyword nl_parens ( )
+
+" parens (highlighting included by matchgroup parameter)
+syn region nl_parens matchgroup=Delimiter start="(" end=")" contains=ALL transparent
 
 " evaluations
-syn region nl_evaluation start="\$" end="[ \n\(\)]\@<!"
+"syn region nl_evaluation start="\$" end="[ \n\(\)]\@<!"
+syn match nl_evaluation "\$[a-zA-Z\-\+\/\*\%\_]*"
 
 " strings
 syn region nl_str start="\"" end="\""
@@ -27,7 +30,6 @@ syn region nl_multiline_comment start="/\*" end="\*/"
 " now apply highlighting
 highlight link nl_keywords Keyword
 highlight link nl_symbols Type
-highlight link nl_parens Delimiter
 highlight link nl_evaluation Macro
 highlight link nl_str String
 highlight link nl_comment Comment

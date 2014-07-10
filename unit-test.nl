@@ -180,9 +180,22 @@ $a-test-sub
 
 //now apply a sub
 ((sub () "b"))
-((sub () 5) 6 7 8)
 
-($a-test-sub "muhahahahaha")
+((sub () 5 -1) 6 7 8)
+
+//($a-test-sub "muhahahahaha")
+
+(let complex-test (sub (y)
+//	(+ 1 2)
+	25
+//	FALSE
+))
+$complex-test
+(let return-value ($complex-test 1))
+$return-value
+
+//((sub (x) $x) -3)
+//((sub (x y z) "asdf" (+ 4 5) -3) -4 -5 -6)
 
 
 // END sub statement testing ------------------------------------------------------------------------------
