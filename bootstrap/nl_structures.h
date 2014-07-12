@@ -164,6 +164,9 @@ nl_val *nl_str_from_c_str(const char *c_str);
 //make a neulang symbol from a c string
 nl_val *nl_sym_from_c_str(const char *c_str);
 
+//make a neulang value out of a primitve function so we can bind it
+nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
+
 //evaluate all the elements in a list, replacing them with their evaluations
 void nl_eval_elements(nl_val *list, nl_env_frame *env);
 
@@ -209,6 +212,9 @@ nl_val *nl_read_exp(FILE *fp);
 //output a neulang value
 void nl_out(FILE *fp, nl_val *exp);
 
+//bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
+void nl_bind_new(nl_val *symbol, nl_val *value, nl_env_frame *env);
+
 //bind all primitive subroutines in the given environment frame
 void nl_bind_stdlib(nl_env_frame *env);
 
@@ -236,6 +242,12 @@ void nl_array_ins(nl_val *a, nl_val *v, nl_val *index);
 
 //remove a value from an array, resizing if needed
 void nl_array_rm(nl_val *a, nl_val *index);
+
+//add a list of (rational) numbers
+nl_val *nl_add(nl_val *num_list);
+
+//subtract a list of (rational) numbers
+nl_val *nl_sub(nl_val *num_list);
 
 //END NL DECLARATIONS ---------------------------------------------------------------------------------------------
 

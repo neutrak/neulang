@@ -158,6 +158,7 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 }
 
 //TODO: write all array library functions
+//TODO: write the whole standard library
 
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v){
@@ -219,6 +220,88 @@ void nl_array_ins(nl_val *a, nl_val *v, nl_val *index){
 void nl_array_rm(nl_val *a, nl_val *index){
 	
 }
+
+//BEGIN C-NL-STDLIB-MATH SUBROUTINES  -----------------------------------------------------------------------------
+
+//add a list of (rational) numbers
+nl_val *nl_add(nl_val *num_list){
+	nl_val *acc=NULL;
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+		acc=nl_val_cp(num_list->d.pair.f);
+		num_list=num_list->d.pair.r;
+	}
+	
+	while((num_list!=NULL) && (num_list->t==PAIR)){
+		//ignore null elements
+		if(num_list->d.pair.f==NULL){
+			continue;
+		}
+		
+		//error on non-numbers
+		if(num_list->d.pair.f->t!=NUM){
+			fprintf(stderr,"Err: non-number given to add operation, returning NULL from add");
+			nl_val_free(acc);
+			return NULL;
+		}
+		nl_val *current_num=num_list->d.pair.f;
+		
+		//okay, now add this number to the accumulator
+		long long int numerator=((acc->d.num.n)*(current_num->d.num.d))+((current_num->d.num.n)*(acc->d.num.d));
+		long long int denominator=(acc->d.num.d)*(current_num->d.num.d);
+		
+		acc->d.num.n=numerator;
+		acc->d.num.d=denominator;
+		
+		//and reduce to make later operations simpler
+		nl_gcd_reduce(acc);
+		
+		num_list=num_list->d.pair.r;
+	}
+	//if we got here and didn't return, then we have a success and the accumulator stored the result!
+	return acc;
+}
+
+//subtract a list of (rational) numbers
+nl_val *nl_sub(nl_val *num_list){
+	nl_val *acc=NULL;
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+		acc=nl_val_cp(num_list->d.pair.f);
+		num_list=num_list->d.pair.r;
+	}
+	
+	while((num_list!=NULL) && (num_list->t==PAIR)){
+		//ignore null elements
+		if(num_list->d.pair.f==NULL){
+			continue;
+		}
+		
+		//error on non-numbers
+		if(num_list->d.pair.f->t!=NUM){
+			fprintf(stderr,"Err: non-number given to subtract operation, returning NULL from subtract");
+			nl_val_free(acc);
+			return NULL;
+		}
+		nl_val *current_num=num_list->d.pair.f;
+		
+		//okay, now add this number to the accumulator
+		long long int numerator=((acc->d.num.n)*(current_num->d.num.d))-((current_num->d.num.n)*(acc->d.num.d));
+		long long int denominator=(acc->d.num.d)*(current_num->d.num.d);
+		
+		acc->d.num.n=numerator;
+		acc->d.num.d=denominator;
+		
+		//and reduce to make later operations simpler
+		nl_gcd_reduce(acc);
+		
+		num_list=num_list->d.pair.r;
+	}
+	//if we got here and didn't return, then we have a success and the accumulator stored the result!
+	return acc;
+}
+
+//TODO: write the rest of the math library
+
+//END C-NL-STDLIB-MATH SUBROUTINES  -------------------------------------------------------------------------------
 
 
 //END C-NL-STDLIB SUBROUTINES  ------------------------------------------------------------------------------------

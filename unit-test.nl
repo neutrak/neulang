@@ -167,7 +167,7 @@ $if_check
 (sub () "abc")
 
 //now assign a sub to a variable
-(let a-test-sub (sub ()
+(let a-test-sub (sub (b c e)
 	"this is a test"
 	(if TRUE
 		"haha"
@@ -184,12 +184,12 @@ $a-test-sub
 
 ((sub () 5 -1) 6 7 8)
 
-//($a-test-sub "muhahahahaha")
+($a-test-sub "muhahahahaha")
 
 (let complex-test (sub (y)
 	(+ 1 2)
 	25
-//	FALSE
+	FALSE
 	3
 ))
 $complex-test
@@ -202,7 +202,8 @@ $return-value
 ((sub () FALSE))
 
 ((sub () FALSE 1))
-($a-test-sub)
+
+((sub (x) (- $x 5)) 7)
 
 
 // END sub statement testing ------------------------------------------------------------------------------

@@ -356,6 +356,13 @@ nl_val *nl_sym_from_c_str(const char *c_str){
 	return ret;
 }
 
+//make a neulang value out of a primitve function so we can bind it
+nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist)){
+	nl_val *ret=nl_val_malloc(PRI);
+	ret->d.pri.function=function;
+	return ret;
+}
+
 //END MEMORY MANAGEMENT SUBROUTINES -------------------------------------------------------------------------------
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
@@ -365,10 +372,11 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 	while((list!=NULL) && (list->t==PAIR)){
 		nl_val *ev_result=nl_eval(list->d.pair.f,env);
 		
+		//the calling code will handle freeing these, don't worry about it here
 		//gc anything that wasn't self-evaluating
-		if(ev_result!=(list->d.pair.f)){
-			nl_val_free(list->d.pair.f);
-		}
+//		if(ev_result!=(list->d.pair.f)){
+//			nl_val_free(list->d.pair.f);
+//		}
 		list->d.pair.f=ev_result;
 		
 		list=list->d.pair.r;
@@ -397,8 +405,11 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 */
 	}
 	
+	//for primitive procedures just call out to the c function
+	if(sub->t==PRI){
+		ret=(*(sub->d.pri.function))(arguments);
 	//bind arguments to internal sub symbols, substitute the body in, and actually do the apply
-	if(sub->t==SUB){
+	}else if(sub->t==SUB){
 		//TODO: re-use the old env if last_statement is true; that's how we'll do TCO
 		//create an apply environment with an up_scope of the closure environment
 		nl_env_frame *apply_env=nl_env_frame_malloc(sub->d.sub.env);
@@ -505,6 +516,7 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 		if((ret!=NULL) && (to_eval==ret)){
 			ret->ref++;
 		}
+/*
 #ifdef _DEBUG
 		printf("nl_apply debug 6, returning ret ");
 		nl_out(stdout,ret);
@@ -514,19 +526,24 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 			printf("\n");
 		}
 #endif
+*/
 		
 		//now clean up the apply environment (call stack)
 		nl_env_frame_free(apply_env);
+/*
 #ifdef _DEBUG
 		printf("nl_apply debug 7, free'd application environment and returning up\n");
-		printf("nl_apply debug 7.1, after env_frame_free ret is ");
-		nl_out(stdout,ret);
 		if(ret!=NULL){
-			printf(" with %u references\n",ret->ref);
-		}else{
-			printf("\n");
+			printf("nl_apply debug 7.1, after env_frame_free ret is ");
+			nl_out(stdout,ret);
+			if(ret!=NULL){
+				printf(" with %u references\n",ret->ref);
+			}else{
+				printf("\n");
+			}
 		}
 #endif
+*/
 	}
 	
 	return ret;
@@ -666,7 +683,7 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	return ret;
 }
 
-//TODO: proper evaluation of keywords!
+//proper evaluation of keywords!
 //evaluate a keyword expression (or primitive function, if keyword isn't found)
 nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 	nl_val *keyword=keyword_exp->d.pair.f;
@@ -734,7 +751,6 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 		}else{
 			fprintf(stderr,"Err: wrong syntax for let statement\n");
 		}
-	//TODO: fix sub statement handling so we don't leak memory (I think it's leaking because nl_val_cp sets pointer equality)
 	//check for subroutine definitions (lambda expressions which are used as closures)
 	}else if(nl_val_cmp(keyword,sub_keyword)==0){
 		//handle sub statements
@@ -1085,6 +1101,20 @@ nl_val *nl_read_symbol(FILE *fp){
 	
 	//read until whitespace or list-termination character
 	while(!nl_is_whitespace(c) && c!=')'){
+		//an alternate list syntax has the symbol come first, followed by an open paren
+		if(c=='('){
+			ret->d.sym.name=name;
+			nl_val *symbol=ret;
+			
+			//read the rest of the list
+			ungetc(c,fp);
+			nl_val *list_remainder=nl_read_exp_list(fp);
+			
+			ret=nl_val_malloc(PAIR);
+			ret->d.pair.f=symbol;
+			ret->d.pair.r=list_remainder;
+			return ret;
+		}
 		nl_val *ar_entry=nl_val_malloc(BYTE);
 		ar_entry->d.byte.v=c;
 		nl_array_push(name,ar_entry);
@@ -1155,14 +1185,26 @@ nl_val *nl_read_exp(FILE *fp){
 	//if it starts with a $ read an evaluation (a symbol to be looked up)
 	}else if(c=='$'){
 		ret=nl_val_malloc(EVALUATION);
-		ret->d.eval.sym=nl_read_symbol(fp);
+		nl_val *symbol=nl_read_symbol(fp);
+		
+		if(symbol->t==SYMBOL){
+			ret->d.eval.sym=symbol;
+		//read symbol can also return a list, for alternate syntax calls with parens AFTER the symbol, so handle that
+		}else if(symbol->t==PAIR){
+			ret->d.eval.sym=symbol->d.pair.f;
+			symbol->d.pair.f=ret;
+			ret=symbol;
+		}else{
+			fprintf(stderr,"Err: could not read evaluation (internal parsing error)\n");
+			nl_val_free(ret);
+			ret=NULL;
+		}
 	//if it starts with a letter read a symbol
 //	}else if(isalpha(c)){
 	//if it starts with anything not already handled read a symbol
 	}else{
 		ungetc(c,fp);
 		ret=nl_read_symbol(fp);
-		//TODO: check if this is a keyword (maybe not in this function, maybe in eval)
 //	}else{
 //		fprintf(stderr,"Err: invalid symbol at start of expression, \'%c\' (will start reading next expression)\n",c);
 	}
@@ -1245,16 +1287,24 @@ void nl_out(FILE *fp, nl_val *exp){
 
 //END I/O SUBROUTINES ---------------------------------------------------------------------------------------------
 
+//bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
+void nl_bind_new(nl_val *symbol, nl_val *value, nl_env_frame *env){
+	nl_bind(symbol,value,env);
+	nl_val_free(symbol);
+	nl_val_free(value);
+}
+
 //bind all primitive subroutines in the given environment frame
 void nl_bind_stdlib(nl_env_frame *env){
-	//TODO: write the standard library, bind it here
+	//TODO: bind the standard library here
+	
+	nl_bind_new(nl_sym_from_c_str("+"),nl_primitive_wrap(nl_add),env);
+	nl_bind_new(nl_sym_from_c_str("-"),nl_primitive_wrap(nl_sub),env);
 /*
-	nl_bind(nl_sym_from_c_str("+"),nl_sym_from_c_str("+"),env);
-	nl_bind(nl_sym_from_c_str("-"),nl_sym_from_c_str("-"),env);
-	nl_bind(nl_sym_from_c_str("*"),nl_sym_from_c_str("*"),env);
-	nl_bind(nl_sym_from_c_str("/"),nl_sym_from_c_str("/"),env);
-	nl_bind(nl_sym_from_c_str("%"),nl_sym_from_c_str("%"),env);
-	nl_bind(nl_sym_from_c_str(","),nl_sym_from_c_str(","),env);
+	nl_bind_new(nl_sym_from_c_str("*"),nl_primitive_wrap(nl_mul),env);
+	nl_bind_new(nl_sym_from_c_str("/"),nl_primitive_wrap(nl_div),env);
+	nl_bind_new(nl_sym_from_c_str("%"),nl_primitive_wrap(nl_mod),env);
+	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_ar_concat),env);
 */
 }
 
