@@ -376,27 +376,30 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 }
 
 //apply a given subroutine to its arguments
-nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env){
+nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 	nl_val *ret=NULL;
 	
+/*
 #ifdef _DEBUG
 	printf("nl_apply debug 0, trying to apply ");
 	nl_out(stdout,sub);
 	printf("\n");
 #endif
+*/
 	if(!(sub!=NULL && (sub->t==PRI || sub->t==SUB))){
 		fprintf(stderr,"Err: invalid type given to apply, expected subroutine or primitve procedure, got %i\n",sub->t);
 		return NULL;
+/*
 #ifdef _DEBUG
 	}else{
 		printf("nl_apply debug 1, got a primitive or closure, continuing on\n");
 #endif
+*/
 	}
-	
-	nl_eval_elements(arguments,env);
 	
 	//bind arguments to internal sub symbols, substitute the body in, and actually do the apply
 	if(sub->t==SUB){
+		//TODO: re-use the old env if last_statement is true; that's how we'll do TCO
 		//create an apply environment with an up_scope of the closure environment
 		nl_env_frame *apply_env=nl_env_frame_malloc(sub->d.sub.env);
 		
@@ -415,39 +418,115 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env){
 		//set the apply env read-only so any new vars go into the closure env
 		apply_env->rw=FALSE;
 		
+/*
 #ifdef _DEBUG
 		printf("nl_apply debug 2, bound args, going into evaluation...\n");
 #endif
+*/
 		
 		//TODO: handle return and recur keywords correctly in here somewhere/somehow
 		
 		//now evaluate the body in the application env
 		nl_val *body=sub->d.sub.body;
+		nl_val *to_eval=NULL;
 		while((body!=NULL) && (body->t==PAIR)){
-			//make a copy so as not to change the actual subroutine body statements themselves
-//			nl_val *to_eval=nl_val_cp(body->d.pair.f);
-			nl_val *to_eval=body->d.pair.f;
+			//TODO: make a copy so as not to ever change the actual subroutine body statements themselves
+//			to_eval=nl_val_cp(body->d.pair.f);
+			to_eval=body->d.pair.f;
 			to_eval->ref++;
+			
+/*
+#ifdef _DEBUG
+			printf("nl_apply debug 3, evaluating ");
+			nl_out(stdout,to_eval);
+			if(to_eval!=NULL){
+				printf(" with %u references\n",to_eval->ref);
+			}else{
+				printf("\n");
+			}
+#endif
+*/
 			
 			//always set this to ret, so ret ends up with the last-evaluated thing
 			ret=nl_eval(to_eval,apply_env);
-			nl_val_free(to_eval);
+//			nl_val_free(to_eval);
 			
-			//if this expression wasn't self-evaluating
-			if(to_eval!=ret){
+#ifdef _DEBUG
+			printf("nl_apply debug 4, got result ");
+			nl_out(stdout,ret);
+			if(ret!=NULL){
+				printf(" with %u references\n",ret->ref);
+			}else{
+				printf("\n");
+			}
+#endif
+			
+			//if this expression was self-evaluating
+			if(to_eval==ret){
 				//clean up
-//				nl_val_free(to_eval);
+				nl_val_free(to_eval);
+			//otherwise the eval call already cleaned up to_eval for us
+			}else{
+				//TODO: change this to support return statements (a last-statement thing or whatever)
+				//if we're not going to return this then we need to free the result since it will be unused
+				if(body->d.pair.r!=NULL){
+					nl_val_free(ret);
+					ret=NULL;
+				}
 			}
 			
+/*
+#ifdef _DEBUG
+			printf("nl_apply debug 5, after evaluation and cleanup to_eval is ");
+			nl_out(stdout,to_eval);
+			if(to_eval!=NULL){
+				printf(" with %u references\n",to_eval->ref);
+			}else{
+				printf("\n");
+			}
+			
+			if(ret!=NULL){
+				printf("nl_apply debug 5.1, after evaluation and cleanup ret is ");
+				nl_out(stdout,ret);
+				if(ret!=NULL){
+					printf(" with %u references\n",ret->ref);
+				}else{
+					printf("\n");
+				}
+			}
+#endif
+*/
+			
+			//go to the next body statement and eval again!
 			body=body->d.pair.r;
 		}
 		
-		if(ret!=NULL){
+		//if we're returning a self-evaluating expression then we need another reference
+		if((ret!=NULL) && (to_eval==ret)){
 			ret->ref++;
 		}
+#ifdef _DEBUG
+		printf("nl_apply debug 6, returning ret ");
+		nl_out(stdout,ret);
+		if(ret!=NULL){
+			printf(" with %u references\n",ret->ref);
+		}else{
+			printf("\n");
+		}
+#endif
 		
 		//now clean up the apply environment (call stack)
 		nl_env_frame_free(apply_env);
+#ifdef _DEBUG
+		printf("nl_apply debug 7, free'd application environment and returning up\n");
+		printf("nl_apply debug 7.1, after env_frame_free ret is ");
+		nl_out(stdout,ret);
+		if(ret!=NULL){
+			printf(" with %u references\n",ret->ref);
+		}else{
+			printf("\n");
+		}
+#endif
 	}
 	
 	return ret;
@@ -666,7 +745,10 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env){
 		//in the default case check for subroutines bound to this symbol
 		nl_val *prim_sub=nl_lookup(keyword,env);
 		if((prim_sub!=NULL) && (prim_sub->t==PRI)){
-			ret=nl_apply(prim_sub,arguments,env);
+			//do eager evaluation on arguments
+			nl_eval_elements(arguments,env);
+			//call apply
+			ret=nl_apply(prim_sub,arguments);
 		}else{
 			fprintf(stderr,"Err: unknown keyword ");
 			nl_out(stderr,keyword);
@@ -754,8 +836,11 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env){
 				exp->d.pair.f->ref++;
 				nl_val *sub=nl_eval(exp->d.pair.f,env);
 				
-				//call apply; this will do eager evaluation on arguments and then run through the body (in the case of a closure)
-				ret=nl_apply(sub,exp->d.pair.r,env);
+				//do eager evaluation on arguments
+				nl_eval_elements(exp->d.pair.r,env);
+				
+				//call out to apply; this will run through the body (in the case of a closure)
+				ret=nl_apply(sub,exp->d.pair.r);
 #ifdef _DEBUG
 				printf("nl_eval debug 0, returned from apply with value ");
 				nl_out(stdout,ret);

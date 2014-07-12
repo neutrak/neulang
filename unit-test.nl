@@ -175,6 +175,7 @@ $if_check
 		"hehe"
 	)
 	(return 1)
+	13
 ))
 $a-test-sub
 
@@ -186,16 +187,22 @@ $a-test-sub
 //($a-test-sub "muhahahahaha")
 
 (let complex-test (sub (y)
-//	(+ 1 2)
+	(+ 1 2)
 	25
 //	FALSE
+	3
 ))
 $complex-test
 (let return-value ($complex-test 1))
 $return-value
 
-//((sub (x) $x) -3)
-//((sub (x y z) "asdf" (+ 4 5) -3) -4 -5 -6)
+((sub (x) $x) -3)
+((sub (x y z) "asdf" (+ 4 5) -2) -4 -5 -6)
+
+((sub () FALSE))
+
+((sub () FALSE 1))
+($a-test-sub)
 
 
 // END sub statement testing ------------------------------------------------------------------------------

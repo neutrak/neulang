@@ -168,7 +168,7 @@ nl_val *nl_sym_from_c_str(const char *c_str);
 void nl_eval_elements(nl_val *list, nl_env_frame *env);
 
 //apply a given subroutine to its arguments
-nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env);
+nl_val *nl_apply(nl_val *sub, nl_val *arguments);
 
 //evaluate an if statement with the given arguments
 nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env);
