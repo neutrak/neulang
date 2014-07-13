@@ -157,6 +157,8 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 	return 0;
 }
 
+//BEGIN C-NL-STDLIB-ARRAY SUBROUTINES  ----------------------------------------------------------------------------
+
 //TODO: write all array library functions
 //TODO: write the whole standard library
 
@@ -221,6 +223,46 @@ void nl_array_rm(nl_val *a, nl_val *index){
 	
 }
 
+//END C-NL-STDLIB-ARRAY SUBROUTINES  ------------------------------------------------------------------------------
+
+//BEGIN C-NL-STDLIB-LIST SUBROUTINES  -----------------------------------------------------------------------------
+
+//returns the length of a singly-linked list
+//note that cyclic lists are infinite and this will never terminate on them
+int nl_list_len(nl_val *list){
+	int len=0;
+	while((list!=NULL) && (list->t==PAIR)){
+		len++;
+		list=list->d.pair.r;
+	}
+	return len;
+}
+
+//returns the list element at the given index (we use 0-indexing)
+nl_val *nl_list_idx(nl_val *list, nl_val *idx){
+	nl_val *ret=NULL;
+	
+	if((idx->t!=NUM) || (idx->d.num.d!=1)){
+		fprintf(stderr,"Err: nl_list_idx only accepts integer list indices, given index was ");
+		nl_out(stderr,idx);
+		fprintf(stderr,"\n");
+		return NULL;
+	}
+	
+	int current_idx=0;
+	while((list!=NULL) && (list->t==PAIR)){
+		if(current_idx==(idx->d.num.n)){
+			ret=list->d.pair.f;
+			break;
+		}
+		
+		list=list->d.pair.r;
+	}
+	return ret;
+}
+
+//END C-NL-STDLIB-LIST SUBROUTINES  -------------------------------------------------------------------------------
+
 //BEGIN C-NL-STDLIB-MATH SUBROUTINES  -----------------------------------------------------------------------------
 
 //add a list of (rational) numbers
@@ -229,9 +271,13 @@ nl_val *nl_add(nl_val *num_list){
 	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
+	}else{
+		fprintf(stderr,"Err: incorrect use of add operation (null list or incorrect type in first operand)\n");
+		return NULL;
 	}
 	
 	while((num_list!=NULL) && (num_list->t==PAIR)){
+		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
 		if(num_list->d.pair.f==NULL){
 			continue;
@@ -239,7 +285,7 @@ nl_val *nl_add(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			fprintf(stderr,"Err: non-number given to add operation, returning NULL from add");
+			fprintf(stderr,"Err: non-number given to add operation, returning NULL from add\n");
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -267,9 +313,13 @@ nl_val *nl_sub(nl_val *num_list){
 	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
+	}else{
+		fprintf(stderr,"Err: incorrect use of sub operation (null list or incorrect type in first operand)\n");
+		return NULL;
 	}
 	
 	while((num_list!=NULL) && (num_list->t==PAIR)){
+		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
 		if(num_list->d.pair.f==NULL){
 			continue;
@@ -277,7 +327,7 @@ nl_val *nl_sub(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			fprintf(stderr,"Err: non-number given to subtract operation, returning NULL from subtract");
+			fprintf(stderr,"Err: non-number given to subtract operation, returning NULL from subtract\n");
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -299,10 +349,135 @@ nl_val *nl_sub(nl_val *num_list){
 	return acc;
 }
 
+//multiply a list of (rational) numbers
+nl_val *nl_mul(nl_val *num_list){
+	nl_val *acc=NULL;
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+		acc=nl_val_cp(num_list->d.pair.f);
+		num_list=num_list->d.pair.r;
+	}else{
+		fprintf(stderr,"Err: incorrect use of mul operation (null list or incorrect type in first operand)\n");
+		return NULL;
+	}
+	
+	while((num_list!=NULL) && (num_list->t==PAIR)){
+		//TODO: should null elements make the whole result null? (acting as NaN)
+		//ignore null elements
+		if(num_list->d.pair.f==NULL){
+			continue;
+		}
+		
+		//error on non-numbers
+		if(num_list->d.pair.f->t!=NUM){
+			fprintf(stderr,"Err: non-number given to mul operation, returning NULL from mul\n");
+			nl_val_free(acc);
+			return NULL;
+		}
+		nl_val *current_num=num_list->d.pair.f;
+		
+		//okay, now add this number to the accumulator
+		long long int numerator=((acc->d.num.n)*(current_num->d.num.d))*((current_num->d.num.n)*(acc->d.num.d));
+		long long int denominator=(acc->d.num.d)*(current_num->d.num.d);
+		
+		acc->d.num.n=numerator;
+		acc->d.num.d=denominator;
+		
+		//and reduce to make later operations simpler
+		nl_gcd_reduce(acc);
+		
+		num_list=num_list->d.pair.r;
+	}
+	//if we got here and didn't return, then we have a success and the accumulator stored the result!
+	return acc;
+}
+
 //TODO: write the rest of the math library
 
 //END C-NL-STDLIB-MATH SUBROUTINES  -------------------------------------------------------------------------------
 
+
+//BEGIN C-NL-STDLIB-CMP SUBROUTINES  ------------------------------------------------------------------------------
+
+//numeric equality operator =
+//TWO ARGUMENTS ONLY!
+nl_val *nl_eq(nl_val *val_list){
+	nl_val *ret=NULL;
+	
+	if(!((nl_list_len(val_list)==2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
+		fprintf(stderr,"Err: incorrect use of equality operator =; arg count != 2 or incorrect type (for string equality use ar=)\n");
+		return NULL;
+	}
+	
+	ret=nl_val_malloc(BYTE);
+	ret->d.byte.v=FALSE;
+	
+	if(nl_val_cmp(val_list->d.pair.f,val_list->d.pair.r->d.pair.f)==0){
+		ret->d.byte.v=TRUE;
+	}
+	return ret;
+}
+
+//numeric gt operator >
+//if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
+nl_val *nl_gt(nl_val *val_list){
+	nl_val *ret=NULL;
+	
+	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
+		fprintf(stderr,"Err: incorrect use of gt operator >; arg count < 2 or incorrect type (for string gt use ar>)\n");
+		return NULL;
+	}
+	
+	ret=nl_val_malloc(BYTE);
+	ret->d.byte.v=FALSE;
+	
+	nl_val *last_value=val_list->d.pair.f;
+	val_list=val_list->d.pair.r;
+	
+	while((val_list!=NULL) && (val_list->t==PAIR)){
+		//if we got a>b, then set the return to true and keep going
+		if(nl_val_cmp(last_value,val_list->d.pair.f)>0){
+			ret->d.byte.v=TRUE;
+		//as soon as we get one case that's false the whole thing is false so just return out
+		}else{
+			ret->d.byte.v=FALSE;
+			break;
+		}
+		val_list=val_list->d.pair.r;
+	}
+	return ret;
+}
+
+//numeric lt operator <
+//if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
+nl_val *nl_lt(nl_val *val_list){
+	nl_val *ret=NULL;
+	
+	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
+		fprintf(stderr,"Err: incorrect use of lt operator <; arg count < 2 or incorrect type (for string lt use ar<)\n");
+		return NULL;
+	}
+	
+	ret=nl_val_malloc(BYTE);
+	ret->d.byte.v=FALSE;
+	
+	nl_val *last_value=val_list->d.pair.f;
+	val_list=val_list->d.pair.r;
+	
+	while((val_list!=NULL) && (val_list->t==PAIR)){
+		//if we got a<b, then set the return to true and keep going
+		if(nl_val_cmp(last_value,val_list->d.pair.f)<0){
+			ret->d.byte.v=TRUE;
+		//as soon as we get one case that's false the whole thing is false so just return out
+		}else{
+			ret->d.byte.v=FALSE;
+			break;
+		}
+		val_list=val_list->d.pair.r;
+	}
+	return ret;
+}
+
+//END C-NL-STDLIB-CMP SUBROUTINES  --------------------------------------------------------------------------------
 
 //END C-NL-STDLIB SUBROUTINES  ------------------------------------------------------------------------------------
 

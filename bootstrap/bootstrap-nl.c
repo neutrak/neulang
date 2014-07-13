@@ -5,16 +5,8 @@
 #include <ctype.h>
 #include <string.h>
 
-//BEGIN GLOBAL CONSTANTS ------------------------------------------------------------------------------------------
-
-#define VERSION "0.1.0"
-#define TRUE 1
-#define FALSE 0
-
-//END GLOBAL CONSTANTS --------------------------------------------------------------------------------------------
-
 //BEGIN DATA STRUCTURES -------------------------------------------------------------------------------------------
-//NOTE: this also includes forward declarations for all functions (including standard library ones)
+//NOTE: this also includes forward declarations for all functions (including standard library ones) and global constants
 #include "nl_structures.h"
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
 
@@ -29,6 +21,11 @@ char end_program;
 //allocate a value, and initialize it so that we're not doing anything too crazy
 nl_val *nl_val_malloc(nl_type t){
 	nl_val *ret=(nl_val*)(malloc(sizeof(nl_val)));
+	if(ret==NULL){
+		fprintf(stderr,"Err: could not malloc a value (out of memory?)\n");
+		exit(1);
+	}
+	
 	ret->t=t;
 	ret->cnst=TRUE;
 	ret->ref=1;
@@ -86,6 +83,14 @@ void nl_val_free(nl_val *exp){
 	if(exp->ref>0){
 		return;
 	}
+	
+#ifdef _DEBUG
+/*
+	printf("nl_val_free debug 0, actually freeing ");
+	nl_out(stdout,exp);
+	printf(" (no references left)\n");
+*/
+#endif
 	
 	switch(exp->t){
 		//primitive data types don't need anything else free'd
@@ -274,6 +279,13 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			//note that the symbol is already stored
 			//it will get free'd later by the calling code, we'll keep the existing version
 			
+#ifdef _DEBUG
+			printf("nl_bind debug 1, updated value for ");
+			nl_out(stdout,symbol);
+			printf(" to be ");
+			nl_out(stdout,value);
+			printf("\n");
+#endif
 			found=TRUE;
 			break;
 		}
@@ -301,6 +313,14 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			
 			//once bound values are no longer constant
 			value->cnst=FALSE;
+			
+#ifdef _DEBUG
+			printf("nl_bind debug 2, bound new value for ");
+			nl_out(stdout,symbol);
+			printf("; new value is ");
+			nl_out(stdout,value);
+			printf("\n");
+#endif
 		}
 	}
 	
@@ -391,7 +411,9 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 #ifdef _DEBUG
 	printf("nl_apply debug 0, trying to apply ");
 	nl_out(stdout,sub);
-	printf("\n");
+	printf(" to arguments ");
+	nl_out(stdout,arguments);
+	printf(" ...\n");
 #endif
 */
 	if(!(sub!=NULL && (sub->t==PRI || sub->t==SUB))){
@@ -418,9 +440,8 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 		nl_val *arg_vals=arguments;
 		while((arg_syms!=NULL) && (arg_syms->t==PAIR) && (arg_vals!=NULL) && (arg_vals->t==PAIR)){
 			//bind the argument to its associated symbol
-			if(nl_bind(arg_syms->d.pair.f,arg_vals->d.pair.f,apply_env)){
-//				arg_syms->d.pair.f->ref++;
-//				arg_vals->d.pair.f->ref++;
+			if(!nl_bind(arg_syms->d.pair.f,arg_vals->d.pair.f,apply_env)){
+				fprintf(stderr,"Err: could not bind arguments to application environment (call stack)\n");
 			}
 			
 			arg_syms=arg_syms->d.pair.r;
@@ -442,9 +463,13 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 		nl_val *to_eval=NULL;
 		while((body!=NULL) && (body->t==PAIR)){
 			//TODO: make a copy so as not to ever change the actual subroutine body statements themselves
-//			to_eval=nl_val_cp(body->d.pair.f);
-			to_eval=body->d.pair.f;
+			to_eval=nl_val_cp(body->d.pair.f);
+			//increment the references because this (to_eval) is a new reference and nl_eval will free it before we can if it's self-evaluating
 			to_eval->ref++;
+			
+			//this doesn't work because it'll substitute results in as body statements and fail on recursion or later calls
+//			to_eval=body->d.pair.f;
+//			to_eval->ref++;
 			
 /*
 #ifdef _DEBUG
@@ -460,7 +485,6 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 			
 			//always set this to ret, so ret ends up with the last-evaluated thing
 			ret=nl_eval(to_eval,apply_env);
-//			nl_val_free(to_eval);
 			
 #ifdef _DEBUG
 			printf("nl_apply debug 4, got result ");
@@ -472,32 +496,20 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 			}
 #endif
 			
-			//if this expression was self-evaluating
-			if(to_eval==ret){
-				//clean up
-				nl_val_free(to_eval);
-			//otherwise the eval call already cleaned up to_eval for us
-			}else{
-				//TODO: change this to support return statements (a last-statement thing or whatever)
-				//if we're not going to return this then we need to free the result since it will be unused
-				if(body->d.pair.r!=NULL){
-					nl_val_free(ret);
-					ret=NULL;
-				}
+			//clean up our original expression (it got an extra reference if it was self-evaluating)
+			nl_val_free(to_eval);
+			
+			//TODO: change this to support return statements (a last-statement argument or whatever)
+			//if we're not going to return this then we need to free the result since it will be unused
+			if(body->d.pair.r!=NULL){
+				nl_val_free(ret);
+				ret=NULL;
 			}
 			
 /*
 #ifdef _DEBUG
-			printf("nl_apply debug 5, after evaluation and cleanup to_eval is ");
-			nl_out(stdout,to_eval);
-			if(to_eval!=NULL){
-				printf(" with %u references\n",to_eval->ref);
-			}else{
-				printf("\n");
-			}
-			
 			if(ret!=NULL){
-				printf("nl_apply debug 5.1, after evaluation and cleanup ret is ");
+				printf("nl_apply debug 5, after evaluation and cleanup ret is ");
 				nl_out(stdout,ret);
 				if(ret!=NULL){
 					printf(" with %u references\n",ret->ref);
@@ -512,10 +524,6 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 			body=body->d.pair.r;
 		}
 		
-		//if we're returning a self-evaluating expression then we need another reference
-		if((ret!=NULL) && (to_eval==ret)){
-			ret->ref++;
-		}
 /*
 #ifdef _DEBUG
 		printf("nl_apply debug 6, returning ret ");
@@ -575,7 +583,11 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 	
 	//check if the condition is true
 	if((cond!=NULL) && (((cond->t==BYTE) && (cond->d.byte.v!=0)) || ((cond->t==NUM) && (cond->d.num.n!=0)))){
+/*
+#ifdef _DEBUG
 		printf("nl_eval_if debug 0, hitting true case...\n");
+#endif
+*/
 		
 		//advance past the condition itself
 		arguments=arguments->d.pair.r;
@@ -584,9 +596,11 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 		while((arguments!=NULL) && (arguments->t==PAIR)){
 			//if we hit an else statement then break out (skipping over false case)
 			if((arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
+/*
 #ifdef _DEBUG
 				printf("nl_eval_if debug 1, stopping at else statement...\n");
 #endif
+*/
 				break;
 			}
 			
@@ -599,18 +613,22 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 			tmp_result->ref++;
 		}
 		
+/*
 #ifdef _DEBUG
 		printf("nl_eval_if debug 2, got a result of ");
 		nl_out(stdout,tmp_result);
 		printf("\n");
 #endif
+*/
 		
 		//when we're done with the list then break out
 		ret=tmp_result;
 	}else if(cond!=NULL){
+/*
 #ifdef _DEBUG
 		printf("nl_eval_if debug 3, hitting false case...\n");
 #endif
+*/
 		
 		//false eval
 		
@@ -653,11 +671,13 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env){
 nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	nl_val *ret=NULL;
 
+/*
 #ifdef _DEBUG
 	printf("nl_eval_sub debug 0, got arguments ");
 	nl_out(stdout,arguments);
 	printf("\n");
 #endif
+*/
 	
 	//invalid syntax case
 	if(!((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==PAIR))){
@@ -983,7 +1003,9 @@ nl_val *nl_read_num(FILE *fp){
 	}
 	
 	if(ret->d.num.d==0){
-		fprintf(stderr,"Warn: divide-by-0 in rational number; did you forget a denominator?\n");
+		fprintf(stderr,"Err: divide-by-0 in rational number; did you forget a denominator?\n");
+		nl_val_free(ret);
+		ret=NULL;
 	}else{
 		//gcd reduce the number for faster computation
 		nl_gcd_reduce(ret);
@@ -1076,18 +1098,9 @@ nl_val *nl_read_exp_list(FILE *fp){
 	return ret;
 }
 
-//TODO: read an evaluation
-
 //read a symbol (just a string with a wrapper) (with a rapper? drop them beats man)
 nl_val *nl_read_symbol(FILE *fp){
 	nl_val *ret=NULL;
-	
-//	char c=getc(fp);
-//	if(!isalpha(c)){
-//		fprintf(stderr,"Err: symbol didn't start with alpha; WHAT DID YOU DO? (started with \'%c\')\n",c);
-//		return ret;
-//	}
-//	ungetc(c,fp);
 	
 	char c;
 	
@@ -1184,6 +1197,7 @@ nl_val *nl_read_exp(FILE *fp){
 		ret=nl_read_exp(fp);
 	//if it starts with a $ read an evaluation (a symbol to be looked up)
 	}else if(c=='$'){
+		//read an evaluation
 		ret=nl_val_malloc(EVALUATION);
 		nl_val *symbol=nl_read_symbol(fp);
 		
@@ -1199,8 +1213,6 @@ nl_val *nl_read_exp(FILE *fp){
 			nl_val_free(ret);
 			ret=NULL;
 		}
-	//if it starts with a letter read a symbol
-//	}else if(isalpha(c)){
 	//if it starts with anything not already handled read a symbol
 	}else{
 		ungetc(c,fp);
@@ -1209,10 +1221,7 @@ nl_val *nl_read_exp(FILE *fp){
 //		fprintf(stderr,"Err: invalid symbol at start of expression, \'%c\' (will start reading next expression)\n",c);
 	}
 	
-	//ignore everything until the next whitespace
-//	while(!nl_is_whitespace(c)){
-//		c=getc(fp);
-//	}
+	//NOTE: whitespace is discarded before we try to read the next expression
 	
 	return ret;
 }
@@ -1300,10 +1309,15 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	nl_bind_new(nl_sym_from_c_str("+"),nl_primitive_wrap(nl_add),env);
 	nl_bind_new(nl_sym_from_c_str("-"),nl_primitive_wrap(nl_sub),env);
-/*
 	nl_bind_new(nl_sym_from_c_str("*"),nl_primitive_wrap(nl_mul),env);
+/*
 	nl_bind_new(nl_sym_from_c_str("/"),nl_primitive_wrap(nl_div),env);
 	nl_bind_new(nl_sym_from_c_str("%"),nl_primitive_wrap(nl_mod),env);
+*/
+	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_eq),env);
+	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_gt),env);
+	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_lt),env);
+/*
 	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_ar_concat),env);
 */
 }

@@ -175,7 +175,7 @@ $if_check
 		"hehe"
 	)
 	(return 1)
-	13
+	"abc"
 ))
 $a-test-sub
 
@@ -185,6 +185,7 @@ $a-test-sub
 ((sub () 5 -1) 6 7 8)
 
 ($a-test-sub "muhahahahaha")
+
 
 (let complex-test (sub (y)
 	(+ 1 2)
@@ -196,6 +197,7 @@ $complex-test
 (let return-value ($complex-test 1))
 $return-value
 
+
 ((sub (x) $x) -3)
 ((sub (x y z) "asdf" (+ 4 5) -2) -4 -5 -6)
 
@@ -205,8 +207,53 @@ $return-value
 
 ((sub (x) (- $x 5)) 7)
 
-
 // END sub statement testing ------------------------------------------------------------------------------
+
+//BEGIN recursion testing ---------------------------------------------------------------------------------
+
+//simple recursively-defined iteration
+(let a-loop (sub (start max)
+	(if (< $start $max)
+		($a-loop (+ $start 1) $max)
+	else
+		$max
+	)
+))
+
+($a-loop 1 5)
+
+
+
+//recursive naive fibonacci sequence calculation
+(let fib (sub (n)
+	(if (> $n 1)
+		(+ ($fib (- $n 2)) ($fib (- $n 1)))
+	else
+		1
+	)
+))
+
+($fib 1)
+($fib 2)
+($fib 5)
+
+//tail-recursive naive factorial calculation
+(let ! (sub (n)
+	(let iter-fact (sub (a n acc)
+		(if (< $a $n)
+			($iter-fact (+ $a 1) $n (* $acc $a))
+		else
+			(* $acc $a)
+		)
+	))
+	($iter-fact 1 $n 1)
+))
+
+($! 5)
+		
+
+
+//END recursion testing -----------------------------------------------------------------------------------
 
 // EXIT
 (exit)

@@ -2,6 +2,14 @@
 #ifndef _NL_STRUCTURES
 #define _NL_STRUCTURES
 
+//BEGIN GLOBAL CONSTANTS ------------------------------------------------------------------------------------------
+
+#define VERSION "0.1.0"
+#define TRUE 1
+#define FALSE 0
+
+//END GLOBAL CONSTANTS --------------------------------------------------------------------------------------------
+
 //BEGIN DATA STRUCTURES -------------------------------------------------------------------------------------------
 
 //primitive data types; the user should be able to abstract these with a struct
@@ -243,11 +251,33 @@ void nl_array_ins(nl_val *a, nl_val *v, nl_val *index);
 //remove a value from an array, resizing if needed
 void nl_array_rm(nl_val *a, nl_val *index);
 
+//returns the length of a singly-linked list
+//note that cyclic lists are infinite and this will never terminate on them
+int nl_list_len(nl_val *list);
+
+//returns the list element at the given index (we use 0-indexing)
+nl_val *nl_list_idx(nl_val *list, nl_val *idx);
+
 //add a list of (rational) numbers
 nl_val *nl_add(nl_val *num_list);
 
 //subtract a list of (rational) numbers
 nl_val *nl_sub(nl_val *num_list);
+
+//multiply a list of (rational) numbers
+nl_val *nl_mul(nl_val *num_list);
+
+//numeric equality operator =
+//TWO ARGUMENTS ONLY!
+nl_val *nl_eq(nl_val *val_list);
+
+//numeric gt operator >
+//if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
+nl_val *nl_gt(nl_val *val_list);
+
+//numeric lt operator <
+//if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
+nl_val *nl_lt(nl_val *val_list);
 
 //END NL DECLARATIONS ---------------------------------------------------------------------------------------------
 
