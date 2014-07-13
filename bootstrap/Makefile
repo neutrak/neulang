@@ -1,8 +1,8 @@
 all:
-	gcc -o bootstrap-nl *.c -Wall
+	./compile_bootstrap_nl.sh
 
 debug:
-	gcc -o bootstrap-nl *.c -Wall -D _DEBUG
+	./compile_bootstrap_nl.sh -D _DEBUG
 
 clean:
 	rm bootstrap-nl *.o
