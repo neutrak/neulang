@@ -251,7 +251,15 @@ $return-value
 
 ($! 20)
 		
+(let iter-loop (sub (min max)
+	(if (< $min $max)
+		($iter-loop (+ 1 $min) $max)
+	else
+		$max
+	)
+))
 
+($iter-loop 4 8)
 
 //END recursion testing -----------------------------------------------------------------------------------
 

@@ -179,19 +179,21 @@ nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
 void nl_eval_elements(nl_val *list, nl_env_frame *env);
 
 //apply a given subroutine to its arguments
-nl_val *nl_apply(nl_val *sub, nl_val *arguments);
+//last_exp is set if we are currently executing the last expression of a body block, and can therefore re-use an existing application environment
+nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_exp);
 
 //evaluate an if statement with the given arguments
-nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env);
+nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp);
 
 //evaluate a sub statement with the given arguments
 nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env);
 
+//proper evaluation of keywords!
 //evaluate a keyword expression (or primitive function, if keyword isn't found)
-nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env);
+nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp);
 
 //evaluate the given expression in the given environment
-nl_val *nl_eval(nl_val *exp, nl_env_frame *env);
+nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp);
 
 //check if a givne character counts as whitespace in neulang
 char nl_is_whitespace(char c);
@@ -219,6 +221,12 @@ nl_val *nl_read_exp(FILE *fp);
 
 //output a neulang value
 void nl_out(FILE *fp, nl_val *exp);
+
+//create global symbol data so it's not constantly being re-allocated (which is slow and unnecessary)
+void nl_keyword_malloc();
+
+//free global symbol data for clean exit
+void nl_keyword_free();
 
 //bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
 void nl_bind_new(nl_val *symbol, nl_val *value, nl_env_frame *env);
