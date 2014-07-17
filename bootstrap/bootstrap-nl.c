@@ -89,16 +89,17 @@ nl_val *nl_val_malloc(nl_type t){
 
 //NOTE: reference decrementing is handled here as well
 //free a value; this recursively frees complex data types
-void nl_val_free(nl_val *exp){
+//returns TRUE if successful, FALSE if there are still references
+char nl_val_free(nl_val *exp){
 	if(exp==NULL){
-		return;
+		return TRUE;
 	}
 	
 	//decrease references on this object
 	exp->ref--;
 	//if there are still references left then don't free it quite yet
 	if(exp->ref>0){
-		return;
+		return FALSE;
 	}
 	
 #ifdef _DEBUG
@@ -151,6 +152,7 @@ void nl_val_free(nl_val *exp){
 	}
 	
 	free(exp);
+	return TRUE;
 }
 
 //copy a value data-wise into new memory, without changing the original
@@ -420,6 +422,8 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 	}
 }
 
+//TODO: change this to support return statements (maybe last_exp can just force a tailcall behavior?)
+
 //apply a given subroutine to its arguments
 //last_exp is set if we are currently executing the last expression of a body block, and can therefore re-use an existing application environment
 nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_exp){
@@ -528,6 +532,8 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 			}
 #endif
 */
+			//TODO: fix tailcalls; so what happens is we go off to eval and on a tailcall we re-copy the expression to evaluate which makes us super memory-hungry
+			//in order to fix that we need to free our copy BEFORE calling apply out again; rather than freeing it after eval in this function, it needs to be free'd in eval somewhere before that call in the last_exp case
 			
 			//always set this to ret, so ret ends up with the last-evaluated thing
 			ret=nl_eval(to_eval,apply_env,on_last_exp);
@@ -545,9 +551,12 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 			//clean up our original expression (it got an extra reference if it was self-evaluating)
 			nl_val_free(to_eval);
 			
-			//TODO: change this to support return statements (a last-statement argument or whatever)
-			//if we're not going to return this then we need to free the result since it will be unused
-			if(body->d.pair.r!=NULL){
+			//if we were in a tailcall then the eval call already cleaned it up; DON'T clean it up again
+			if(!on_last_exp){
+				//clean up our original expression (it got an extra reference if it was self-evaluating)
+//				nl_val_free(to_eval);
+				
+				//if we're not going to return this then we need to free the result since it will be unused
 				nl_val_free(ret);
 				ret=NULL;
 			}
@@ -650,7 +659,15 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 				break;
 			}
 			
-			tmp_result=nl_eval(arguments->d.pair.f,env,last_exp);
+			nl_val *next_exp=arguments->d.pair.r;
+			//on the last expression pass last_exp through
+			//an else case also counts as the end of expressions, since we don't execute after that
+			if((next_exp==NULL) || (nl_val_cmp(next_exp->d.pair.f,else_keyword)==0)){
+				tmp_result=nl_eval(arguments->d.pair.f,env,last_exp);
+			//otherwise it's not the last expression (we might still need the old env, for old argument values)
+			}else{
+				tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
+			}
 			arguments->d.pair.f=tmp_result;
 			arguments=arguments->d.pair.r;
 		}
@@ -693,7 +710,13 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 		if((arguments!=NULL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
 			//evaluate false case
 			while((arguments!=NULL) && (arguments->t==PAIR)){
-				tmp_result=nl_eval(arguments->d.pair.f,env,last_exp);
+				//on the last expression pass last_exp through
+				if(arguments->d.pair.r==NULL){
+					tmp_result=nl_eval(arguments->d.pair.f,env,last_exp);
+				//otherwise it's not the last expression (we might still need the old env, for old argument values)
+				}else{
+					tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
+				}
 				arguments->d.pair.f=tmp_result;
 				arguments=arguments->d.pair.r;
 			}
@@ -896,6 +919,16 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp){
 				//do eager evaluation on arguments
 				nl_eval_elements(exp->d.pair.r,env);
 				
+				//if we were on the last expression then free it so the calling environment doesn't have to
+/*
+				if(last_exp){
+					if(exp->d.pair.r!=NULL){
+						exp->d.pair.r->ref++;
+					}
+					nl_val_free(exp);
+				}
+*/
+				
 				//call out to apply; this will run through the body (in the case of a closure)
 				ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
 #ifdef _DEBUG
@@ -931,6 +964,12 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp){
 	
 	//free the original expression (if it was self-evaluating it got a reference increment earlier so this is okay)
 	nl_val_free(exp);
+
+/*
+#ifdef _DEBUG
+	printf("nl_eval debug 1, returning from eval...\n");
+#endif
+*/
 	
 	//return the result of evaluation
 	return ret;

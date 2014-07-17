@@ -145,7 +145,8 @@ nl_val *nl_val_malloc(nl_type t);
 
 //NOTE: reference decrementing is handled here as well
 //free a value; this recursively frees complex data types
-void nl_val_free(nl_val *exp);
+//returns TRUE if successful, FALSE if there are still references
+char nl_val_free(nl_val *exp);
 
 //copy a value data-wise into new memory, without changing the original
 nl_val *nl_val_cp(nl_val *v);

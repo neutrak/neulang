@@ -261,6 +261,21 @@ $return-value
 
 ($iter-loop 4 8)
 
+//a "dumb loop" to ensure that non-tailcall behavior is still handled accurately
+//(this should return the FIRST argument given, even though it may recurse many times to figure that out)
+//this is written in the alternate neulang syntax just to demonstrate that it works; in practice you should use one or the other, never mix them
+let(dumb-loop sub((min max)
+	if(<($min $max)
+		$dumb-loop(+(1 $min) $max)
+	else
+		$max
+	)
+	$min
+))
+
+//EXPECT: 5
+$dumb-loop(+(4 1) 10)
+
 //END recursion testing -----------------------------------------------------------------------------------
 
 // EXIT
