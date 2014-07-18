@@ -179,6 +179,13 @@ nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
 //evaluate all the elements in a list, replacing them with their evaluations
 void nl_eval_elements(nl_val *list, nl_env_frame *env);
 
+//evaluate the list of values in order, returning the evaluation of the last statement only
+nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env);
+
+//bind all the symbols to corresponding values in the given environment
+//returns TRUE on success, FALSE on failure
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env);
+
 //apply a given subroutine to its arguments
 //last_exp is set if we are currently executing the last expression of a body block, and can therefore re-use an existing application environment
 nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_exp);
@@ -260,6 +267,9 @@ void nl_array_ins(nl_val *a, nl_val *v, nl_val *index);
 //remove a value from an array, resizing if needed
 void nl_array_rm(nl_val *a, nl_val *index);
 
+//concatenate all the given arrays (a list) into one new larger array
+nl_val *nl_array_cat(nl_val *array_list);
+
 //returns the length of a singly-linked list
 //note that cyclic lists are infinite and this will never terminate on them
 int nl_list_len(nl_val *list);
@@ -275,6 +285,9 @@ nl_val *nl_sub(nl_val *num_list);
 
 //multiply a list of (rational) numbers
 nl_val *nl_mul(nl_val *num_list);
+
+//divide a list of (rational) numbers
+nl_val *nl_div(nl_val *num_list);
 
 //numeric equality operator =
 //TWO ARGUMENTS ONLY!

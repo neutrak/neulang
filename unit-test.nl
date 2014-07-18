@@ -222,8 +222,6 @@ $return-value
 
 ($a-loop 1 5)
 
-
-
 //recursive naive fibonacci sequence calculation
 (let fib (sub (n)
 	(if (> $n 1)
@@ -259,7 +257,7 @@ $return-value
 	)
 ))
 
-($iter-loop 4 8)
+($iter-loop 4 16)
 
 //a "dumb loop" to ensure that non-tailcall behavior is still handled accurately
 //(this should return the FIRST argument given, even though it may recurse many times to figure that out)

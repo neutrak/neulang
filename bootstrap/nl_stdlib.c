@@ -223,6 +223,33 @@ void nl_array_rm(nl_val *a, nl_val *index){
 	
 }
 
+//concatenate all the given arrays (a list) into one new larger array
+nl_val *nl_array_cat(nl_val *array_list){
+	nl_val *acc=nl_val_malloc(ARRAY);
+	
+	while((array_list!=NULL) && (array_list->d.pair.f->t==ARRAY)){
+		
+		//we got an array, so add it to the accumulator
+		nl_val *current_array=array_list->d.pair.f;
+		
+		//push copies of each element into the larger accumulator
+		int n;
+		for(n=0;n<current_array->d.array.size;n++){
+			nl_array_push(acc,nl_val_cp(current_array->d.array.v[n]));
+		}
+		
+		array_list=array_list->d.pair.r;
+	}
+	
+	if(array_list!=NULL){
+		fprintf(stderr,"Err: got a non-array value in array concatenation operation; value was ");
+		nl_out(stderr,array_list->d.pair.f);
+		fprintf(stderr,"\n");
+	}
+	
+	return acc;
+}
+
 //END C-NL-STDLIB-ARRAY SUBROUTINES  ------------------------------------------------------------------------------
 
 //BEGIN C-NL-STDLIB-LIST SUBROUTINES  -----------------------------------------------------------------------------
@@ -376,8 +403,50 @@ nl_val *nl_mul(nl_val *num_list){
 		nl_val *current_num=num_list->d.pair.f;
 		
 		//okay, now add this number to the accumulator
-		long long int numerator=((acc->d.num.n)*(current_num->d.num.d))*((current_num->d.num.n)*(acc->d.num.d));
+		long long int numerator=((acc->d.num.n)*(current_num->d.num.n));
 		long long int denominator=(acc->d.num.d)*(current_num->d.num.d);
+		
+		acc->d.num.n=numerator;
+		acc->d.num.d=denominator;
+		
+		//and reduce to make later operations simpler
+		nl_gcd_reduce(acc);
+		
+		num_list=num_list->d.pair.r;
+	}
+	//if we got here and didn't return, then we have a success and the accumulator stored the result!
+	return acc;
+}
+
+//divide a list of (rational) numbers
+nl_val *nl_div(nl_val *num_list){
+	nl_val *acc=NULL;
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+		acc=nl_val_cp(num_list->d.pair.f);
+		num_list=num_list->d.pair.r;
+	}else{
+		fprintf(stderr,"Err: incorrect use of mul operation (null list or incorrect type in first operand)\n");
+		return NULL;
+	}
+	
+	while((num_list!=NULL) && (num_list->t==PAIR)){
+		//TODO: should null elements make the whole result null? (acting as NaN)
+		//ignore null elements
+		if(num_list->d.pair.f==NULL){
+			continue;
+		}
+		
+		//error on non-numbers
+		if(num_list->d.pair.f->t!=NUM){
+			fprintf(stderr,"Err: non-number given to mul operation, returning NULL from mul\n");
+			nl_val_free(acc);
+			return NULL;
+		}
+		nl_val *current_num=num_list->d.pair.f;
+		
+		//okay, now add this number to the accumulator
+		long long int numerator=((acc->d.num.n)*(current_num->d.num.d));
+		long long int denominator=(acc->d.num.d)*(current_num->d.num.n);
 		
 		acc->d.num.n=numerator;
 		acc->d.num.d=denominator;

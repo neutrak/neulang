@@ -27,6 +27,7 @@ nl_val *exit_keyword;
 nl_val *lit_keyword;
 nl_val *let_keyword;
 nl_val *sub_keyword;
+nl_val *begin_keyword;
 
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
@@ -251,12 +252,14 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	if(env==NULL){
 		fprintf(stderr,"Err: cannot bind to a null environment\n");
 		return FALSE;
+/*
 #ifdef _DEBUG
 	}else if(env->rw==FALSE){
 		printf("nl_bind debug 0, got a read-only environment while binding symbol ");
 		nl_out(stdout,symbol);
 		printf("...\n");
 #endif
+*/
 	}
 	
 	if(symbol==NULL){
@@ -422,6 +425,86 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 	}
 }
 
+//evaluate the list of values in order, returning the evaluation of the last statement only
+nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
+	nl_val *ret=NULL;
+	
+	//whether or not this is the last statement in the body
+	char on_last_exp=FALSE;
+	
+	nl_val *to_eval=NULL;
+	while((body!=NULL) && (body->t==PAIR)){
+		//if the next statement is the last, set that for the next loop iteration
+		if(body->d.pair.r==NULL){
+			on_last_exp=TRUE;
+		}
+		
+		// make a copy so as not to ever change the actual subroutine body statements themselves
+		to_eval=nl_val_cp(body->d.pair.f);
+		//increment the references because this (to_eval) is a new reference and nl_eval will free it before we can if it's self-evaluating
+		to_eval->ref++;
+		
+		//this doesn't work because it'll substitute results in as body statements and fail on recursion or later calls
+//		to_eval=body->d.pair.f;
+//		to_eval->ref++;
+		
+		//TODO: fix tailcalls; so what happens is we go off to eval and on a tailcall we re-copy the expression to evaluate which makes us super memory-hungry
+		//in order to fix that we need to free our copy BEFORE calling apply out again; rather than freeing it after eval in this function, it needs to be free'd in eval somewhere before that call in the last_exp case
+		
+		//always set this to ret, so ret ends up with the last-evaluated thing
+		ret=nl_eval(to_eval,env,on_last_exp);
+		
+/*
+#ifdef _DEBUG
+		printf("nl_apply debug 4, got result ");
+		nl_out(stdout,ret);
+		if(ret!=NULL){
+			printf(" with %u references\n",ret->ref);
+		}else{
+			printf("\n");
+		}
+#endif
+*/
+		
+		//clean up our original expression (it got an extra reference if it was self-evaluating)
+		nl_val_free(to_eval);
+		
+		//if we were in a tailcall then the eval call already cleaned it up; DON'T clean it up again
+		if(!on_last_exp){
+			//clean up our original expression (it got an extra reference if it was self-evaluating)
+//			nl_val_free(to_eval);
+			
+			//if we're not going to return this then we need to free the result since it will be unused
+			nl_val_free(ret);
+			ret=NULL;
+		}
+		
+		//go to the next body statement and eval again!
+		body=body->d.pair.r;
+	}
+	return ret;
+}
+
+//bind all the symbols to corresponding values in the given environment
+//returns TRUE on success, FALSE on failure
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env){
+	while((symbols!=NULL) && (symbols->t==PAIR) && (values!=NULL) && (values->t==PAIR)){
+		//bind the argument to its associated symbol
+		if(!nl_bind(symbols->d.pair.f,values->d.pair.f,env)){
+			return FALSE;
+		}
+		
+		symbols=symbols->d.pair.r;
+		values=values->d.pair.r;
+	}
+	
+	//if there weren't as many of one list as the other then return with error
+	if((symbols!=NULL) || (values!=NULL)){
+		return FALSE;
+	}
+	return TRUE;
+}
+
 //TODO: change this to support return statements (maybe last_exp can just force a tailcall behavior?)
 
 //apply a given subroutine to its arguments
@@ -429,15 +512,6 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_exp){
 	nl_val *ret=NULL;
 	
-/*
-#ifdef _DEBUG
-	printf("nl_apply debug 0, trying to apply ");
-	nl_out(stdout,sub);
-	printf(" to arguments ");
-	nl_out(stdout,arguments);
-	printf(" ...\n");
-#endif
-*/
 	if(!(sub!=NULL && (sub->t==PRI || sub->t==SUB))){
 		if(sub==NULL){
 			fprintf(stderr,"Err: cannot apply NULL!!!\n");
@@ -445,12 +519,6 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 			fprintf(stderr,"Err: invalid type given to apply, expected subroutine or primitve procedure, got %i\n",sub->t);
 		}
 		return NULL;
-/*
-#ifdef _DEBUG
-	}else{
-		printf("nl_apply debug 1, got a primitive or closure, continuing on\n");
-#endif
-*/
 	}
 	
 	//for primitive procedures just call out to the c function
@@ -461,6 +529,8 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		//TODO: re-use the old env if last_statement is true; that's how we'll do TCO
 		//create an apply environment with an up_scope of the closure environment
 		nl_env_frame *apply_env;
+		
+		//TODO: change this whole thing; we're handling tailcalls differently now (in eval with eval_sequence)
 		if(!last_exp){
 			apply_env=nl_env_frame_malloc(sub->d.sub.env);
 		}else{
@@ -474,111 +544,17 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		
 		nl_val *arg_syms=sub->d.sub.args;
 		nl_val *arg_vals=arguments;
-		while((arg_syms!=NULL) && (arg_syms->t==PAIR) && (arg_vals!=NULL) && (arg_vals->t==PAIR)){
-			//bind the argument to its associated symbol
-			if(!nl_bind(arg_syms->d.pair.f,arg_vals->d.pair.f,apply_env)){
-				fprintf(stderr,"Err: could not bind arguments to application environment (call stack)\n");
-			}
-			
-			arg_syms=arg_syms->d.pair.r;
-			arg_vals=arg_vals->d.pair.r;
+		if(!nl_bind_list(arg_syms,arg_vals,apply_env)){
+			fprintf(stderr,"Err: could not bind arguments to application environment (call stack)\n");
 		}
 		//set the apply env read-only so any new vars go into the closure env
 		apply_env->rw=FALSE;
-		
-/*
-#ifdef _DEBUG
-		printf("nl_apply debug 2, bound args, going into evaluation...\n");
-#endif
-*/
-		//whether or not this is the last statement in the body
-		char on_last_exp=FALSE;
 		
 		//TODO: handle return and recur keywords correctly in here somewhere/somehow
 		
 		//now evaluate the body in the application env
 		nl_val *body=sub->d.sub.body;
-		nl_val *to_eval=NULL;
-		while((body!=NULL) && (body->t==PAIR)){
-			//if the next statement is the last, set that for the next loop iteration
-			if(body->d.pair.r==NULL){
-/*
-#ifdef _DEBUG
-				printf("nl_apply debug 2.5; last expression is ");
-				nl_out(stdout,body->d.pair.f);
-				printf("\n");
-#endif
-*/
-				on_last_exp=TRUE;
-			}
-			
-			// make a copy so as not to ever change the actual subroutine body statements themselves
-			to_eval=nl_val_cp(body->d.pair.f);
-			//increment the references because this (to_eval) is a new reference and nl_eval will free it before we can if it's self-evaluating
-			to_eval->ref++;
-			
-			//this doesn't work because it'll substitute results in as body statements and fail on recursion or later calls
-//			to_eval=body->d.pair.f;
-//			to_eval->ref++;
-			
-/*
-#ifdef _DEBUG
-			printf("nl_apply debug 3, evaluating ");
-			nl_out(stdout,to_eval);
-			if(to_eval!=NULL){
-				printf(" with %u references\n",to_eval->ref);
-			}else{
-				printf("\n");
-			}
-#endif
-*/
-			//TODO: fix tailcalls; so what happens is we go off to eval and on a tailcall we re-copy the expression to evaluate which makes us super memory-hungry
-			//in order to fix that we need to free our copy BEFORE calling apply out again; rather than freeing it after eval in this function, it needs to be free'd in eval somewhere before that call in the last_exp case
-			
-			//always set this to ret, so ret ends up with the last-evaluated thing
-			ret=nl_eval(to_eval,apply_env,on_last_exp);
-			
-#ifdef _DEBUG
-			printf("nl_apply debug 4, got result ");
-			nl_out(stdout,ret);
-			if(ret!=NULL){
-				printf(" with %u references\n",ret->ref);
-			}else{
-				printf("\n");
-			}
-#endif
-			
-			//clean up our original expression (it got an extra reference if it was self-evaluating)
-			nl_val_free(to_eval);
-			
-			//if we were in a tailcall then the eval call already cleaned it up; DON'T clean it up again
-			if(!on_last_exp){
-				//clean up our original expression (it got an extra reference if it was self-evaluating)
-//				nl_val_free(to_eval);
-				
-				//if we're not going to return this then we need to free the result since it will be unused
-				nl_val_free(ret);
-				ret=NULL;
-			}
-			
-/*
-#ifdef _DEBUG
-			if(ret!=NULL){
-				printf("nl_apply debug 5, after evaluation and cleanup ret is ");
-				nl_out(stdout,ret);
-				if(ret!=NULL){
-					printf(" with %u references\n",ret->ref);
-				}else{
-					printf("\n");
-				}
-			}
-#endif
-*/
-			
-			//go to the next body statement and eval again!
-			body=body->d.pair.r;
-		}
-		
+		ret=nl_eval_sequence(body,apply_env);	
 /*
 #ifdef _DEBUG
 		printf("nl_apply debug 6, returning ret ");
@@ -638,11 +614,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 	
 	//check if the condition is true
 	if((cond!=NULL) && (((cond->t==BYTE) && (cond->d.byte.v!=0)) || ((cond->t==NUM) && (cond->d.num.n!=0)))){
-/*
-#ifdef _DEBUG
-		printf("nl_eval_if debug 0, hitting true case...\n");
-#endif
-*/
 		
 		//advance past the condition itself
 		arguments=arguments->d.pair.r;
@@ -651,11 +622,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 		while((arguments!=NULL) && (arguments->t==PAIR)){
 			//if we hit an else statement then break out (skipping over false case)
 			if((arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
-/*
-#ifdef _DEBUG
-				printf("nl_eval_if debug 1, stopping at else statement...\n");
-#endif
-*/
 				break;
 			}
 			
@@ -676,23 +642,9 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 			tmp_result->ref++;
 		}
 		
-/*
-#ifdef _DEBUG
-		printf("nl_eval_if debug 2, got a result of ");
-		nl_out(stdout,tmp_result);
-		printf("\n");
-#endif
-*/
-		
 		//when we're done with the list then break out
 		ret=tmp_result;
 	}else if(cond!=NULL){
-/*
-#ifdef _DEBUG
-		printf("nl_eval_if debug 3, hitting false case...\n");
-#endif
-*/
-		
 		//false eval
 		
 		//skip over true case
@@ -737,14 +689,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 //evaluate a sub statement with the given arguments
 nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	nl_val *ret=NULL;
-
-/*
-#ifdef _DEBUG
-	printf("nl_eval_sub debug 0, got arguments ");
-	nl_out(stdout,arguments);
-	printf("\n");
-#endif
-*/
 	
 	//invalid syntax case
 	if(!((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==PAIR))){
@@ -837,6 +781,10 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		//handle sub statements
 		ret=nl_eval_sub(arguments,env);
 		
+	//check for begin statements (executed in-order, returning only the last)
+	}else if(nl_val_cmp(keyword,begin_keyword)==0){
+		//handle begin statements
+		ret=nl_eval_sequence(arguments,env);
 	//TODO: check for all other keywords
 	}else{
 		//in the default case check for subroutines bound to this symbol
@@ -865,6 +813,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp){
 	nl_val *ret=NULL;
 	
+tailcall:
 	//null is self-evaluating
 	if(exp==NULL){
 		return exp;
@@ -929,13 +878,44 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp){
 				}
 */
 				
-				//call out to apply; this will run through the body (in the case of a closure)
-				ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
+				//if this is the last expression then it doesn't need any environment trickery and we can just execute the body directly
+				if((last_exp) && (sub->t==SUB)){
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
+						fprintf(stderr,"Err: could not bind arguments to application environment (call stack)\n");
+					}
+					
+					nl_val_free(exp);
+					nl_val_free(sub);
+					
+					exp=nl_val_malloc(PAIR);
+					exp->d.pair.f=nl_val_cp(begin_keyword);
+//					exp->d.pair.r=nl_val_cp(sub->d.sub.body);
+					exp->d.pair.r=sub->d.sub.body;
+					exp->d.pair.r->ref++;
+					
 #ifdef _DEBUG
-				printf("nl_eval debug 0, returned from apply with value ");
+					printf("nl_eval debug 0, executing tailcall via goto with ");
+					nl_env_frame *frame_iterator=env;
+					int n=0;
+					while(frame_iterator!=NULL){
+						frame_iterator=frame_iterator->up_scope;
+						n++;
+					}
+					printf("%i chained env frames\n",n);
+#endif
+					
+					goto tailcall;
+				}else{
+					//call out to apply; this will run through the body (in the case of a closure)
+					ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
+				}
+/*
+#ifdef _DEBUG
+				printf("nl_eval debug 1, returned from apply with value ");
 				nl_out(stdout,ret);
 				printf("\n");
 #endif
+*/
 				//clean up the evaluation of the first element; if we use it again we'll re-make it with another eval call
 				nl_val_free(sub);
 			//null lists are self-evaluating (the empty list)
@@ -1368,6 +1348,7 @@ void nl_keyword_malloc(){
 	lit_keyword=nl_sym_from_c_str("lit");
 	let_keyword=nl_sym_from_c_str("let");
 	sub_keyword=nl_sym_from_c_str("sub");
+	begin_keyword=nl_sym_from_c_str("begin");
 }
 
 //free global symbol data for clean exit
@@ -1382,6 +1363,7 @@ void nl_keyword_free(){
 	nl_val_free(lit_keyword);
 	nl_val_free(let_keyword);
 	nl_val_free(sub_keyword);
+	nl_val_free(begin_keyword);
 }
 
 //bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
@@ -1393,21 +1375,19 @@ void nl_bind_new(nl_val *symbol, nl_val *value, nl_env_frame *env){
 
 //bind all primitive subroutines in the given environment frame
 void nl_bind_stdlib(nl_env_frame *env){
-	//TODO: bind the standard library here
+	//bind the standard library here
 	
 	nl_bind_new(nl_sym_from_c_str("+"),nl_primitive_wrap(nl_add),env);
 	nl_bind_new(nl_sym_from_c_str("-"),nl_primitive_wrap(nl_sub),env);
 	nl_bind_new(nl_sym_from_c_str("*"),nl_primitive_wrap(nl_mul),env);
-/*
 	nl_bind_new(nl_sym_from_c_str("/"),nl_primitive_wrap(nl_div),env);
+/*
 	nl_bind_new(nl_sym_from_c_str("%"),nl_primitive_wrap(nl_mod),env);
 */
 	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_eq),env);
 	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_gt),env);
 	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_lt),env);
-/*
-	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_ar_concat),env);
-*/
+	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_array_cat),env);
 }
 
 //runtime!
