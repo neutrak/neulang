@@ -452,11 +452,11 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 		//in order to fix that we need to free our copy BEFORE calling apply out again; rather than freeing it after eval in this function, it needs to be free'd in eval somewhere before that call in the last_exp case
 		
 		//always set this to ret, so ret ends up with the last-evaluated thing
-		ret=nl_eval(to_eval,env,on_last_exp);
+//		ret=nl_eval(to_eval,env,on_last_exp);
 		
 /*
 #ifdef _DEBUG
-		printf("nl_apply debug 4, got result ");
+		printf("nl_eval_sequence debug 0, got result ");
 		nl_out(stdout,ret);
 		if(ret!=NULL){
 			printf(" with %u references\n",ret->ref);
@@ -467,16 +467,29 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 */
 		
 		//clean up our original expression (it got an extra reference if it was self-evaluating)
-		nl_val_free(to_eval);
+//		nl_val_free(to_eval);
 		
-		//if we were in a tailcall then the eval call already cleaned it up; DON'T clean it up again
+		//if we're not going into a tailcall then keep this expression around and free it when we're done
 		if(!on_last_exp){
+			//always set this to ret, so ret ends up with the last-evaluated thing
+			ret=nl_eval(to_eval,env,on_last_exp);
+			
 			//clean up our original expression (it got an extra reference if it was self-evaluating)
-//			nl_val_free(to_eval);
+			nl_val_free(to_eval);
 			
 			//if we're not going to return this then we need to free the result since it will be unused
 			nl_val_free(ret);
 			ret=NULL;
+		
+		//if we ARE going into a tailcall then clean up our extra references and return
+		}else{
+#ifdef _DEBUG
+			printf("nl_eval_sequence debug 1, tailcalling into nl_eval...\n");
+#endif
+			nl_val_free(to_eval);
+			
+			//NOTE: this depends on C's own TCO behavior and so requires compilation with -O3
+			return nl_eval(to_eval,env,on_last_exp);
 		}
 		
 		//go to the next body statement and eval again!
@@ -553,8 +566,9 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		//TODO: handle return and recur keywords correctly in here somewhere/somehow
 		
 		//now evaluate the body in the application env
-		nl_val *body=sub->d.sub.body;
-		ret=nl_eval_sequence(body,apply_env);	
+//		nl_val *body=sub->d.sub.body;
+//		ret=nl_eval_sequence(body,apply_env);
+
 /*
 #ifdef _DEBUG
 		printf("nl_apply debug 6, returning ret ");
@@ -570,7 +584,15 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		//now clean up the apply environment (call stack)
 		//if we re-used a previous call stack entry then don't free that here (it'll be free'd after returning from this)
 		if(!last_exp){
+			//now evaluate the body in the application env
+			nl_val *body=sub->d.sub.body;
+			ret=nl_eval_sequence(body,apply_env);
+			
 			nl_env_frame_free(apply_env);
+		//if we ARE the last expression, make a tailcall (this depends on C's own TCO (-O3))
+		}else{
+			nl_val *body=sub->d.sub.body;
+			return nl_eval_sequence(body,apply_env);
 		}
 /*
 #ifdef _DEBUG
@@ -784,7 +806,11 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 	//check for begin statements (executed in-order, returning only the last)
 	}else if(nl_val_cmp(keyword,begin_keyword)==0){
 		//handle begin statements
-		ret=nl_eval_sequence(arguments,env);
+//		ret=nl_eval_sequence(arguments,env);
+		
+		//NOTE: this is used for tailcalls and depends on C TCO (-O3)
+		nl_val_free(keyword_exp);
+		return nl_eval_sequence(arguments,env);
 	//TODO: check for all other keywords
 	}else{
 		//in the default case check for subroutines bound to this symbol
@@ -826,8 +852,9 @@ tailcall:
 		case ARRAY:
 		case PRI:
 		case SUB:
-			exp->ref++;
-			ret=exp;
+//			exp->ref++;
+//			ret=exp;
+			return exp;
 			break;
 		//symbols are generally self-evaluating
 		//in the case of primitive calls the pair evaluation checks for them as keywords, without calling out to eval
@@ -850,6 +877,8 @@ tailcall:
 					ret=exp;
 				}
 			}
+			nl_val_free(exp);
+			return ret;
 			break;
 		
 		//complex cases
@@ -857,8 +886,7 @@ tailcall:
 		case PAIR:
 			//make this check the first list entry, if it is a symbol then check it against keyword and primitive list
 			if((exp->d.pair.f!=NULL) && (exp->d.pair.f->t==SYMBOL)){
-				exp->ref++;
-				ret=nl_eval_keyword(exp,env,last_exp);
+				return nl_eval_keyword(exp,env,last_exp);
 			//otherwise eagerly evaluate then call out to apply
 			}else if(exp->d.pair.f!=NULL){
 				//evaluate the first element, the thing we're going to apply to the arguments
