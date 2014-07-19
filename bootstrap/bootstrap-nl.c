@@ -28,6 +28,7 @@ nl_val *lit_keyword;
 nl_val *let_keyword;
 nl_val *sub_keyword;
 nl_val *begin_keyword;
+nl_val *array_keyword;
 
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
@@ -789,9 +790,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			
 			//since what we just returned was a copy, the original won't be free'd by the calling code
 			//so we're one reference too high at the moment
-			if(bound_value!=NULL){
-				bound_value->ref--;
-			}
+			nl_val_free(bound_value);
 			
 			//null-out the list elements we got rid of
 			arguments->d.pair.r->d.pair.f=NULL;
@@ -811,6 +810,18 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		//NOTE: this is used for tailcalls and depends on C TCO (-O3)
 		nl_val_free(keyword_exp);
 		return nl_eval_sequence(arguments,env);
+	//check for array statements (turns the evaluated argument list into an array then returns that)
+	}else if(nl_val_cmp(keyword,array_keyword)==0){
+		//first evaluate arguements
+		nl_eval_elements(arguments,env);
+		
+		//throw them in an array to return
+		ret=nl_val_malloc(ARRAY);
+		while((arguments!=NULL) && (arguments->t==PAIR)){
+			nl_array_push(ret,nl_val_cp(arguments->d.pair.f));
+			
+			arguments=arguments->d.pair.r;
+		}
 	//TODO: check for all other keywords
 	}else{
 		//in the default case check for subroutines bound to this symbol
@@ -1377,6 +1388,7 @@ void nl_keyword_malloc(){
 	let_keyword=nl_sym_from_c_str("let");
 	sub_keyword=nl_sym_from_c_str("sub");
 	begin_keyword=nl_sym_from_c_str("begin");
+	array_keyword=nl_sym_from_c_str("array");
 }
 
 //free global symbol data for clean exit
@@ -1392,6 +1404,7 @@ void nl_keyword_free(){
 	nl_val_free(let_keyword);
 	nl_val_free(sub_keyword);
 	nl_val_free(begin_keyword);
+	nl_val_free(array_keyword);
 }
 
 //bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
@@ -1416,6 +1429,12 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_gt),env);
 	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_lt),env);
 	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_array_cat),env);
+	
+	nl_bind_new(nl_sym_from_c_str("ar-sz"),nl_primitive_wrap(nl_array_size),env);
+	
+	nl_bind_new(nl_sym_from_c_str("strout"),nl_primitive_wrap(nl_strout),env);
+	
+	nl_bind_new(nl_sym_from_c_str("int->byte"),nl_primitive_wrap(nl_int_to_byte),env);
 }
 
 //runtime!

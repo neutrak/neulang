@@ -276,6 +276,18 @@ $dumb-loop(+(4 1) 10)
 
 //END recursion testing -----------------------------------------------------------------------------------
 
+//BEGIN standard library testing --------------------------------------------------------------------------
+
+//make a newline from other primitives (this is how you can output arbitrary characters, remember quotes and newlines cannot be escaped in strings)
+(let newline (array (int->byte 10))) //\n
+(let quote (array (int->byte 39))) //'
+(let quotes (array (int->byte 34))) //"
+
+(strout "this is " "a test" "..." $newline)
+(strout (, "now with " "explicit concatenation" $newline))
+
+//END standard library testing ----------------------------------------------------------------------------
+
 // EXIT
 (exit)
 

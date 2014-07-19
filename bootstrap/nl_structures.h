@@ -255,6 +255,9 @@ void nl_gcd_reduce(nl_val *v);
 //this is value comparison, NOT pointer comparison
 int nl_val_cmp(const nl_val *v_a, const nl_val *v_b);
 
+//return a byte version of the given number constant, if possible
+nl_val *nl_int_to_byte(nl_val *num_list);
+
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v);
 
@@ -267,8 +270,16 @@ void nl_array_ins(nl_val *a, nl_val *v, nl_val *index);
 //remove a value from an array, resizing if needed
 void nl_array_rm(nl_val *a, nl_val *index);
 
+//return the size of the first argument
+//NOTE: subsequent arguments are IGNORED
+nl_val *nl_array_size(nl_val *array_list);
+
 //concatenate all the given arrays (a list) into one new larger array
 nl_val *nl_array_cat(nl_val *array_list);
+
+//output the given list of strings in sequence
+//returns NULL (a void function)
+nl_val *nl_strout(nl_val *array_list);
 
 //returns the length of a singly-linked list
 //note that cyclic lists are infinite and this will never terminate on them

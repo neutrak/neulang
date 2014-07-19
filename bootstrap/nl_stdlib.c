@@ -157,6 +157,33 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 	return 0;
 }
 
+//return a byte version of the given number constant, if possible
+nl_val *nl_int_to_byte(nl_val *num_list){
+	nl_val *ret=NULL;
+	
+	int arg_count=nl_list_len(num_list);
+	if(arg_count>=1){
+		if(num_list->d.pair.f->d.num.d==1){
+			if(num_list->d.pair.f->d.num.n<256){
+				ret=nl_val_malloc(BYTE);
+				ret->d.byte.v=num_list->d.pair.f->d.num.n;
+			}else{
+				fprintf(stderr,"Err: overflow in int_to_byte (given int can't fit in a byte), returning NULL\n");
+			}
+		}else{
+			fprintf(stderr,"Err: non-int value given to int_to_byte; type conversion nonsensical, returning NULL\n");
+		}
+		
+		if(arg_count>1){
+			fprintf(stderr,"Warn: too many arguments given to int_to_byte, ignoring all but the first...\n");
+		}
+	}else{
+		fprintf(stderr,"Err: no arguments given to int_to_byte, can't convert NULL! (returning NULL)\n");
+	}
+	
+	return ret;
+}
+
 //BEGIN C-NL-STDLIB-ARRAY SUBROUTINES  ----------------------------------------------------------------------------
 
 //TODO: write all array library functions
@@ -223,6 +250,24 @@ void nl_array_rm(nl_val *a, nl_val *index){
 	
 }
 
+//return the size of the first argument
+//NOTE: subsequent arguments are IGNORED
+nl_val *nl_array_size(nl_val *array_list){
+	nl_val *acc=NULL;
+	if((array_list!=NULL) && (array_list->t==PAIR)){
+		acc=nl_val_malloc(NUM);
+		acc->d.num.d=1;
+		acc->d.num.n=array_list->d.pair.f->d.array.size;
+		
+		if(array_list->d.pair.r!=NULL){
+			fprintf(stderr,"Warn: too many arguments given to array size operation, only the first will be used...\n");
+		}
+	}else{
+		fprintf(stderr,"Err: wrong syntax for array size operation (did you give us a NULL?)\n");
+	}
+	return acc;
+}
+
 //concatenate all the given arrays (a list) into one new larger array
 nl_val *nl_array_cat(nl_val *array_list){
 	nl_val *acc=nl_val_malloc(ARRAY);
@@ -248,6 +293,24 @@ nl_val *nl_array_cat(nl_val *array_list){
 	}
 	
 	return acc;
+}
+
+//output the given list of strings in sequence
+//returns NULL (a void function)
+nl_val *nl_strout(nl_val *array_list){
+	while((array_list!=NULL) && (array_list->t==PAIR))
+	{
+		nl_val *output_str=array_list->d.pair.f;
+		
+		int n;
+		for(n=0;n<output_str->d.array.size;n++){
+			nl_out(stdout,output_str->d.array.v[n]);
+		}
+		
+		array_list=array_list->d.pair.r;
+	}
+	
+	return NULL;
 }
 
 //END C-NL-STDLIB-ARRAY SUBROUTINES  ------------------------------------------------------------------------------
