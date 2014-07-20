@@ -101,16 +101,23 @@ char nl_val_free(nl_val *exp){
 	exp->ref--;
 	//if there are still references left then don't free it quite yet
 	if(exp->ref>0){
+/*
+#ifdef _DEBUG
+		printf("nl_val_free debug 0, NOT freeing ");
+		nl_out(stdout,exp);
+		printf(" (ref=%i)\n",exp->ref);
+#endif
+*/
 		return FALSE;
 	}
 	
-#ifdef _DEBUG
 /*
-	printf("nl_val_free debug 0, actually freeing ");
+#ifdef _DEBUG
+	printf("nl_val_free debug 1, actually freeing ");
 	nl_out(stdout,exp);
 	printf(" (no references left)\n");
-*/
 #endif
+*/
 	
 	switch(exp->t){
 		//primitive data types don't need anything else free'd
@@ -616,6 +623,9 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 
 //evaluate an if statement with the given arguments
 nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
+#ifdef _DEBUG
+	printf("nl_eval_if debug 0, last_exp=%s\n",last_exp?"TRUE":"FALSE");
+#endif
 	//return value
 	nl_val *ret=NULL;
 	
@@ -624,6 +634,8 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 		nl_val_free(else_keyword);
 		return NULL;
 	}
+	
+	nl_val *argument_start=arguments;
 	
 	//the condition is the first argument
 	nl_val *cond=nl_eval(arguments->d.pair.f,env,FALSE);
@@ -652,7 +664,13 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 			//on the last expression pass last_exp through
 			//an else case also counts as the end of expressions, since we don't execute after that
 			if((next_exp==NULL) || (nl_val_cmp(next_exp->d.pair.f,else_keyword)==0)){
-				tmp_result=nl_eval(arguments->d.pair.f,env,last_exp);
+				//we need a reference directly to the last expression since the containing expression (arguments) will be free'd
+				nl_val *to_eval=arguments->d.pair.f;
+				to_eval->ref++;
+				nl_val_free(argument_start);
+				
+				//tailcall out to eval!
+				return nl_eval(to_eval,env,last_exp);
 			//otherwise it's not the last expression (we might still need the old env, for old argument values)
 			}else{
 				tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
@@ -687,7 +705,13 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 			while((arguments!=NULL) && (arguments->t==PAIR)){
 				//on the last expression pass last_exp through
 				if(arguments->d.pair.r==NULL){
-					tmp_result=nl_eval(arguments->d.pair.f,env,last_exp);
+					//we need a reference directly to the last expression since the containing expression (arguments) will be free'd
+					nl_val *to_eval=arguments->d.pair.f;
+					to_eval->ref++;
+					nl_val_free(argument_start);
+					
+					//tailcall out to eval!
+					return nl_eval(to_eval,env,last_exp);
 				//otherwise it's not the last expression (we might still need the old env, for old argument values)
 				}else{
 					tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
@@ -705,6 +729,10 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 	}else{
 		fprintf(stderr,"Err: if statement condition evaluated to NULL\n");
 	}
+	
+	//the calling context didn't free the arguments so do it here if we got to here
+	//(we should really always end on a tailcall, only an empty body would result in us getting here)
+	nl_val_free(argument_start);
 	
 	return ret;
 }
@@ -750,9 +778,15 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 	
 	//check for if statements
 	if(nl_val_cmp(keyword,if_keyword)==0){
-		//handle if statements
-		ret=nl_eval_if(arguments,env,last_exp);
+		//handle memory to allow for TCO
+		arguments->ref++;
+		nl_val_free(keyword_exp);
 		
+		//handle if statements in a tailcall
+		return nl_eval_if(arguments,env,last_exp);
+		
+		//handle if statements
+//		ret=nl_eval_if(arguments,env,last_exp);
 	//check for exits
 	}else if(nl_val_cmp(keyword,exit_keyword)==0){
 		end_program=TRUE;

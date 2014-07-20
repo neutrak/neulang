@@ -88,7 +88,6 @@ else
 	"aah"
 ))
 
-
 // END if statement testing -------------------------------------------------------------------------------
 
 // BEGIN let statement testing ----------------------------------------------------------------------------
@@ -257,7 +256,7 @@ $return-value
 	)
 ))
 
-($iter-loop 4 16)
+($iter-loop 4 8000)
 
 //a "dumb loop" to ensure that non-tailcall behavior is still handled accurately
 //(this should return the FIRST argument given, even though it may recurse many times to figure that out)
