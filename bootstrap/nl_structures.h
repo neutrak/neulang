@@ -41,6 +41,9 @@ struct nl_val {
 	//count the references to this value
 	unsigned int ref;
 	
+	//the line this value was allocated on
+	unsigned int line;
+	
 	//union to save memory; called d (short for data)
 	union {
 		//byte value
@@ -175,6 +178,11 @@ nl_val *nl_sym_from_c_str(const char *c_str);
 
 //make a neulang value out of a primitve function so we can bind it
 nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
+
+//replace all instances of old with new in the given list
+//note that this is recursive and will also descend into lists within the list
+//note also that this manages memory, and will remove references when needed
+void nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val);
 
 //evaluate all the elements in a list, replacing them with their evaluations
 void nl_eval_elements(nl_val *list, nl_env_frame *env);

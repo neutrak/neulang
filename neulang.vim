@@ -10,7 +10,7 @@ if exists("b:current_syntax")
 endif
 
 " keywords
-syn keyword nl_keywords exit let if else lit sub return begin strout array
+syn keyword nl_keywords exit let if else lit sub return begin recur strout array
 syn keyword nl_symbols TRUE FALSE NULL
 
 " parens (highlighting included by matchgroup parameter)

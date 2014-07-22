@@ -14,7 +14,7 @@
 
 //bookkeeping
 char end_program;
-//unsigned long int line_number;
+unsigned int line_number;
 
 //keywords
 nl_val *true_keyword;
@@ -29,6 +29,7 @@ nl_val *let_keyword;
 nl_val *sub_keyword;
 nl_val *begin_keyword;
 nl_val *array_keyword;
+nl_val *recur_keyword;
 
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
@@ -48,6 +49,7 @@ nl_val *nl_val_malloc(nl_type t){
 	ret->t=t;
 	ret->cnst=TRUE;
 	ret->ref=1;
+	ret->line=line_number;
 	switch(ret->t){
 		case BYTE:
 			ret->d.byte.v=0;
@@ -417,6 +419,39 @@ nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist)){
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
 
+//replace all instances of old with new in the given list
+//note that this is recursive and will also descend into lists within the list
+//note also that this manages memory, and will remove references when needed
+void nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val){
+	if(old_val==NULL){
+		fprintf(stderr,"Err: cannot substitute NULLs in a list; that would just be silly\n");
+		return;
+	}
+	
+	while((list!=NULL) && (list->t==PAIR)){
+		//if we hit a nested list
+		if((list!=NULL) && (list->t==PAIR) && (list->d.pair.f!=NULL) && (list->d.pair.f->t==PAIR)){
+			//recurse! recurse!
+			nl_substitute_elements(list->d.pair.f,old_val,new_val);
+		//if we found the thing to replace
+		}else if((list->d.pair.f!=NULL) && (list->d.pair.f->t==old_val->t) && (nl_val_cmp(old_val,list->d.pair.f)==0)){
+#ifdef _DEBUG
+			printf("nl_substitute_elements debug 1, substituting ");
+			nl_out(stdout,old_val);
+			printf(" for ");
+			nl_out(stdout,new_val);
+			printf("\n");
+#endif
+			//replace it and clean up memory
+			nl_val_free(list->d.pair.f);
+//			list->d.pair.f=nl_val_cp(new_val);
+			list->d.pair.f=new_val;
+		}
+		
+		list=list->d.pair.r;
+	}
+}
+
 //evaluate all the elements in a list, replacing them with their evaluations
 void nl_eval_elements(nl_val *list, nl_env_frame *env){
 	while((list!=NULL) && (list->t==PAIR)){
@@ -760,6 +795,14 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	ret->d.sub.body=arguments->d.pair.r;
 	if(ret->d.sub.body!=NULL){
 		ret->d.sub.body->ref++;
+		
+#ifdef _DEBUG
+		printf("nl_eval_sub debug 0, trying a substitution (changing the recur keyword into this closure)...\n");
+#endif
+		//be sneaky about fixing recursion
+		//check the body for "recur" statements; any time we find one, replace it with a reference to this closure
+		//they'll never know!
+		nl_substitute_elements(ret->d.sub.body,recur_keyword,ret);
 	}
 	
 	return ret;
@@ -1041,6 +1084,9 @@ char nl_is_whitespace(char c){
 void nl_skip_whitespace(FILE *fp){
 	char c=getc(fp);
 	while(nl_is_whitespace(c)){
+		if(c=='\n'){
+			line_number++;
+		}
 		c=getc(fp);
 	}
 	ungetc(c,fp);
@@ -1108,6 +1154,8 @@ nl_val *nl_read_num(FILE *fp){
 	
 	if(c==')'){
 		ungetc(c,fp);
+	}else if(c=='\n'){
+		line_number++;
 	}
 	
 	//incorporate negative values if a negative sign preceded the expression
@@ -1148,6 +1196,10 @@ nl_val *nl_read_string(FILE *fp){
 		ar_entry->d.byte.v=c;
 		nl_array_push(ret,ar_entry);
 		
+		if(c=='\n'){
+			line_number++;
+		}
+		
 		c=getc(fp);
 	}
 	return ret;
@@ -1172,6 +1224,9 @@ nl_val *nl_read_char(FILE *fp){
 	c=getc(fp);
 	if(c!='\''){
 		fprintf(stderr,"Warn: single-character literal didn't end with \'; (ended with \'%c\')\n",c);
+		if(c=='\n'){
+			line_number++;
+		}
 	}
 	
 	return ret;
@@ -1250,6 +1305,8 @@ nl_val *nl_read_symbol(FILE *fp){
 	
 	if(c==')'){
 		ungetc(c,fp);
+	}else if(c=='\n'){
+		line_number++;
 	}
 	
 	//encapsulate the name string in a symbol
@@ -1297,6 +1354,7 @@ nl_val *nl_read_exp(FILE *fp){
 		while(c!='\n'){
 			c=getc(fp);
 		}
+		line_number++;
 		ret=nl_read_exp(fp);
 	//the /* ... */ multi-line comment style, as in gnu89 C
 	}else if(c=='/' && next_c=='*'){
@@ -1306,6 +1364,9 @@ nl_val *nl_read_exp(FILE *fp){
 		while(!((c=='*') && (next_c=='/'))){
 			c=next_c;
 			next_c=getc(fp);
+			if(next_c=='\n'){
+				line_number++;
+			}
 		}
 		ret=nl_read_exp(fp);
 	//if it starts with a $ read an evaluation (a symbol to be looked up)
@@ -1405,6 +1466,11 @@ void nl_out(FILE *fp, nl_val *exp){
 			fprintf(fp,"Err: Unknown type");
 			break;
 	}
+/*
+#ifdef _DEBUG
+	fprintf(fp," (allocated on line %u) ",exp->line);
+#endif
+*/
 }
 
 //END I/O SUBROUTINES ---------------------------------------------------------------------------------------------
@@ -1423,6 +1489,7 @@ void nl_keyword_malloc(){
 	sub_keyword=nl_sym_from_c_str("sub");
 	begin_keyword=nl_sym_from_c_str("begin");
 	array_keyword=nl_sym_from_c_str("array");
+	recur_keyword=nl_sym_from_c_str("recur");
 }
 
 //free global symbol data for clean exit
@@ -1439,6 +1506,7 @@ void nl_keyword_free(){
 	nl_val_free(sub_keyword);
 	nl_val_free(begin_keyword);
 	nl_val_free(array_keyword);
+	nl_val_free(recur_keyword);
 }
 
 //bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
@@ -1495,9 +1563,13 @@ int main(int argc, char *argv[]){
 	//bind the standard library functions in the global environment
 	nl_bind_stdlib(global_env);
 	
+	//initialize the line number
+//	line_number=0;
+	line_number=1;
+	
 	end_program=FALSE;
 	while(!end_program){
-		printf("nl >> ");
+		printf("[line %u] nl >> ",line_number);
 		
 		//read an expression in
 		nl_val *exp=nl_read_exp(fp);

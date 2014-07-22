@@ -256,7 +256,7 @@ $return-value
 	)
 ))
 
-($iter-loop 4 8000)
+($iter-loop 4 64)
 
 //a "dumb loop" to ensure that non-tailcall behavior is still handled accurately
 //(this should return the FIRST argument given, even though it may recurse many times to figure that out)
@@ -273,6 +273,16 @@ let(dumb-loop sub((min max)
 //EXPECT: 5
 $dumb-loop(+(4 1) 10)
 
+//the "recur" keyword allowing anonymous recursion!
+(let recur-test (sub (min max)
+	(if (< $min $max)
+		(recur (+ $min 1) $max)
+	else
+		$min
+	)
+))
+($recur-test 1 50)
+
 //END recursion testing -----------------------------------------------------------------------------------
 
 //BEGIN standard library testing --------------------------------------------------------------------------
@@ -284,6 +294,10 @@ $dumb-loop(+(4 1) 10)
 
 (strout "this is " "a test" "..." $newline)
 (strout (, "now with " "explicit concatenation" $newline))
+
+//array operations, via strings
+(let str-len $ar-sz)
+($str-len "a test")
 
 //END standard library testing ----------------------------------------------------------------------------
 
