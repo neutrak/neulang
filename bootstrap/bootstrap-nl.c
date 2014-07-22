@@ -444,6 +444,8 @@ void nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val){
 #endif
 			//replace it and clean up memory
 			nl_val_free(list->d.pair.f);
+			
+			//copies are not needed here because when evaluated in a body or begin the elements will get copied there anyway
 //			list->d.pair.f=nl_val_cp(new_val);
 			list->d.pair.f=new_val;
 		}
