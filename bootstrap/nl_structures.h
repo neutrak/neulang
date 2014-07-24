@@ -179,10 +179,15 @@ nl_val *nl_sym_from_c_str(const char *c_str);
 //make a neulang value out of a primitve function so we can bind it
 nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
 
-//replace all instances of old with new in the given list
+//replace all instances of old with new in the given list (new CANNOT be a list itself, and old_val cannot be NULL)
 //note that this is recursive and will also descend into lists within the list
 //note also that this manages memory, and will remove references when needed
-void nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val);
+//returns TRUE if replacements were made, else FALSE
+char nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val);
+
+//returns the number of times value occurred in the list (recursively checks sub-lists)
+//(value CANNOT be a list itself, and also cannot be NULL)
+int nl_list_occur(nl_val *list, nl_val *value);
 
 //evaluate all the elements in a list, replacing them with their evaluations
 void nl_eval_elements(nl_val *list, nl_env_frame *env);
@@ -236,7 +241,7 @@ nl_val *nl_read_symbol(FILE *fp);
 nl_val *nl_read_exp(FILE *fp);
 
 //output a neulang value
-void nl_out(FILE *fp, nl_val *exp);
+void nl_out(FILE *fp, const nl_val *exp);
 
 //create global symbol data so it's not constantly being re-allocated (which is slow and unnecessary)
 void nl_keyword_malloc();

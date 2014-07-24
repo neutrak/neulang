@@ -301,6 +301,54 @@ $dumb-loop(+(4 1) 10)
 
 //END standard library testing ----------------------------------------------------------------------------
 
+//BEGIN loop testing --------------------------------------------------------------------------------------
+
+(let n 0)
+
+//TODO: implement while loops (this is stubbed out in the code, it should be easy, something's just not getting free'd (original exp?)...)
+//loop
+/*
+(while (< $n 5)
+	(strout "continuing..." $newline)
+	(let n (+ $n 1))
+after
+	-3
+)
+*/
+
+//equivilent to a sub
+(let a-loop (sub ()
+	(if (< $n 5)
+		(strout "continuing..." $newline)
+		(let n (+ $n 1))
+		(recur)
+		//double recur just to make sure that's handled correctly
+		(strout "recursing AGAIN" $newline)
+		(recur)
+	else
+		-3
+	)
+)) ($a-loop)
+
+//anonymous sub (the above while loop internally gets converted into this exact code)
+((sub ()
+	(if (< $n 5)
+		(strout "continuing..." $newline)
+		(let n (+ $n 1))
+		(recur)
+	else
+		-3
+	)
+))
+
+//note that unless it explicitly set after return the value in the outside environment didn't change
+$n //0
+
+
+//END loop testing ----------------------------------------------------------------------------------------
+
+
+
 // EXIT
 (exit)
 

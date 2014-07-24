@@ -53,7 +53,12 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 	
 	//check type equality
 	if((v_a->t)!=(v_b->t)){
-		fprintf(stderr,"Err: comparison between different types is nonsensical, assuming a<b...\n");
+		fprintf(stderr,"Err: comparison between different types is nonsensical, assuming a<b...");
+		fprintf(stderr,"(offending values were a=");
+		nl_out(stderr,v_a);
+		fprintf(stderr," and b=");
+		nl_out(stderr,v_b);
+		fprintf(stderr,")\n");
 		return -1;
 	}
 	
@@ -137,11 +142,15 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 				return 1;
 			}
 			break;
-		//TODO: subroutine equality
-//		case SUB:
-//			ret->d.sub.body=NULL;
-//			ret->d.sub.env=NULL;
-//			break;
+		//subroutines are equal iff they are pointer-equal
+		case SUB:
+			//remember 0 means equal here, just like C's strcmp
+			if(v_a==v_b){
+				return 0;
+			}else{
+				return 1;
+			}
+			break;
 		//symbols are equal if their names (byte arrays) are equal
 		case SYMBOL:
 			return nl_val_cmp(v_a->d.sym.name,v_b->d.sym.name);
