@@ -29,9 +29,9 @@ nl_val *let_keyword;
 nl_val *sub_keyword;
 nl_val *begin_keyword;
 nl_val *recur_keyword;
+nl_val *return_keyword;
 nl_val *while_keyword;
 nl_val *after_keyword;
-nl_val *tmploop_keyword;
 nl_val *array_keyword;
 
 
@@ -525,18 +525,30 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 		if(body->d.pair.r==NULL){
 			on_last_exp=TRUE;
 		}
-		
-		// make a copy so as not to ever change the actual subroutine body statements themselves
-		to_eval=nl_val_cp(body->d.pair.f);
-		//increment the references because this (to_eval) is a new reference and nl_eval will free it before we can if it's self-evaluating
-		to_eval->ref++;
-		
+
 		//this doesn't work because it'll substitute results in as body statements and fail on recursion or later calls
 //		to_eval=body->d.pair.f;
 //		to_eval->ref++;
 		
-		//clean up our original expression (it got an extra reference if it was self-evaluating)
-//		nl_val_free(to_eval);
+		// make a copy so as not to ever change the actual subroutine body statements themselves
+		to_eval=nl_val_cp(body->d.pair.f);
+		//increment the references because this (to_eval) is a new reference and nl_eval will free it before we can if it's self-evaluating
+		if(to_eval!=NULL){
+			to_eval->ref++;
+		}
+		
+/*
+		//if we hit the "return" keyword then go ahead and treat this as the last expression (even if it wasn't properly)
+		if((to_eval!=NULL) && (to_eval->t==PAIR) && (to_eval->d.pair.f!=NULL) && (to_eval->d.pair.f->t==SYMBOL) && (nl_val_cmp(return_keyword,to_eval->d.pair.f)==0)){
+			on_last_exp=TRUE;
+			//set the expression to evaluate to be the arguments to return, if there were any
+			nl_val_free(to_eval->d.pair.f);
+			to_eval->d.pair.f=nl_val_cp(begin_keyword);
+			if(to_eval->d.pair.r!=NULL){
+				to_eval->d.pair.r->ref++;
+			}
+		}
+*/
 		
 		//if we're not going into a tailcall then keep this expression around and free it when we're done
 		if(!on_last_exp){
@@ -572,6 +584,12 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
 char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env){
+	//if there was nothing to bind
+	if((values==NULL) && (symbols!=NULL) && (symbols->t==PAIR) && (symbols->d.pair.f==NULL) && (symbols->d.pair.r==NULL)){
+		//we are successful at doing nothing (aren't you so proud?)
+		return TRUE;
+	}
+	
 	while((symbols!=NULL) && (symbols->t==PAIR) && (values!=NULL) && (values->t==PAIR)){
 		//bind the argument to its associated symbol
 		if((symbols->d.pair.f!=NULL) && (!nl_bind(symbols->d.pair.f,values->d.pair.f,env))){
@@ -618,11 +636,9 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 			apply_env=nl_env_frame_malloc(sub->d.sub.env);
 		}else{
 			//in this case we came from the last statement in a closure, and so can re-use the environment we're already in
-/*
 #ifdef _DEBUG
 			printf("Info: detected tail-recursion; re-using existing application environment frame\n");
 #endif
-*/
 			apply_env=env;
 			apply_env->rw=TRUE;
 		}
@@ -630,7 +646,7 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		nl_val *arg_syms=sub->d.sub.args;
 		nl_val *arg_vals=arguments;
 		if(!nl_bind_list(arg_syms,arg_vals,apply_env)){
-			fprintf(stderr,"Err: could not bind arguments to application environment (call stack)\n");
+			fprintf(stderr,"Err: could not bind arguments to application environment (call stack) from apply\n");
 		}
 		//set the apply env read-only so any new vars go into the closure env
 		apply_env->rw=FALSE;
@@ -729,7 +745,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 			nl_val *next_exp=arguments->d.pair.r;
 			//on the last expression pass last_exp through
 			//an else case also counts as the end of expressions, since we don't execute after that
-			if((next_exp==NULL) || ((next_exp->t==SYMBOL) && (nl_val_cmp(next_exp->d.pair.f,else_keyword)==0))){
+			if((next_exp==NULL) || ((next_exp->d.pair.f!=NULL) && (next_exp->d.pair.f->t==SYMBOL) && (nl_val_cmp(next_exp->d.pair.f,else_keyword)==0))){
 				//we need a reference directly to the last expression since the containing expression (arguments) will be free'd
 				nl_val *to_eval=arguments->d.pair.f;
 				to_eval->ref++;
@@ -933,10 +949,6 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		return nl_eval_sequence(arguments,env);
 	//check for while statements (we'll convert this to tail recursion)
 	}else if(nl_val_cmp(keyword,while_keyword)==0){
-		fprintf(stderr,"Err: while not implemented, ignoring and returning null...\n");
-		nl_val_free(keyword_exp);
-		return NULL;
-		
 		if(nl_list_len(arguments)<2){
 			fprintf(stderr,"Err: too few arguments given to while statement\n");
 		}else{
@@ -959,7 +971,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			cond->ref++;
 			body->ref++;
 			if(post_loop!=NULL){
-				post_loop->ref++;
+//				post_loop->ref++;
 			}
 			
 			//build a sub expression to evaluate
@@ -1007,46 +1019,15 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			nl_val *to_eval=nl_val_malloc(PAIR);
 			to_eval->d.pair.f=sub_to_eval;
 			to_eval->d.pair.r=NULL;
+/*
 #ifdef _DEBUG
 			printf("nl_eval_keyword,while debug 0; going to eval ");
 			nl_out(stdout,to_eval);
 			printf("\n");
 #endif
-			
-			//evaluate the sub expression, thereby doing the while loop via tail recursion
-//			return nl_eval(to_eval,env,last_exp);
-			ret=nl_eval(to_eval,env,last_exp);
-			return ret;
-			
-			//TODO: make this work RIGHT; it shouldn't need to be bound to a variable before being applied (the above code should do the job of all the below code)
-			
-/*
-			//make sure the sub we just made gets, you know, applied
-			nl_val *to_eval=nl_val_malloc(PAIR);
-			to_eval->d.pair.f=nl_val_cp(let_keyword);
-			to_eval->d.pair.r=nl_val_malloc(PAIR);
-			to_eval->d.pair.r->d.pair.f=nl_val_cp(tmploop_keyword);
-			to_eval->d.pair.r->d.pair.r=nl_val_malloc(PAIR);
-			to_eval->d.pair.r->d.pair.r->d.pair.f=sub_to_eval;
-			to_eval->d.pair.r->d.pair.r->d.pair.r=NULL;
-			
-#ifdef _DEBUG
-			printf("nl_eval_keyword converted while loop into ");
-			nl_out(stdout,to_eval);
-			printf("\n");
-#endif
-			//bind the tmploop
-			nl_val_free(nl_eval(to_eval,env,FALSE));
-			
-			//apply the tmploop
-			to_eval=nl_val_malloc(PAIR);
-			to_eval->d.pair.f=nl_val_malloc(EVALUATION);
-			to_eval->d.pair.f->d.eval.sym=nl_val_cp(tmploop_keyword);
-			to_eval->d.pair.r=NULL;
-			
+*/
 			//evaluate the sub expression, thereby doing the while loop via tail recursion
 			return nl_eval(to_eval,env,last_exp);
-*/
 		}
 	//check for array statements (turns the evaluated argument list into an array then returns that)
 	}else if(nl_val_cmp(keyword,array_keyword)==0){
@@ -1158,7 +1139,7 @@ tailcall:
 				//if this is the last expression then it doesn't need any environment trickery and we can just execute the body directly
 				if((last_exp) && (sub->t==SUB)){
 					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
-						fprintf(stderr,"Err: could not bind arguments to application environment (call stack)\n");
+						fprintf(stderr,"Err: could not bind arguments to application environment (call stack) from eval\n");
 					}
 					
 					nl_val_free(exp);
@@ -1170,6 +1151,7 @@ tailcall:
 					exp->d.pair.r=sub->d.sub.body;
 					exp->d.pair.r->ref++;
 					
+/*
 #ifdef _DEBUG
 					printf("nl_eval debug 0, executing tailcall via goto with ");
 					nl_env_frame *frame_iterator=env;
@@ -1180,6 +1162,7 @@ tailcall:
 					}
 					printf("%i chained env frames\n",n);
 #endif
+*/
 					
 					goto tailcall;
 				}else{
@@ -1694,9 +1677,9 @@ void nl_keyword_malloc(){
 	sub_keyword=nl_sym_from_c_str("sub");
 	begin_keyword=nl_sym_from_c_str("begin");
 	recur_keyword=nl_sym_from_c_str("recur");
+	return_keyword=nl_sym_from_c_str("return");
 	while_keyword=nl_sym_from_c_str("while");
 	after_keyword=nl_sym_from_c_str("after");
-	tmploop_keyword=nl_sym_from_c_str("tmploop");
 	array_keyword=nl_sym_from_c_str("array");
 }
 
@@ -1714,9 +1697,9 @@ void nl_keyword_free(){
 	nl_val_free(sub_keyword);
 	nl_val_free(begin_keyword);
 	nl_val_free(recur_keyword);
+	nl_val_free(return_keyword);
 	nl_val_free(while_keyword);
 	nl_val_free(after_keyword);
-	nl_val_free(tmploop_keyword);
 	nl_val_free(array_keyword);
 }
 
@@ -1746,6 +1729,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-sz"),nl_primitive_wrap(nl_array_size),env);
 	
 	nl_bind_new(nl_sym_from_c_str("strout"),nl_primitive_wrap(nl_strout),env);
+	nl_bind_new(nl_sym_from_c_str("out"),nl_primitive_wrap(nl_output),env);
 	
 	nl_bind_new(nl_sym_from_c_str("int->byte"),nl_primitive_wrap(nl_int_to_byte),env);
 }

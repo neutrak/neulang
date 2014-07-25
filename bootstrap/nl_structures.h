@@ -294,6 +294,10 @@ nl_val *nl_array_cat(nl_val *array_list);
 //returns NULL (a void function)
 nl_val *nl_strout(nl_val *array_list);
 
+//outputs the given value to stdout
+//returns NULL (a void function)
+nl_val *nl_output(nl_val *v_list);
+
 //returns the length of a singly-linked list
 //note that cyclic lists are infinite and this will never terminate on them
 int nl_list_len(nl_val *list);

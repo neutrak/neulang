@@ -322,6 +322,16 @@ nl_val *nl_strout(nl_val *array_list){
 	return NULL;
 }
 
+//outputs the given value to stdout
+//returns NULL (a void function)
+nl_val *nl_output(nl_val *v_list){
+	while(v_list!=NULL && v_list->t==PAIR){
+		nl_out(stdout,v_list->d.pair.f);
+		v_list=v_list->d.pair.r;
+	}
+	return NULL;
+}
+
 //END C-NL-STDLIB-ARRAY SUBROUTINES  ------------------------------------------------------------------------------
 
 //BEGIN C-NL-STDLIB-LIST SUBROUTINES  -----------------------------------------------------------------------------

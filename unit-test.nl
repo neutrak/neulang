@@ -185,7 +185,6 @@ $a-test-sub
 
 ($a-test-sub "muhahahahaha")
 
-
 (let complex-test (sub (y)
 	(+ 1 2)
 	25
@@ -305,16 +304,13 @@ $dumb-loop(+(4 1) 10)
 
 (let n 0)
 
-//TODO: implement while loops (this is stubbed out in the code, it should be easy, something's just not getting free'd (original exp?)...)
-//loop
-/*
-(while (< $n 5)
+//a while loop! (internally this is converted into an anonymous sub)
+(while (< $n 50)
 	(strout "continuing..." $newline)
 	(let n (+ $n 1))
 after
 	-3
 )
-*/
 
 //equivilent to a sub
 (let a-loop (sub ()
@@ -344,10 +340,14 @@ after
 //note that unless it explicitly set after return the value in the outside environment didn't change
 $n //0
 
+//now a really long loop to demonstrate the fact that this uses tail recursion
+(while (< $n 60000)
+	(out $n)
+	(strout $newline "here's johnny!!" $newline)
+	(let n (+ $n 1))
+)
 
 //END loop testing ----------------------------------------------------------------------------------------
-
-
 
 // EXIT
 (exit)
