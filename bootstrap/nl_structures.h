@@ -179,6 +179,9 @@ nl_val *nl_sym_from_c_str(const char *c_str);
 //make a neulang value out of a primitve function so we can bind it
 nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
 
+//is this neulang value TRUE? (true values are nonzero numbers and nonzero bytes)
+char nl_is_true(nl_val *v);
+
 //replace all instances of old with new in the given list (new CANNOT be a list itself, and old_val cannot be NULL)
 //note that this is recursive and will also descend into lists within the list
 //note also that this manages memory, and will remove references when needed

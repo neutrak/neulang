@@ -53,6 +53,7 @@ k I think it works
 // BEGIN if statement testing -----------------------------------------------------------------------------
 
 //null return from conditional
+(if)
 //EXPECT: NULL
 (if 1)
 //EXPECT: NULL
@@ -287,23 +288,10 @@ $dumb-loop(+(4 1) 10)
 
 //END recursion testing -----------------------------------------------------------------------------------
 
-//BEGIN standard library testing --------------------------------------------------------------------------
-
-//make a newline from other primitives (this is how you can output arbitrary characters, remember quotes and newlines cannot be escaped in strings)
-(let newline (array (int->byte 10))) //\n
-(let quote (array (int->byte 39))) //'
-(let quotes (array (int->byte 34))) //"
-
-(strout "this is " "a test" "..." $newline)
-(strout (, "now with " "explicit concatenation" $newline))
-
-//array operations, via strings
-(let str-len $ar-sz)
-($str-len "a test")
-
-//END standard library testing ----------------------------------------------------------------------------
-
 //BEGIN loop testing --------------------------------------------------------------------------------------
+
+//not part of this test, just for convenience (part of the test below this, for the standard library)
+(let newline (array (int->byte 10))) //\n
 
 (let n 0)
 
@@ -351,7 +339,80 @@ $n //0
 	(let n (+ $n 1))
 )
 
+//(exit)
+
 //END loop testing ----------------------------------------------------------------------------------------
+
+//BEGIN boolean operator testing --------------------------------------------------------------------------
+
+//boolean operators
+//basic and case (FALSE)
+(if (and 1 0)
+	"and failed"
+else
+	"and worked"
+)
+
+//basic or case (TRUE)
+(if (or 0 1)
+	"or worked"
+else
+	"or failed"
+)
+
+//basic not case (TRUE)
+(if (not 0)
+	"not worked"
+else
+	"not failed"
+)
+
+//basic xor case (TRUE)
+(if (xor 0 1 0)
+	"xor worked"
+else
+	"xor failed"
+)
+
+//short-circuiting and case
+(if (and 0 ((sub () (strout "and didn't short-circuit!" $newline))))
+	"short-circuiting and failed"
+else
+	"short circuiting and worked"
+)
+
+//short-circuiting or case
+(if (or 1 ((sub () (strout "or didn't short-circuit!" $newline))))
+	"short-circuiting or worked"
+else
+	"short circuiting or failed"
+)
+
+//short-circuiting xor case
+(if (xor 1 1 ((sub () (strout "xor didn't short-circuit!" $newline))))
+	"short circuiting xor failed"
+else
+	"short-circuiting xor worked"
+)
+
+//END boolean operator testing ----------------------------------------------------------------------------
+
+//BEGIN standard library testing --------------------------------------------------------------------------
+
+//make a newline from other primitives (this is how you can output arbitrary characters, remember quotes and newlines cannot be escaped in strings)
+(let newline (array (int->byte 10))) //\n
+(let quote (array (int->byte 39))) //'
+(let quotes (array (int->byte 34))) //"
+
+(strout "this is " "a test" "..." $newline)
+(strout (, "now with " "explicit concatenation" $newline))
+
+//array operations, via strings
+(let str-len $ar-sz)
+($str-len "a test")
+
+
+//END standard library testing ----------------------------------------------------------------------------
 
 // EXIT
 (exit)

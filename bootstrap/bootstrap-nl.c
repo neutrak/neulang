@@ -23,6 +23,10 @@ nl_val *null_keyword;
 
 nl_val *if_keyword;
 nl_val *else_keyword;
+nl_val *and_keyword;
+nl_val *or_keyword;
+nl_val *not_keyword;
+nl_val *xor_keyword;
 nl_val *exit_keyword;
 nl_val *lit_keyword;
 nl_val *let_keyword;
@@ -424,6 +428,14 @@ nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist)){
 
 //BEGIN EVALUTION SUBROUTINES -------------------------------------------------------------------------------------
 
+//is this neulang value TRUE? (true values are nonzero numbers and nonzero bytes)
+char nl_is_true(nl_val *v){
+	if((v!=NULL) && (((v->t==BYTE) && (v->d.byte.v!=0)) || ((v->t==NUM) && (v->d.num.n!=0)))){
+		return TRUE;
+	}
+	return FALSE;
+}
+
 //replace all instances of old with new in the given list (new CANNOT be a list itself, and old_val cannot be NULL)
 //note that this is recursive and will also descend into lists within the list
 //note also that this manages memory, and will remove references when needed
@@ -731,7 +743,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 	
 	if((arguments==NULL) || (arguments->t!=PAIR)){
 		fprintf(stderr,"Err: invalid condition given to if statement\n");
-		nl_val_free(else_keyword);
 		return NULL;
 	}
 	
@@ -748,7 +759,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 	nl_val *tmp_result=NULL;
 	
 	//check if the condition is true
-	if((cond!=NULL) && (((cond->t==BYTE) && (cond->d.byte.v!=0)) || ((cond->t==NUM) && (cond->d.num.n!=0)))){
+	if(nl_is_true(cond)){
 		
 		//advance past the condition itself
 		arguments=arguments->d.pair.r;
@@ -921,7 +932,9 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 	//check for if statements
 	if(nl_val_cmp(keyword,if_keyword)==0){
 		//handle memory to allow for TCO
-		arguments->ref++;
+		if(arguments!=NULL){
+			arguments->ref++;
+		}
 		nl_val_free(keyword_exp);
 		
 		//handle if statements in a tailcall
@@ -930,11 +943,6 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		
 		//handle if statements
 //		ret=nl_eval_if(arguments,env,last_exp);
-	//check for exits
-	}else if(nl_val_cmp(keyword,exit_keyword)==0){
-		end_program=TRUE;
-		ret=NULL;
-		
 	//check for literals (equivilent to scheme quote)
 	}else if(nl_val_cmp(keyword,lit_keyword)==0){
 		//if there was only one argument, just return that
@@ -1098,6 +1106,86 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			
 			arguments=arguments->d.pair.r;
 		}
+	//check for boolean operator and
+	}else if(nl_val_cmp(keyword,and_keyword)==0){
+		ret=nl_val_malloc(BYTE);
+		//true until we find a false value
+		ret->d.byte.v=TRUE;
+		while((arguments!=NULL) && (arguments->t==PAIR)){
+			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
+			arguments->d.pair.f=tmp_result;
+			
+			//if we hit one false value, then it's game over, return out
+			if(!nl_is_true(tmp_result)){
+				ret->d.byte.v=FALSE;
+				break;
+			}
+			arguments=arguments->d.pair.r;
+		}
+	//check for boolean operator or
+	}else if(nl_val_cmp(keyword,or_keyword)==0){
+		ret=nl_val_malloc(BYTE);
+		//false until we find a true value
+		ret->d.byte.v=FALSE;
+		while((arguments!=NULL) && (arguments->t==PAIR)){
+			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
+			arguments->d.pair.f=tmp_result;
+			
+			//if we hit one true value, then it's game over, return out
+			if(nl_is_true(tmp_result)){
+				ret->d.byte.v=TRUE;
+				break;
+			}
+			arguments=arguments->d.pair.r;
+		}
+	//check for boolean operator not
+	}else if(nl_val_cmp(keyword,not_keyword)==0){
+		if(nl_list_len(arguments)>1){
+			fprintf(stderr,"Err: too many arguments given to not, ignoring all but the first...\n");
+		}
+		ret=nl_val_malloc(BYTE);
+		//false by default
+		ret->d.byte.v=FALSE;
+//		if((arguments!=NULL) && (arguments->t==PAIR)){
+		while((arguments!=NULL) && (arguments->t==PAIR)){
+			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
+			arguments->d.pair.f=tmp_result;
+			
+			//return the opposite of the first argument
+			//if there is more than one argument we IGNORE THE REST
+			if(nl_is_true(tmp_result)){
+				ret->d.byte.v=FALSE;
+				break;
+			}else{
+				ret->d.byte.v=TRUE;
+				break;
+			}
+			arguments=arguments->d.pair.r;
+		}
+	//check for boolean operator xor
+	}else if(nl_val_cmp(keyword,xor_keyword)==0){
+		ret=nl_val_malloc(BYTE);
+		//false until we find a true value, after which we better not find any more!
+		ret->d.byte.v=FALSE;
+		while((arguments!=NULL) && (arguments->t==PAIR)){
+			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE);
+			arguments->d.pair.f=tmp_result;
+			
+			//if we hit one true value and the return so far has been false, then set it true and continue
+			if((nl_is_true(tmp_result)) && (ret->d.byte.v==FALSE)){
+				ret->d.byte.v=TRUE;
+			//if we hit a true value but we already hit one then it's not exclusive and return false
+			}else if((nl_is_true(tmp_result)) && (ret->d.byte.v==TRUE)){
+				ret->d.byte.v=FALSE;
+				break;
+			}
+			arguments=arguments->d.pair.r;
+		}
+	//check for exits
+	}else if(nl_val_cmp(keyword,exit_keyword)==0){
+		end_program=TRUE;
+		ret=NULL;
+		
 	//TODO: check for all other keywords
 	}else{
 		//in the default case check for subroutines bound to this symbol
@@ -1726,6 +1814,10 @@ void nl_keyword_malloc(){
 	
 	if_keyword=nl_sym_from_c_str("if");
 	else_keyword=nl_sym_from_c_str("else");
+	and_keyword=nl_sym_from_c_str("and");
+	or_keyword=nl_sym_from_c_str("or");
+	not_keyword=nl_sym_from_c_str("not");
+	xor_keyword=nl_sym_from_c_str("xor");
 	exit_keyword=nl_sym_from_c_str("exit");
 	lit_keyword=nl_sym_from_c_str("lit");
 	let_keyword=nl_sym_from_c_str("let");
@@ -1746,6 +1838,10 @@ void nl_keyword_free(){
 	
 	nl_val_free(if_keyword);
 	nl_val_free(else_keyword);
+	nl_val_free(and_keyword);
+	nl_val_free(or_keyword);
+	nl_val_free(not_keyword);
+	nl_val_free(xor_keyword);
 	nl_val_free(exit_keyword);
 	nl_val_free(lit_keyword);
 	nl_val_free(let_keyword);
