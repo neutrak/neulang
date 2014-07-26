@@ -314,7 +314,6 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			//note that the symbol is already stored
 			//it will get free'd later by the calling code, we'll keep the existing version
 			
-/*
 #ifdef _DEBUG
 			printf("nl_bind debug 1, updated value for ");
 			nl_out(stdout,symbol);
@@ -322,7 +321,6 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			nl_out(stdout,value);
 			printf("\n");
 #endif
-*/
 			found=TRUE;
 			break;
 		}
@@ -519,6 +517,17 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 	//whether or not this is the last statement in the body
 	char on_last_exp=FALSE;
 	
+/*
+#ifdef _DEBUG
+	printf("nl_eval sequence debug -1, trying to evaluate ");
+	nl_out(stdout,body);
+	if(body!=NULL){
+		printf(" with %i references",body->ref);
+	}
+	printf("\n");
+#endif
+*/
+	
 	nl_val *to_eval=NULL;
 	while((body!=NULL) && (body->t==PAIR)){
 		//if the next statement is the last, set that for the next loop iteration
@@ -537,18 +546,25 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 			to_eval->ref++;
 		}
 		
-/*
 		//if we hit the "return" keyword then go ahead and treat this as the last expression (even if it wasn't properly)
 		if((to_eval!=NULL) && (to_eval->t==PAIR) && (to_eval->d.pair.f!=NULL) && (to_eval->d.pair.f->t==SYMBOL) && (nl_val_cmp(return_keyword,to_eval->d.pair.f)==0)){
 			on_last_exp=TRUE;
+#ifdef _DEBUG
+			printf("nl_eval_sequence debug 0, got a return statement with %i references\n",to_eval->ref);
+#endif
 			//set the expression to evaluate to be the arguments to return, if there were any
+/*
 			nl_val_free(to_eval->d.pair.f);
 			to_eval->d.pair.f=nl_val_cp(begin_keyword);
-			if(to_eval->d.pair.r!=NULL){
-				to_eval->d.pair.r->ref++;
-			}
-		}
+//			if(to_eval->d.pair.r!=NULL){
+//				to_eval->d.pair.r->ref++;
+//			}
+			
+			//TODO: FIX THIS, I'm pretty sure this'll break tco
+			nl_val_free(to_eval);
+			return nl_eval(to_eval,env,FALSE);
 */
+		}
 		
 		//if we're not going into a tailcall then keep this expression around and free it when we're done
 		if(!on_last_exp){
@@ -564,11 +580,9 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 		
 		//if we ARE going into a tailcall then clean up our extra references and return
 		}else{
-/*
 #ifdef _DEBUG
 			printf("nl_eval_sequence debug 1, tailcalling into nl_eval...\n");
 #endif
-*/
 			nl_val_free(to_eval);
 			
 			//NOTE: this depends on C's own TCO behavior and so requires compilation with -O3
@@ -742,6 +756,8 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 				break;
 			}
 			
+			//TODO: replace this with an eval_sequence call, so return works right and it's just generally cleaner
+			
 			nl_val *next_exp=arguments->d.pair.r;
 			//on the last expression pass last_exp through
 			//an else case also counts as the end of expressions, since we don't execute after that
@@ -819,7 +835,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 	return ret;
 }
 
-//TODO: FIX THIS!!!! (it breaks hard when you try to immediately apply a sub (without binding it to a var) when that sub contains the recur keyword)
 //evaluate a sub statement with the given arguments
 nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	nl_val *ret=NULL;
@@ -939,14 +954,26 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		//handle sub statements
 		ret=nl_eval_sub(arguments,env);
 		
-	//check for begin statements (executed in-order, returning only the last)
-	}else if(nl_val_cmp(keyword,begin_keyword)==0){
+	//TODO: FIX THIS (it's freeing more than it should or something; testing is super easy, just try "(begin 1)")
+	// ^ so I fixed it with the last_exp check but I think I might be breaking TCO with that
+	//check for begin statements (executed in-order, returning only the last) (or return statements, they do the same thing)
+	}else if((nl_val_cmp(keyword,begin_keyword)==0) || (nl_val_cmp(keyword,return_keyword)==0)){
+//	}else if(nl_val_cmp(keyword,begin_keyword)==0){
+		if(nl_val_cmp(keyword,return_keyword)==0){
+//			arguments->ref++;
+			last_exp=FALSE;
+		}
+		
 		//handle begin statements
 //		ret=nl_eval_sequence(arguments,env);
 		
 		//NOTE: this is used for tailcalls and depends on C TCO (-O3)
-		nl_val_free(keyword_exp);
-		return nl_eval_sequence(arguments,env);
+		if(last_exp){
+			nl_val_free(keyword_exp);
+			return nl_eval_sequence(arguments,env);
+		}else{
+			ret=nl_eval_sequence(arguments,env);
+		}
 	//check for while statements (we'll convert this to tail recursion)
 	}else if(nl_val_cmp(keyword,while_keyword)==0){
 		if(nl_list_len(arguments)<2){

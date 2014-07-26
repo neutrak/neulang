@@ -170,6 +170,7 @@ $if_check
 	"this is a test"
 	(if TRUE
 		"haha"
+//		(return 5)
 	else
 		"hehe"
 	)
@@ -184,6 +185,8 @@ $a-test-sub
 ((sub () 5 -1) 6 7 8)
 
 ($a-test-sub "muhahahahaha")
+
+//(exit)
 
 (let complex-test (sub (y)
 	(+ 1 2)
@@ -328,10 +331,11 @@ after
 
 //anonymous sub (the above while loop internally gets converted into this exact code)
 ((sub ()
-	(if (< $n 5)
+	(if (< $n 1000)
 		(strout "continuing..." $newline)
 		(let n (+ $n 1))
-		(recur)
+//		(recur)
+		(return (recur))
 	else
 		-3
 	)
@@ -341,7 +345,7 @@ after
 $n //0
 
 //now a really long loop to demonstrate the fact that this uses tail recursion
-(while (< $n 60000)
+(while (< $n 40000)
 	(out $n)
 	(strout $newline "here's johnny!!" $newline)
 	(let n (+ $n 1))
