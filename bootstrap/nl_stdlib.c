@@ -166,6 +166,17 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 	return 0;
 }
 
+//return whether or not this list contains null (this does NOT recurse to sub-lists)
+char nl_contains_nulls(nl_val *val_list){
+	while((val_list!=NULL) && (val_list->t==PAIR)){
+		if(val_list->d.pair.f==NULL){
+			return TRUE;
+		}
+		val_list=val_list->d.pair.r;
+	}
+	return FALSE;
+}
+
 //return a byte version of the given number constant, if possible
 nl_val *nl_int_to_byte(nl_val *num_list){
 	nl_val *ret=NULL;
@@ -554,6 +565,12 @@ nl_val *nl_div(nl_val *num_list){
 nl_val *nl_eq(nl_val *val_list){
 	nl_val *ret=NULL;
 	
+	//garbage in, garbage out; if you give us NULL we return NULL
+	if(nl_contains_nulls(val_list)){
+		fprintf(stderr,"Err: a NULL argument was given to equality operator, returning NULL\n");
+		return NULL;
+	}
+	
 	if(!((nl_list_len(val_list)==2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
 		fprintf(stderr,"Err: incorrect use of equality operator =; arg count != 2 or incorrect type (for string equality use ar=)\n");
 		return NULL;
@@ -573,6 +590,11 @@ nl_val *nl_eq(nl_val *val_list){
 nl_val *nl_gt(nl_val *val_list){
 	nl_val *ret=NULL;
 	
+	//garbage in, garbage out; if you give us NULL we return NULL
+	if(nl_contains_nulls(val_list)){
+		fprintf(stderr,"Err: a NULL argument was given to equality operator, returning NULL\n");
+		return NULL;
+	}
 	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
 		fprintf(stderr,"Err: incorrect use of gt operator >; arg count < 2 or incorrect type (for string gt use ar>)\n");
 		return NULL;
@@ -593,6 +615,7 @@ nl_val *nl_gt(nl_val *val_list){
 			ret->d.byte.v=FALSE;
 			break;
 		}
+		last_value=val_list->d.pair.f;
 		val_list=val_list->d.pair.r;
 	}
 	return ret;
@@ -603,6 +626,11 @@ nl_val *nl_gt(nl_val *val_list){
 nl_val *nl_lt(nl_val *val_list){
 	nl_val *ret=NULL;
 	
+	//garbage in, garbage out; if you give us NULL we return NULL
+	if(nl_contains_nulls(val_list)){
+		fprintf(stderr,"Err: a NULL argument was given to equality operator, returning NULL\n");
+		return NULL;
+	}
 	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
 		fprintf(stderr,"Err: incorrect use of lt operator <; arg count < 2 or incorrect type (for string lt use ar<)\n");
 		return NULL;
@@ -623,6 +651,7 @@ nl_val *nl_lt(nl_val *val_list){
 			ret->d.byte.v=FALSE;
 			break;
 		}
+		last_value=val_list->d.pair.f;
 		val_list=val_list->d.pair.r;
 	}
 	return ret;

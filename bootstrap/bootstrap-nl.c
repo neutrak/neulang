@@ -35,6 +35,7 @@ nl_val *begin_keyword;
 nl_val *recur_keyword;
 nl_val *return_keyword;
 nl_val *while_keyword;
+nl_val *for_keyword;
 nl_val *after_keyword;
 nl_val *array_keyword;
 
@@ -318,6 +319,7 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			//note that the symbol is already stored
 			//it will get free'd later by the calling code, we'll keep the existing version
 			
+/*
 #ifdef _DEBUG
 			printf("nl_bind debug 1, updated value for ");
 			nl_out(stdout,symbol);
@@ -325,6 +327,7 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			nl_out(stdout,value);
 			printf("\n");
 #endif
+*/
 			found=TRUE;
 			break;
 		}
@@ -562,21 +565,12 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 		//if we hit the "return" keyword then go ahead and treat this as the last expression (even if it wasn't properly)
 		if((to_eval!=NULL) && (to_eval->t==PAIR) && (to_eval->d.pair.f!=NULL) && (to_eval->d.pair.f->t==SYMBOL) && (nl_val_cmp(return_keyword,to_eval->d.pair.f)==0)){
 			on_last_exp=TRUE;
+			
+			//returns evaluate pretty much just like begin statements
+/*
 #ifdef _DEBUG
 			printf("nl_eval_sequence debug 0, got a return statement with %i references\n",to_eval->ref);
 #endif
-			
-			//set the expression to evaluate to be the arguments to return, if there were any
-/*
-			nl_val_free(to_eval->d.pair.f);
-			to_eval->d.pair.f=nl_val_cp(begin_keyword);
-//			if(to_eval->d.pair.r!=NULL){
-//				to_eval->d.pair.r->ref++;
-//			}
-			
-			//TODO: FIX THIS, I'm pretty sure this'll break tco
-			nl_val_free(to_eval);
-			return nl_eval(to_eval,env,FALSE);
 */
 		}
 		
@@ -594,9 +588,11 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 		
 		//if we ARE going into a tailcall then clean up our extra references and return
 		}else{
+/*
 #ifdef _DEBUG
 			printf("nl_eval_sequence debug 1, tailcalling into nl_eval...\n");
 #endif
+*/
 			nl_val_free(to_eval);
 			nl_val_free(body_start);
 			
@@ -666,9 +662,11 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 			apply_env=nl_env_frame_malloc(sub->d.sub.env);
 		}else{
 			//in this case we came from the last statement in a closure, and so can re-use the environment we're already in
+/*
 #ifdef _DEBUG
 			printf("Info: detected tail-recursion; re-using existing application environment frame\n");
 #endif
+*/
 			apply_env=env;
 			apply_env->rw=TRUE;
 		}
@@ -894,24 +892,12 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	if(ret->d.sub.body!=NULL){
 		ret->d.sub.body->ref++;
 		
-/*
-#ifdef _DEBUG
-		printf("nl_eval_sub debug 0, trying a substitution (changing the recur keyword into this closure)...\n");
-#endif
-*/
 		//be sneaky about fixing recursion
 		//check the body for "recur" statements; any time we find one, replace it with a reference to this closure
 		//they'll never know!
 		
 		//if replacements were made
 		if(nl_substitute_elements(ret->d.sub.body,recur_keyword,ret)){
-/*
-#ifdef _DEBUG
-			printf("nl_eval_sub debug 1, substituted recur keyword for address %p=",ret);
-			nl_out(stdout,ret);
-			printf("\n");
-#endif
-*/
 		}
 	}
 	
@@ -1020,7 +1006,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			nl_val *body=arguments->d.pair.r;
 			nl_val *post_loop=NULL;
 			
-			arguments=arguments->d.pair.r;
+			arguments=body;
 			while((arguments!=NULL) && (arguments->t==PAIR)){
 				//if we found an "after" then shove everything else in the post-loop and break
 				if((arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,after_keyword)==0)){
@@ -1094,6 +1080,95 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			//evaluate the sub expression, thereby doing the while loop via tail recursion
 			return nl_eval(to_eval,env,last_exp);
 		}
+	//check for for statements/loops
+	}else if(nl_val_cmp(keyword,for_keyword)==0){
+		if(nl_list_len(arguments)<5){
+			fprintf(stderr,"Err: too few arguments given to for statement\n");
+		}else{
+			nl_val *counter=arguments->d.pair.f;
+			nl_val *init_val=arguments->d.pair.r->d.pair.f;
+			nl_val *cond=arguments->d.pair.r->d.pair.r->d.pair.f;
+			nl_val *update=arguments->d.pair.r->d.pair.r->d.pair.r->d.pair.f;
+			nl_val *body=arguments->d.pair.r->d.pair.r->d.pair.r->d.pair.r;
+			nl_val *post_loop=NULL;
+			
+			arguments=body;
+			while((arguments!=NULL) && (arguments->t==PAIR)){
+				//if we found an "after" then shove everything else in the post-loop and break
+				if((arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,after_keyword)==0)){
+					post_loop=arguments->d.pair.r;
+					//separate this list from the body list
+					arguments->d.pair.r=NULL;
+					break;
+				}
+				arguments=arguments->d.pair.r;
+			}
+			
+			counter->ref++;
+			init_val->ref++;
+			cond->ref++;
+			update->ref++;
+			body->ref++;
+			if(post_loop!=NULL){
+//				post_loop->ref++;
+			}
+			
+			//build a sub expression to evaluate
+			nl_val *sub_to_eval=nl_val_malloc(PAIR);
+			//keyword
+			sub_to_eval->d.pair.f=nl_val_cp(sub_keyword);
+			sub_to_eval->d.pair.r=nl_val_malloc(PAIR);
+			//one argument (the counter symbol)
+			sub_to_eval->d.pair.r->d.pair.f=nl_val_malloc(PAIR);
+			sub_to_eval->d.pair.r->d.pair.f->d.pair.f=counter;
+			sub_to_eval->d.pair.r->d.pair.f->d.pair.r=NULL;
+			//add a condition encompassing the body and post_loop
+			sub_to_eval->d.pair.r->d.pair.r=nl_val_malloc(PAIR);
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.f=nl_val_malloc(PAIR);
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.r=NULL;
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.f=nl_val_cp(if_keyword);
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r=nl_val_malloc(PAIR);
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.f=cond;
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=body;
+			while((body!=NULL) && (body->t==PAIR)){
+				if(body->d.pair.r==NULL){
+					//add in the recursive call that makes it, you know, loop
+					body->d.pair.r=nl_val_malloc(PAIR);
+					body->d.pair.r->d.pair.f=nl_val_malloc(PAIR);
+					body->d.pair.r->d.pair.f->d.pair.f=nl_val_cp(recur_keyword);
+					body->d.pair.r->d.pair.f->d.pair.r=nl_val_malloc(PAIR);
+					//pass in the update expression which will be re-evaluated each iteration
+					body->d.pair.r->d.pair.f->d.pair.r->d.pair.f=update;
+					body->d.pair.r->d.pair.f->d.pair.r->d.pair.r=NULL;
+					body->d.pair.r->d.pair.r=NULL;
+					
+					//if we had a post-loop clause then put it in there
+					if(post_loop!=NULL){
+						body->d.pair.r->d.pair.r=nl_val_malloc(PAIR);
+						body->d.pair.r->d.pair.r->d.pair.f=nl_val_cp(else_keyword);
+						body->d.pair.r->d.pair.r->d.pair.r=post_loop;
+					}
+					break;
+				}
+				body=body->d.pair.r;
+			}
+			
+			//free the original expression
+			nl_val_free(keyword_exp);
+			
+			//make sure the sub we just made gets, you know, applied
+			nl_val *to_eval=nl_val_malloc(PAIR);
+			to_eval->d.pair.f=sub_to_eval;
+			//and give it init_val as the initial argument value
+			to_eval->d.pair.r=nl_val_malloc(PAIR);
+			to_eval->d.pair.r->d.pair.f=init_val;
+			to_eval->d.pair.r->d.pair.r=NULL;
+			
+			//NOTE: this is used for tailcalls and depends on C TCO (-O3 or -O2)
+			//evaluate the sub expression, thereby doing the while loop via tail recursion
+			return nl_eval(to_eval,env,last_exp);
+		}
+
 	//check for array statements (turns the evaluated argument list into an array then returns that)
 	}else if(nl_val_cmp(keyword,array_keyword)==0){
 		//first evaluate arguements
@@ -1201,14 +1276,6 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			fprintf(stderr,"\n");
 		}
 	}
-
-/*
-#ifdef _DEBUG
-	printf("nl_eval_keyword debug 0, evaluated expression ");
-	nl_out(stdout,keyword_exp);
-	printf("; freeing and returning up...\n");
-#endif
-*/
 	
 	//free the original expression (frees the entire list, keyword, arguments, and all)
 	//note that this list changed as we evaluated, and is likely not exactly what we started with
@@ -1235,8 +1302,6 @@ tailcall:
 		case ARRAY:
 		case PRI:
 		case SUB:
-//			exp->ref++;
-//			ret=exp;
 			return exp;
 			break;
 		//symbols are generally self-evaluating
@@ -1826,6 +1891,7 @@ void nl_keyword_malloc(){
 	recur_keyword=nl_sym_from_c_str("recur");
 	return_keyword=nl_sym_from_c_str("return");
 	while_keyword=nl_sym_from_c_str("while");
+	for_keyword=nl_sym_from_c_str("for");
 	after_keyword=nl_sym_from_c_str("after");
 	array_keyword=nl_sym_from_c_str("array");
 }
@@ -1850,6 +1916,7 @@ void nl_keyword_free(){
 	nl_val_free(recur_keyword);
 	nl_val_free(return_keyword);
 	nl_val_free(while_keyword);
+	nl_val_free(for_keyword);
 	nl_val_free(after_keyword);
 	nl_val_free(array_keyword);
 }

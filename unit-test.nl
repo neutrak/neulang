@@ -250,7 +250,7 @@ $return-value
 ))
 
 ($! 20)
-		
+
 (let iter-loop (sub (min max)
 	(if (< $min $max)
 		($iter-loop (+ 1 $min) $max)
@@ -278,6 +278,8 @@ $dumb-loop(+(4 1) 10)
 
 //the "recur" keyword allowing anonymous recursion!
 (let recur-test (sub (min max)
+//	(out $min)
+//	(strout (array (int->byte 10)))
 	(if (< $min $max)
 		(recur (+ $min 1) $max)
 	else
@@ -339,7 +341,14 @@ $n //0
 	(let n (+ $n 1))
 )
 
-//(exit)
+//a for loop (this will not change the outside value of n, since it uses a single-argument closure
+(for i 0 (< $i 64) (+ $i 1)
+	(strout "this is a for loop and i is ")
+	(out $i)
+	(strout $newline)
+after
+	13
+)
 
 //END loop testing ----------------------------------------------------------------------------------------
 

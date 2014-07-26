@@ -271,6 +271,9 @@ void nl_gcd_reduce(nl_val *v);
 //this is value comparison, NOT pointer comparison
 int nl_val_cmp(const nl_val *v_a, const nl_val *v_b);
 
+//return whether or not this list contains null (this does NOT recurse to sub-lists)
+char nl_contains_nulls(nl_val *val_list);
+
 //return a byte version of the given number constant, if possible
 nl_val *nl_int_to_byte(nl_val *num_list);
 
