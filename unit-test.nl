@@ -58,6 +58,8 @@ k I think it works
 //EXPECT: NULL
 (if FALSE 5)
 
+//(exit)
+
 //true condition, return 0
 //EXPECT: 0
 (if 1
@@ -170,7 +172,7 @@ $if_check
 	"this is a test"
 	(if TRUE
 		"haha"
-//		(return 5)
+		(return 5)
 	else
 		"hehe"
 	)
@@ -185,8 +187,6 @@ $a-test-sub
 ((sub () 5 -1) 6 7 8)
 
 ($a-test-sub "muhahahahaha")
-
-//(exit)
 
 (let complex-test (sub (y)
 	(+ 1 2)
@@ -225,7 +225,7 @@ $return-value
 
 //recursive naive fibonacci sequence calculation
 (let fib (sub (n)
-	(if (> $n 1)
+	(if (> $n 2)
 		(+ ($fib (- $n 2)) ($fib (- $n 1)))
 	else
 		1
@@ -283,7 +283,7 @@ $dumb-loop(+(4 1) 10)
 		$min
 	)
 ))
-($recur-test 1 50)
+($recur-test 1 500)
 
 //END recursion testing -----------------------------------------------------------------------------------
 
@@ -345,7 +345,7 @@ after
 $n //0
 
 //now a really long loop to demonstrate the fact that this uses tail recursion
-(while (< $n 40000)
+(while (< $n 4000)
 	(out $n)
 	(strout $newline "here's johnny!!" $newline)
 	(let n (+ $n 1))

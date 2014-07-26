@@ -15,6 +15,9 @@ echo "Compiling using ${CC}..."
 #the -O3 is a tailcall optimization option, and is necessary for the resultant interpreter to do tco
 $CC -o bootstrap-nl *.c -O3 -Wall $*
 
+# -O2 still gets tailcall optimization in gcc and clang, but tcc still doesn't tco with it :/
+#$CC -o bootstrap-nl *.c -O2 -Wall $*
+
 if [ 0 -eq "$?" ]
 then
 	echo "Compiled!"
