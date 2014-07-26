@@ -342,13 +342,23 @@ $n //0
 )
 
 //a for loop (this will not change the outside value of n, since it uses a single-argument closure
-(for i 0 (< $i 64) (+ $i 1)
-	(strout "this is a for loop and i is ")
-	(out $i)
+//so the arguments here are as follows
+/*
+<symbol that will be used in body, passed to recursive calls>
+<initialization argument/first symbol value>
+<condition to check (loop stops when it's false)>
+<update to yeild new value for recursive call>
+*/
+(for n 0 (< $n 640) (+ $n 1)
+	(strout "this is a for loop and n is ")
+	(out $n)
 	(strout $newline)
 after
 	13
 )
+
+//0
+$n
 
 //END loop testing ----------------------------------------------------------------------------------------
 

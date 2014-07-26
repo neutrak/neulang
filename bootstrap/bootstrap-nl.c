@@ -38,6 +38,7 @@ nl_val *while_keyword;
 nl_val *for_keyword;
 nl_val *after_keyword;
 nl_val *array_keyword;
+nl_val *list_keyword;
 
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
@@ -1181,6 +1182,13 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			
 			arguments=arguments->d.pair.r;
 		}
+	//check for list statements (evaluates argument list, returns it)
+	}else if(nl_val_cmp(keyword,list_keyword)==0){
+		//first evaluate arguements
+		nl_eval_elements(arguments,env);
+		
+		arguments->ref++;
+		ret=arguments;
 	//check for boolean operator and
 	}else if(nl_val_cmp(keyword,and_keyword)==0){
 		ret=nl_val_malloc(BYTE);
@@ -1894,6 +1902,7 @@ void nl_keyword_malloc(){
 	for_keyword=nl_sym_from_c_str("for");
 	after_keyword=nl_sym_from_c_str("after");
 	array_keyword=nl_sym_from_c_str("array");
+	list_keyword=nl_sym_from_c_str("list");
 }
 
 //free global symbol data for clean exit
@@ -1919,6 +1928,7 @@ void nl_keyword_free(){
 	nl_val_free(for_keyword);
 	nl_val_free(after_keyword);
 	nl_val_free(array_keyword);
+	nl_val_free(list_keyword);
 }
 
 //bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
