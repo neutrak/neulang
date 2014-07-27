@@ -68,7 +68,7 @@ struct nl_val {
 		} pair;
 		
 		//array value
-		//TODO: make this continguous instead of an array of pointers to who-knows-where
+		//TODO: make this continguous instead of an array of pointers to who-knows-where (I don't know how feasible this is due to other handling, I tried it once and it kinda failed hard, that might just be from trying to free the first entry or something; also I'm not sure how to store NULLs)
 		//note that all neulang arrays internally store a size
 		struct {
 			//sub-type of the array
@@ -76,6 +76,7 @@ struct nl_val {
 			
 			//the memory itself and the number of elements stored
 			nl_val **v;
+//			nl_val *v;
 			unsigned int size;
 			
 			//how much storage is used internally; this is so dynamic resizing is a little more efficient
@@ -260,7 +261,8 @@ void nl_bind_stdlib(nl_env_frame *env);
 
 //the repl for neulang; this is separated from main for embedding purposes
 //the only thing you have to do outside this is give us an open file and close it when we're done
-void nl_repl(FILE *fp);
+//arguments given are interpreted as command-line arguments and are bound to argv in the interpreter (NULL works)
+void nl_repl(FILE *fp, nl_val *argv);
 
 //runtime!
 int main(int argc, char *argv[]);
@@ -283,6 +285,9 @@ nl_val *nl_int_to_byte(nl_val *num_list);
 
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v);
+
+//return the entry in the array a at index idx
+nl_val *nl_array_idx(nl_val *a, nl_val *idx);
 
 //pop a value off of the end of an array, resizing if needed
 void nl_array_pop(nl_val *a);
@@ -338,6 +343,10 @@ nl_val *nl_gt(nl_val *val_list);
 //numeric lt operator <
 //if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
 nl_val *nl_lt(nl_val *val_list);
+
+//null check null?
+//returns TRUE iff all elements given in the list are NULL
+nl_val *nl_is_null(nl_val *val_list);
 
 //END NL DECLARATIONS ---------------------------------------------------------------------------------------------
 

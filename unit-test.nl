@@ -430,8 +430,20 @@ else
 (let str-len $ar-sz)
 ($str-len "a test")
 
-
 //END standard library testing ----------------------------------------------------------------------------
+
+//TODO: put this in a more appropriate testing position
+//output any arguments
+(let output-list (sub (l)
+	(if (not (null? $l))
+		(strout (f $l))
+		(strout " ")
+		($output-list (r $l))
+	else
+		(strout $newline)
+	)
+))
+//($output-list $argv)
 
 // EXIT
 (exit)

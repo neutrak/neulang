@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+//#include <string.h>
 
 #include "nl_structures.h"
 
@@ -115,6 +116,7 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 				//look through the array
 				int n;
 				for(n=0;(n<v_a->d.array.size) && (n<v_b->d.array.size);n++){
+//					int element_cmp=nl_val_cmp(&(v_a->d.array.v[n]),&(v_b->d.array.v[n]));
 					int element_cmp=nl_val_cmp(v_a->d.array.v[n],v_b->d.array.v[n]);
 					
 					//if we find an unequal element stop and return the comparison result for that element
@@ -228,14 +230,14 @@ void nl_array_push(nl_val *a, nl_val *v){
 		}else{
 			new_stored_size*=2;
 		}
+//		nl_val *new_array_v=(nl_val*)(malloc((new_stored_size)*(sizeof(nl_val))));
 		nl_val **new_array_v=(nl_val**)(malloc((new_stored_size)*(sizeof(nl_val*))));
-//		nl_val **new_array_v=(nl_val**)(malloc((new_stored_size)*(sizeof(nl_val))));
 		
 		//copy in the old data
 		int n;
 		for(n=0;n<(new_size-1);n++){
+//			memcpy(&(new_array_v[n]),&(a->d.array.v[n]),sizeof(nl_val));
 			new_array_v[n]=(a->d.array.v[n]);
-//			memcpy(new_array_v[n],a->d.array.v[n],sizeof(nl_val));
 		}
 		
 		//free the old memory, and make the array reference the new memory
@@ -252,8 +254,22 @@ void nl_array_push(nl_val *a, nl_val *v){
 	a->d.array.size=new_size;
 	
 	//copy in the new data
+//	memcpy(&(a->d.array.v[(new_size-1)]),v,sizeof(nl_val));
+//	nl_val_free(v);
 	a->d.array.v[(new_size-1)]=v;
 }
+
+//return the entry in the array a at index idx
+nl_val *nl_array_idx(nl_val *a, nl_val *idx){
+	int index=0;
+	if((idx!=NULL) && (idx->t==NUM) && (idx->d.num.d==1)){
+		index=idx->d.num.n;
+	}
+	//TODO: error handling for null and non-array a values, or out-of-bounds indexes
+//	return &(a->d.array.v[index]);
+	return a->d.array.v[index];
+}
+
 
 //pop a value off of the end of an array, resizing if needed
 void nl_array_pop(nl_val *a){
@@ -300,6 +316,7 @@ nl_val *nl_array_cat(nl_val *array_list){
 		//push copies of each element into the larger accumulator
 		int n;
 		for(n=0;n<current_array->d.array.size;n++){
+//			nl_array_push(acc,nl_val_cp(&(current_array->d.array.v[n])));
 			nl_array_push(acc,nl_val_cp(current_array->d.array.v[n]));
 		}
 		
@@ -324,6 +341,7 @@ nl_val *nl_strout(nl_val *array_list){
 		
 		int n;
 		for(n=0;n<output_str->d.array.size;n++){
+//			nl_out(stdout,&(output_str->d.array.v[n]));
 			nl_out(stdout,output_str->d.array.v[n]);
 		}
 		
@@ -652,6 +670,22 @@ nl_val *nl_lt(nl_val *val_list){
 			break;
 		}
 		last_value=val_list->d.pair.f;
+		val_list=val_list->d.pair.r;
+	}
+	return ret;
+}
+
+//null check null?
+//returns TRUE iff all elements given in the list are NULL
+nl_val *nl_is_null(nl_val *val_list){
+	nl_val *ret=nl_val_malloc(BYTE);
+	ret->d.byte.v=TRUE;
+	while((val_list!=NULL) && (val_list->t==PAIR)){
+		if(val_list->d.pair.f!=NULL){
+			ret->d.byte.v=FALSE;
+			break;
+		}
+		
 		val_list=val_list->d.pair.r;
 	}
 	return ret;

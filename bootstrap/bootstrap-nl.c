@@ -21,6 +21,8 @@ nl_val *true_keyword;
 nl_val *false_keyword;
 nl_val *null_keyword;
 
+nl_val *f_keyword;
+nl_val *r_keyword;
 nl_val *if_keyword;
 nl_val *else_keyword;
 nl_val *and_keyword;
@@ -145,6 +147,7 @@ char nl_val_free(nl_val *exp){
 			if(exp->d.array.v!=NULL){
 				unsigned int n;
 				for(n=0;n<(exp->d.array.size);n++){
+//					nl_val_free(&(exp->d.array.v[n]));
 					nl_val_free(exp->d.array.v[n]);
 				}
 				free(exp->d.array.v);
@@ -208,6 +211,7 @@ nl_val *nl_val_cp(nl_val *v){
 			{
 				int n;
 				for(n=0;(n<(v->d.array.size));n++){
+//					nl_array_push(ret,nl_val_cp(&(v->d.array.v[n])));
 					nl_array_push(ret,nl_val_cp(v->d.array.v[n]));
 				}
 			}
@@ -292,11 +296,14 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	int n;
 	for(n=0;n<(env->symbol_array->d.array.size);n++){
 		//if we found this symbol
+//		if(nl_val_cmp(symbol,&(env->symbol_array->d.array.v[n]))==0){
 		if(nl_val_cmp(symbol,env->symbol_array->d.array.v[n])==0){
 			//if this symbol was already bound and the type we're trying to re-bind has a different type, don't bind!
+//			if((value!=NULL) && (value->t!=((&(env->symbol_array->d.array.v[n]))->d.sym.t))){
 			if((value!=NULL) && (value->t!=(env->symbol_array->d.array.v[n]->d.sym.t))){
 				fprintf(stderr,"Err: re-binding ");
 				nl_out(stderr,symbol);
+//				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,(&(env->symbol_array->d.array.v[n]))->d.sym.t);
 				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,env->symbol_array->d.array.v[n]->d.sym.t);
 				nl_val_free(value);
 				
@@ -306,6 +313,7 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			}
 			
 			//update the value (removing a reference to the old value)
+//			nl_val_free(&(env->value_array->d.array.v[n]));
 			nl_val_free(env->value_array->d.array.v[n]);
 			env->value_array->d.array.v[n]=value;
 			
@@ -315,6 +323,11 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 				
 				//once bound values are no longer constant
 				value->cnst=FALSE;
+				
+//				memcpy(&(env->value_array->d.array.v[n]),value,sizeof(nl_val));
+			}else{
+				//TODO: how to store a null if it's not an array of pointers? should I just un-bind this value? (that would return null, after all)
+//				memset(&(env->value_array->d.array.v[n]),0,sizeof(nl_val));
 			}
 			
 			//note that the symbol is already stored
@@ -346,7 +359,6 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 		nl_array_push(env->symbol_array,symbol);
 		symbol->ref++;
 		
-		nl_array_push(env->value_array,value);
 		if(value!=NULL){
 			//give the symbol the type that the bound value has (effectively inferring typing at runtime)
 			//note that NULL is a generic value and doesn't change the type; (a value initially bound to NULL will be forever a symbol)
@@ -367,6 +379,8 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 #endif
 */
 		}
+		//push the value now associated with the symbol
+		nl_array_push(env->value_array,value);
 	}
 	
 	return TRUE;
@@ -387,8 +401,10 @@ nl_val *nl_lookup(nl_val *symbol, nl_env_frame *env){
 	int n;
 	for(n=0;n<(env->symbol_array->d.array.size);n++){
 		//if we found this symbol
+//		if(nl_val_cmp(symbol,&(env->symbol_array->d.array.v[n]))==0){
 		if(nl_val_cmp(symbol,env->symbol_array->d.array.v[n])==0){
 			//return the associated value
+//			return &(env->value_array->d.array.v[n]);
 			return env->value_array->d.array.v[n];
 		}
 	}
@@ -1182,6 +1198,46 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			
 			arguments=arguments->d.pair.r;
 		}
+	//check for f statements (car)
+	}else if(nl_val_cmp(keyword,f_keyword)==0){
+		if((arguments!=NULL) && (arguments->t==PAIR)){
+			//evaluate the first argument
+			nl_val *result=nl_eval(arguments->d.pair.f,env,FALSE);
+//			nl_val_free(arguments->d.pair.f);
+			arguments->d.pair.f=result;
+			
+			//if it was a pair then return the first entry
+			if((arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==PAIR)){
+				ret=arguments->d.pair.f->d.pair.f;
+				if(ret!=NULL){
+					ret->ref++;
+				}
+			}else{
+				fprintf(stderr,"Err: argument given to f statement was not a pair\n");
+			}
+		}else{
+			fprintf(stderr,"Err: incorrect usage of f statement\n");
+		}
+	//check for r statements (cdr)
+	}else if(nl_val_cmp(keyword,r_keyword)==0){
+		if((arguments!=NULL) && (arguments->t==PAIR)){
+			//evaluate the first argument
+			nl_val *result=nl_eval(arguments->d.pair.f,env,FALSE);
+//			nl_val_free(arguments->d.pair.f);
+			arguments->d.pair.f=result;
+			
+			//if it was a pair then return the second entry
+			if((arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==PAIR)){
+				ret=arguments->d.pair.f->d.pair.r;
+				if(ret!=NULL){
+					ret->ref++;
+				}
+			}else{
+				fprintf(stderr,"Err: argument given to r statement was not a pair\n");
+			}
+		}else{
+			fprintf(stderr,"Err: incorrect usage of r statement\n");
+		}
 	//check for list statements (evaluates argument list, returns it)
 	}else if(nl_val_cmp(keyword,list_keyword)==0){
 		//first evaluate arguements
@@ -1834,7 +1890,8 @@ void nl_out(FILE *fp, const nl_val *exp){
 			{
 				unsigned int n;
 				for(n=0;n<(exp->d.array.size);n++){
-					nl_out(fp,(exp->d.array.v[n]));
+//					nl_out(fp,&(exp->d.array.v[n]));
+					nl_out(fp,exp->d.array.v[n]);
 					fprintf(fp," ");
 				}
 			}
@@ -1851,7 +1908,8 @@ void nl_out(FILE *fp, const nl_val *exp){
 			if(exp->d.sym.name!=NULL){
 				unsigned int n;
 				for(n=0;n<(exp->d.sym.name->d.array.size);n++){
-					nl_out(fp,(exp->d.sym.name->d.array.v[n]));
+//					nl_out(fp,&(exp->d.sym.name->d.array.v[n]));
+					nl_out(fp,exp->d.sym.name->d.array.v[n]);
 				}
 			}
 			fprintf(fp,">");
@@ -1861,7 +1919,8 @@ void nl_out(FILE *fp, const nl_val *exp){
 			if((exp->d.eval.sym!=NULL) && (exp->d.eval.sym->d.sym.name!=NULL)){
 				unsigned int n;
 				for(n=0;n<(exp->d.eval.sym->d.sym.name->d.array.size);n++){
-					nl_out(fp,(exp->d.eval.sym->d.sym.name->d.array.v[n]));
+//					nl_out(fp,&(exp->d.eval.sym->d.sym.name->d.array.v[n]));
+					nl_out(fp,exp->d.eval.sym->d.sym.name->d.array.v[n]);
 				}
 			}
 			fprintf(fp,">");
@@ -1885,6 +1944,8 @@ void nl_keyword_malloc(){
 	false_keyword=nl_sym_from_c_str("FALSE");
 	null_keyword=nl_sym_from_c_str("NULL");
 	
+	f_keyword=nl_sym_from_c_str("f");
+	r_keyword=nl_sym_from_c_str("r");
 	if_keyword=nl_sym_from_c_str("if");
 	else_keyword=nl_sym_from_c_str("else");
 	and_keyword=nl_sym_from_c_str("and");
@@ -1911,6 +1972,8 @@ void nl_keyword_free(){
 	nl_val_free(false_keyword);
 	nl_val_free(null_keyword);
 	
+	nl_val_free(f_keyword);
+	nl_val_free(r_keyword);
 	nl_val_free(if_keyword);
 	nl_val_free(else_keyword);
 	nl_val_free(and_keyword);
@@ -1952,6 +2015,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_eq),env);
 	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_gt),env);
 	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_lt),env);
+	nl_bind_new(nl_sym_from_c_str("null?"),nl_primitive_wrap(nl_is_null),env);
+	
 	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_array_cat),env);
 	
 	nl_bind_new(nl_sym_from_c_str("ar-sz"),nl_primitive_wrap(nl_array_size),env);
@@ -1964,7 +2029,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 
 //the repl for neulang; this is separated from main for embedding purposes
 //the only thing you have to do outside this is give us an open file and close it when we're done
-void nl_repl(FILE *fp){
+//arguments given are interpreted as command-line arguments and are bound to argv in the interpreter (NULL works)
+void nl_repl(FILE *fp, nl_val *argv){
 	//TODO: ignore shebang (#!) line, if there is one
 	
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
@@ -1977,6 +2043,16 @@ void nl_repl(FILE *fp){
 	
 	//bind the standard library functions in the global environment
 	nl_bind_stdlib(global_env);
+	
+	//if we got arguments, bind those too
+	if(argv!=NULL){
+		nl_val *argv_symbol=nl_sym_from_c_str("argv");
+		nl_bind(argv_symbol,argv,global_env);
+		
+		//free the arguments and the symbol
+		nl_val_free(argv);
+		nl_val_free(argv_symbol);
+	}
 	
 	//initialize the line number
 //	line_number=0;
@@ -2028,8 +2104,34 @@ int main(int argc, char *argv[]){
 		}
 	}
 	
+	nl_val *nl_argv=NULL;
+	
+	//if we got more arguments, then pass them to the interpreter as strings
+	if(argc>2){
+		nl_argv=nl_val_malloc(PAIR);
+		
+		nl_val *current_arg=nl_argv;
+		int n;
+		for(n=2;n<argc;n++){
+			current_arg->d.pair.f=nl_val_malloc(ARRAY);
+			int n2;
+			for(n2=0;n2<strlen(argv[n]);n2++){
+				nl_val *c=nl_val_malloc(BYTE);
+				c->d.byte.v=argv[n][n2];
+				nl_array_push(current_arg->d.pair.f,c);
+			}
+			
+			if((n+1)<argc){
+				current_arg->d.pair.r=nl_val_malloc(PAIR);
+				current_arg=current_arg->d.pair.r;
+			}else{
+				current_arg->d.pair.r=NULL;
+			}
+		}
+	}
+	
 	//go into the read eval print loop!
-	nl_repl(fp);
+	nl_repl(fp,nl_argv);
 	
 	//if we were reading from a file then close that file
 	if((fp!=NULL) && (fp!=stdin)){
