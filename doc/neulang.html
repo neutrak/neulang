@@ -108,7 +108,8 @@ Just for completeness, here are two alternate versions of the same code, one rec
 (let fact (sub (n)
 	(if (&gt; $n 1)
 //		(* $n ($fact (- $n 1)))
-		//recursive calls can use the name of the subroutine or the recur keyword interchangably
+		//recursive calls can use the name of the subroutine
+		//or the recur keyword interchangably
 		(* $n (recur (- $n 1)))
 	else
 		1
@@ -247,7 +248,7 @@ If statements do NOT have their own environment like closures and loops, and act
 Subroutines are how blocks of code can be abstracted so as to be executed repeatedly.  Subroutine execution is tailcall optimized (depending on the C compiler's tailcall optimization via the -O3 or -O2 switches).  All looping is syntactic sugar for locally-defined subroutines.  
 Subroutines are a first-order data type, they can be passed as arguments or returned from other subroutines.  
 Subroutines are closures, meaning they include their their own environment frame which links up to their defining environment.  Symbol lookup operations go first to the most local environment, then to increasingly higher scopes until either the symbol is found or we hit a NULL environment frame.  
-Assignment operations ONLY function on the local environment; in the case of arguments this goes into an "apply" environment, which is for all intents and purposes a call stack frame.  For variables which are not arguments, these symbols are bound in the local closure environment, but persists through calls (recursive or otherwise).  
+Assignment operations ONLY function on the local environment; in the case of arguments this goes into an "apply" environment, which is for all intents and purposes a call stack frame.  For variables which are not arguments, these symbols are bound in the local closure environment, but persist through calls (recursive or otherwise).  
 The <b>recur</b> keyword can be used to give anonymous recursion, and is switched for the closure itself during evaluation of the sub expression.  
 The <b>return</b> keyword can be used to return early from a function, short-circuiting the rest of the expression.  
 </p>
