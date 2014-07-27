@@ -258,6 +258,10 @@ void nl_bind_new(nl_val *symbol, nl_val *value, nl_env_frame *env);
 //bind all primitive subroutines in the given environment frame
 void nl_bind_stdlib(nl_env_frame *env);
 
+//the repl for neulang; this is separated from main for embedding purposes
+//the only thing you have to do outside this is give us an open file and close it when we're done
+void nl_repl(FILE *fp);
+
 //runtime!
 int main(int argc, char *argv[]);
 

@@ -1962,20 +1962,12 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("int->byte"),nl_primitive_wrap(nl_int_to_byte),env);
 }
 
-//runtime!
-int main(int argc, char *argv[]){
+//the repl for neulang; this is separated from main for embedding purposes
+//the only thing you have to do outside this is give us an open file and close it when we're done
+void nl_repl(FILE *fp){
+	//TODO: ignore shebang (#!) line, if there is one
+	
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
-	
-	FILE *fp=stdin;
-	
-	//if we were given a file, open it
-	if(argc>1){
-		fp=fopen(argv[1],"r");
-		if(fp==NULL){
-			fprintf(stderr,"Err: Could not open input file \"%s\"\n",argv[1]);
-			return 1;
-		}
-	}
 	
 	//allocate keywords
 	nl_keyword_malloc();
@@ -2021,6 +2013,23 @@ int main(int argc, char *argv[]){
 	
 	//free (de-allocate) keywords
 	nl_keyword_free();
+}
+
+//runtime!
+int main(int argc, char *argv[]){
+	FILE *fp=stdin;
+	
+	//if we were given a file, open it
+	if(argc>1){
+		fp=fopen(argv[1],"r");
+		if(fp==NULL){
+			fprintf(stderr,"Err: Could not open input file \"%s\"\n",argv[1]);
+			return 1;
+		}
+	}
+	
+	//go into the read eval print loop!
+	nl_repl(fp);
 	
 	//if we were reading from a file then close that file
 	if((fp!=NULL) && (fp!=stdin)){

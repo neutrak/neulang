@@ -1,0 +1,422 @@
+<html>
+<head>
+<title>neulang v0.1.0 documentation</title>
+
+<style>
+
+</style>
+
+</head>
+
+<body>
+<a name='top'></a>
+<h1>neulang v0.1.0 documentation</h1>
+<hr>
+
+<h3>table of contents</h3>
+<ul>
+	<li><a href='#intro'>Introduction</a></li>
+	<li><a href='#types'>Primitive Types</a></li>
+	<li><a href='#pri'>Primitive Operations</a></li>
+	<li><a href='#if'>If Statments</a></li>
+	<li><a href='#sub'>Subroutines</a></li>
+	<li><a href='#loops'>While and For Loops</a></li>
+	<li><a href='#comments'>Comments</a></li>
+	<li><a href='#bool'>Boolean Operators</a></li>
+	<li><a href='#array'>Array (and by extension string) Primitives</a></li>
+	<li><a href='#list'>List Primitives</a></li>
+</ul>
+
+<a name='intro'></a>
+<h1>Introduction</h1>
+<hr>
+
+<p>
+Welcome to neulang, the first (to my knowledge) contextually-imperative functional language.  What does that mean?  Well, it's an imperative (state-based) language at heart, but it preserves referential transparency (a functional abstraction system) by close attention to environment permissions.  
+There are many many languages and obviously each of them has a context in which they work well; it's important to note that this is a text processing language, and was designed primarily to be good at that.  As such you might find the numeric types, etc. somewhat lacking; if this is the case you should probably use a different language, but you can also bind C code.  
+</p>
+
+<p>
+I know it's common to start with hello world but that's just so boring and even a non-programmer wants a little more than that.  With that in mind let's take a look at a simple code example.  
+</p>
+
+<code>
+<textarea cols='80' rows='24'>
+//this is a function to naively calculate a factorial with a while loop
+(let fact (sub (n)
+	//initialize variables (in an imperative style)
+	(let acc 1)
+	(let a 1)
+	//set the accumulator to the result of the loop
+	//(this is needed because the loop is really a subroutine,
+	//and can't change higher scopes; instead it has a return value)
+	(let acc (while (&lt; $a $n)
+		(let a (+ $a 1))
+		(let acc (* $acc $a))
+	after
+		$acc
+	))
+	//return the result
+	$acc
+))
+//a call requires a $, since we are evaluating the symbol fact
+//(keywords and primitives do not need this,
+//but user-defined subroutines/closures do)
+($fact 5) //returns 120
+</textarea>
+</code>
+
+<p>
+Okay so at this point a couple notes might be important.  The first thing you'll notice is probably assignment; this is done with the let statement.  Let binds a symbol to a value; it's important to note that the value can be updated, but the type cannot be changed.  
+That is to say, (let a 4) (let a 5) is acceptable, but (let a 4) (let a "c") is not, since let was previously bound to a number value.  
+</p>
+
+<p>
+The next thing to notice is the difference between the symbol (acc) and the EVALUATION of that symbol ($acc); the evaluation is a data-wise copy of the value bound in the environment (set by let).  Symbols are always interpreted literally if not preceded by a $; this is similiar to (and I got the idea from) tcl's behavior. 
+</p>
+
+<p> 
+The final thing to notice is the loop construct; this is really syntactic sugar for a (tailcall-optimized) subroutine statement, and as such it as a return value and its own environment.  The let statement can NEVER bind to higher environments, it always binds to the local environment (even if the symbol wasn't found there).  This means that the let INSIDE the while loop NEVER updates the acc OUTSIDE the while loop, although on the first iteration it does READ from the outer environment.  
+As a result of this environment locality, a return value is needed, and by setting the outer environment acc to the return, the result can be carried through.  This is a little more syntactically messy but is much cleaner behavior than state without a well-defined scope.  
+The "after" keyword is used to define what happens when the condition is FALSE.  This allows you to specify a return value to give the calling code (no after statement results in a null return which is generally not useful, except for perhaps output).  
+</p>
+
+<p>
+Just for completeness, here are two alternate versions of the same code, one recursive and another iterative but using a for loop instead of a while.  
+</p>
+
+<code>
+<textarea cols='80' rows='24'>
+//this is a function to naively calculate a factorial with a for loop
+(let fact (sub (n)
+	//initialize variables (in an imperative style)
+	(let acc 1)
+	//set the accumulator to the result of the loop
+	(let acc (for a 1 (or (&lt; $a $n) (= $a $n)) (+ $a 1)
+		(let acc (* $acc $a))
+	after
+		$acc
+	))
+	//return the result
+	$acc
+))
+//returns 120
+($fact 5)
+
+//this is a function to naively calculate a factorial recursively
+//note that this version is generally discouraged since it builds call stack
+(let fact (sub (n)
+	(if (&gt; $n 1)
+//		(* $n ($fact (- $n 1)))
+		//recursive calls can use the name of the subroutine or the recur keyword interchangably
+		(* $n (recur (- $n 1)))
+	else
+		1
+	)
+))
+//returns 120
+($fact 5)
+
+</textarea>
+</code>
+<br>
+
+<a name='types'></a>
+<h1>Primitive Types</h1>
+<hr>
+
+<p>
+neulang has only a few primitive types, which can be abstracted via closures and arrays to form more complex structures.  
+The primitive types are listed below.  
+</p>
+<ul>
+	<li>
+	<b>BYTE</b> - a single-byte type, used as a character, boolean, or anything else with an unsigned single-byte value
+	</li>
+	<li>
+	<b>NUM</b> - a rational number type, consisting of two large integers (numerator and denominator); hopefully at a later date these will be bignums
+	</li>
+	<li>
+	<b>PAIR</b> - a cons cell for you lisp folks, otherwise known as a primitive list element, a single entry of a linked list, which can contain any type as an entry
+	</li>
+	<li>
+	<b>ARRAY</b> - a dynamically resized array; this stores its own size/length, and can contain any type or combination of types as entries
+	</li>
+	<li>
+	<b>PRI</b> - a primitive procedure (C code that can be called by neulang code); all basic operators are implemented in this manner
+	</li>
+	<li>
+	<b>SUB</b> - a closure; this is a first-class function/subroutine/procedure and consists of arguments, a body, and its own local environment frame
+	</li>
+	<li>
+	<b>SYMBOL</b> - a literal symbol, the only time this is evaluated is when it is in the first position of a list, where it is checked against keywords and then primitives; otherwise these are self-evaluating
+	</li>
+	<li>
+	<b>EVALUATION</b> - $symbol; a symbol that is meant to be evaluated
+	</li>
+</ul>
+
+<p>
+Additionally, there are <b>NULL</b> values; this is a generic value which can be set to a variable of any type, and is used for undefined and otherwise nonsensical operations.  This is used as NaN, end-of-list, unbound variables, and a variety of other error and non-value conditions.  
+</p>
+
+<p>
+Strings are <b>ARRAY</b>s of <b>BYTE</b>s.  They work like pascal strings, storing length with them.  It's important to note that strings CANNOT be escaped in neulang, there is no \n, \', \", or other escape constructs.  The way to output these strings is by concatenating the desired character via the , (array concatenation) operator.  This is done to prevent bugs due to string processing while dealing with escaped sequences.  
+</p>
+
+<!-- TODO: examples of values of each type -->
+
+<a name='pri'></a>
+<h1>Primitive Operations</h1>
+<hr>
+
+<p>
+So primitive operations are the means of combination and as such they are pretty important.  There are several classes of primitive operations in neulang.  
+</p>
+
+<p>
+Firstly, the numeric primitives.
+</p>
+<ul>
+	<li>
+	<b>+</b> - the addition operator, taking any number of arguments (+ a b c ...) and returning a+b+c+...
+	</li>
+	<li>
+	<b>-</b> - the subtraction operator, taking any number of arguments (- a b c ...) and returning a-b-c-...
+	</li>
+	<li>
+	<b>*</b> - the multiplication operator, taking any number of arguments (* a b c ...) and returning a*b*c*...
+	</li>
+	<li>
+	<b>/</b> - the division operator, taking any number of arguments (/ a b c ...) and returning a/b/c/...
+	</li>
+</ul>
+
+<p>
+Nextly, the numeric comparision primitives.
+</p>
+
+<ul>
+	<li>
+	<b>=</b> - the equality operator, taking exactly two arguments (= a b) and returning a==b
+	</li>
+	<li>
+	<b>&lt;</b> - the less than operator, taking any number of arguments (&lt; a b c ...) and returning a&lt;b&lt;c&lt;...
+	</li>
+	<li>
+	<b>&gt;</b> - the greater than operator, taking any number of arguments (&gt; a b c ...) and returning a&gt;b&gt;c&gt;...
+	</li>
+</ul>
+
+<!-- TODO: All other primitives (definitely need string equality and such here) -->
+
+<a name='if'></a>
+<h1>If Statements</h1>
+<hr>
+
+<p>
+If statements are the basic conditional in neulang.  Unlike scheme, the if statement does not execute the first statement if true and second if false, but rather executes all statements until the end or an <b>else</b> keyword as the true section, and executes anything after an <b>else</b> keyword as the false section.  
+There is no else-if per se, but rather this behavior is acheived by nesting if statements as shown below.  
+</p>
+
+<code>
+<textarea cols='80' rows='24'>
+//this is stored as gcd(85/100)
+(let x 8.5)
+(if (&gt; 7 $x 9) //7&gt;8.5&gt;9
+	"how would you get here I don't even"
+else (if (&lt; 7 $x 9) //7&lt;8.5&lt;9
+	"7, $x, and 9 are ordered from lowest to highest"
+else
+	"$x is not in the range (7,9)"
+))
+
+</textarea>
+</code>
+
+<p>
+There is no switch statement, as we do not have the basic integer types necessary to efficiently compile to a jump table like in C.  An if statement already acts as a ternary operator since it has a return value; I'm considering making "?" evaluate the same as "if" for simplicity but I'm not sure if it's needed.  
+If statements do NOT have their own environment like closures and loops, and act on the environment just the same as a let statement would (a let within an if is totally fine and will update values the same way it would outside the if).  
+</p>
+
+<a name='sub'></a>
+<h1>Subroutines</h1>
+<hr>
+
+<p>
+Subroutines are how blocks of code can be abstracted so as to be executed repeatedly.  Subroutine execution is tailcall optimized (depending on the C compiler's tailcall optimization via the -O3 or -O2 switches).  All looping is syntactic sugar for locally-defined subroutines.  
+Subroutines are a first-order data type, they can be passed as arguments or returned from other subroutines.  
+Subroutines are closures, meaning they include their their own environment frame which links up to their defining environment.  Symbol lookup operations go first to the most local environment, then to increasingly higher scopes until either the symbol is found or we hit a NULL environment frame.  
+Assignment operations ONLY function on the local environment; in the case of arguments this goes into an "apply" environment, which is for all intents and purposes a call stack frame.  For variables which are not arguments, these symbols are bound in the local closure environment, but persists through calls (recursive or otherwise).  
+The <b>recur</b> keyword can be used to give anonymous recursion, and is switched for the closure itself during evaluation of the sub expression.  
+The <b>return</b> keyword can be used to return early from a function, short-circuiting the rest of the expression.  
+</p>
+
+<p>
+Some simple subroutines are shown below.  
+</p>
+
+<code>
+<textarea cols='80' rows='24'>
+(let newline (array (int-&gt;byte 10)))
+
+(let max 10)
+(let n 0)
+//this is what a while loop might be translated into
+//due to the lack of an else clause this will return NULL,
+//but that's okay since it's only doing output
+((sub () //note the two open parens here; the second defines the sub, the first applies it
+	(if (&lt; $n $max)
+		(out $n)
+		(strout $newline)
+		(let n (+ $n 1))
+		(recur)
+	)
+))
+
+//this is a recursive fibonacci function
+(let fib (sub (n)
+	(if (&gt; $n 2)
+		(+ ($fib (- $n 2)) ($fib (- $n 1)))
+	else
+		1
+	)
+))
+
+($fib 10) //returns 55
+
+</textarea>
+</code>
+<br>
+
+<a name='loops'></a>
+<h1>While and For Loops</h1>
+<hr>
+
+<p>
+While and For loops are syntactic sugar for anonymous tailcall-optimized recursive subroutines (what a mouthful) which are immediately applied.  All this means is that like a closure, they cannot modify anything outside of their local scope (a return value allows results to be sent up scopes) and they do not directly access the calling scope.  
+This is the same method of doing looping that scheme uses, just made more intuitive and simple from a user perspective.  
+The <b>after</b> keyword allows code to be run in the loop environment once the condition has become false (just before returning), and this clause would contain any return value.  
+The <b>return</b> keyword functions in the same way as any other closure, and becomes equivilent to a "break" statement in other languages when placed inside a loop.  
+</p>
+
+<p>
+The while loop takes at least two arguments (a condition and a body) and will execute the body until the condition becomes false.  
+</p>
+
+<code>
+<textarea cols='80' rows='24'>
+(let newline (array (int-&gt;byte 10)))
+
+(let max 10)
+(let n 0)
+//this is the while version of the loop in the subroutine section
+(while (&lt; $n $max)
+	(out $n)
+	(strout $newline)
+	(let n (+ $n 1))
+)
+
+</textarea>
+</code>
+
+<p>
+The for loop takes at least five arguments (a symbol for the argument, an initial value for the symbol, the condition, the update which returns the new value each iteration, and the body).  
+It evaluates to a immediately-applied subroutine which takes one argument (you may use a list if you need more than this), the initial call getting the initial value.  On each iteration the body is executed, then the update is executed as an argument to the tail-recursive call.  Below is an example of a for loop and the subroutine it will translate into.  
+</p>
+
+<code>
+<textarea cols='80' rows='24'>
+(let newline (array (int-&gt;byte 10)))
+
+//for loop version (returns -4)
+(for n 0 (&lt; $n 10) (+ $n 1)
+	(out $n)
+	(strout $newline)
+after
+	-4
+)
+
+//which is syntactic sugar for the subroutine version
+//the symbol is put as the subroutine argument
+((sub (n)
+	//check condition, maybe execute the body
+	(if (&lt; $n 10)
+		//the body
+		(out $n)
+		(strout $newline)
+		
+		//this is where the update goes, in the recursive call
+		(recur (+ $n 1))
+	//here is the "after" clause
+	else
+		//with the return value
+		-4
+	)
+//initial value used as calling argument
+) 0)
+
+//note that $n is unbound in this outside environment ($n == NULL)
+
+</textarea>
+</code>
+<br>
+
+<a name='comments'></a>
+<h1>Comments</h1>
+<hr>
+<p>
+Comments are the standard gnu89 C style, also used by C++, Java, et al.  They are so straightfoward and intuitive to most programmers I considered not even noting it (figuring you would notice from examples).  But just for completeness I decided to.  
+There are two types of comments, single-line and multi-line. 
+</p>
+<ul>
+	<li>
+	<b>//</b> - a single-line comment; ends at newline character
+	</li>
+	<li>
+	<b>/* ... */</b> - a multi-line comment, from <b>/*</b> to <b>*/</b> is all a comment, even if it includes newlines
+	</li>
+</ul>
+
+<a name='bool'></a>
+<h1>Boolean Operators</h1>
+<hr>
+
+<p>
+There are a number of boolean operators, which are pretty straightforward.  They are as follows.  
+</p>
+
+<ul>
+	<li>
+	<b>and</b> - the short-circuiting and operator, taking any number of arguments (and a b c ...) and returning a and b and c and ... (short-circuits after one false value is found)
+	</li>
+	<li>
+	<b>or</b> - the short-circuiting or operator, taking any number of arguments (or a b c ...) and returning a or b or c or ... (short-circuits after one true value is found)
+	</li>
+	<li>
+	<b>not</b> - the not operator, taking exactly one argument (not a) and returning !a
+	</li>
+	<li>
+	<b>xor</b> - the short-circuiting xor operator, taking any number of arguments (xor a b c ...) and returning a xor b xor c xor ... (short-circuits after 2 true values are found)
+	</li>
+</ul>
+
+<a name='array'></a>
+<h1>Array (and by extension string) Primitives</h1>
+<hr>
+
+<!-- TODO: write this! -->
+
+<a name='list'></a>
+<h1>List Primitives</h1>
+<hr>
+
+<!-- TODO: write this! -->
+
+<hr>
+End of documentation<br>
+<a href='#top'>Return to the top of this page</a>
+
+</body>
+</html>
+
