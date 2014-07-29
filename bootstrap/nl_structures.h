@@ -10,6 +10,18 @@
 
 //END GLOBAL CONSTANTS --------------------------------------------------------------------------------------------
 
+//BEGIN GLOBAL MACROS ---------------------------------------------------------------------------------------------
+
+#define ERR(msg) fprintf(stderr,"Err [line %u]: %s\n",line_number,msg)
+
+#ifdef _STRICT
+	#define ERR_EXIT(msg) fprintf(stderr,"Err [line %i]: %s\n",line_number,msg); exit(1)
+#else
+	#define ERR_EXIT(msg) ERR(msg)
+#endif
+
+//END GLOBAL MACROS -----------------------------------------------------------------------------------------------
+
 //BEGIN DATA STRUCTURES -------------------------------------------------------------------------------------------
 
 //primitive data types; the user should be able to abstract these with a struct
@@ -135,6 +147,14 @@ struct nl_env_frame {
 
 
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
+
+//BEGIN GLOBAL DATA -----------------------------------------------------------------------------------------------
+
+//bookkeeping
+char end_program;
+unsigned int line_number;
+
+//END GLOBAL DATA -------------------------------------------------------------------------------------------------
 
 #endif
 

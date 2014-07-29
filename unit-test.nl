@@ -7,7 +7,7 @@
 5
 -3/1
 2.102
-0/0
+//0/0
 
 //bytes (chars)
 'a'
@@ -53,7 +53,7 @@ k I think it works
 // BEGIN if statement testing -----------------------------------------------------------------------------
 
 //null return from conditional
-(if)
+//(if)
 //EXPECT: NULL
 (if 1)
 //EXPECT: NULL
@@ -102,8 +102,8 @@ $a-number
 
 //invalid syntax
 //EXPECT: NULL
-(let)
-(let a)
+//(let)
+//(let a)
 
 //assign a numeric value
 (let a 5)
@@ -128,12 +128,12 @@ $a
 $c
 
 //unassigned variables have value NULL, so set that now
-(let a $d)
+//(let a $d)
 //EXPECT: NULL
 $a
 
 //variables cannot be re-bound to a different type
-(let b 1)
+//(let b 1)
 //EXPECT: "asdf"
 $b
 
@@ -147,7 +147,7 @@ $bool
 (let bool NULL)
 $bool
 //but setting a variable to null doesn't re-set its type, so this should be a failure
-(let bool "asdf")
+//(let bool "asdf")
 //EXPECT: NULL
 $bool
 
@@ -160,9 +160,9 @@ $if_check
 // BEGIN sub statement testing ----------------------------------------------------------------------------
 
 //firstly, invalid syntax
-(sub)
-(sub "a")
-(sub 5)
+//(sub)
+//(sub "a")
+//(sub 5)
 (sub ())
 
 //now something real, a subroutine with no args that returns the string "abc"
@@ -185,9 +185,10 @@ $a-test-sub
 //now apply a sub
 ((sub () "b"))
 
-((sub () 5 -1) 6 7 8)
+//((sub () 5 -1) 6 7 8)
 
-($a-test-sub "muhahahahaha")
+//($a-test-sub "muhahahahaha")
+($a-test-sub "muhahahahaha" "a" "b")
 
 (let complex-test (sub (y)
 	(+ 1 2)

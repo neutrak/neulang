@@ -10,6 +10,9 @@
 void nl_gcd_reduce(nl_val *v){
 	//ignore null and non-rational values
 	if((v==NULL) || (v->t!=NUM)){
+#ifdef _STRICT
+		exit(1);
+#endif
 		return;
 	}
 	
@@ -54,12 +57,15 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 	
 	//check type equality
 	if((v_a->t)!=(v_b->t)){
-		fprintf(stderr,"Err: comparison between different types is nonsensical, assuming a<b...");
+		fprintf(stderr,"Err [line %u]: comparison between different types is nonsensical, assuming a<b...",line_number);
 		fprintf(stderr,"(offending values were a=");
 		nl_out(stderr,v_a);
 		fprintf(stderr," and b=");
 		nl_out(stderr,v_b);
 		fprintf(stderr,")\n");
+#ifdef _STRICT
+		exit(1);
+#endif
 		return -1;
 	}
 	
@@ -190,17 +196,17 @@ nl_val *nl_int_to_byte(nl_val *num_list){
 				ret=nl_val_malloc(BYTE);
 				ret->d.byte.v=num_list->d.pair.f->d.num.n;
 			}else{
-				fprintf(stderr,"Err: overflow in int_to_byte (given int can't fit in a byte), returning NULL\n");
+				ERR_EXIT("overflow in int_to_byte (given int can't fit in a byte), returning NULL");
 			}
 		}else{
-			fprintf(stderr,"Err: non-int value given to int_to_byte; type conversion nonsensical, returning NULL\n");
+			ERR_EXIT("non-int value given to int_to_byte; type conversion nonsensical, returning NULL");
 		}
 		
 		if(arg_count>1){
-			fprintf(stderr,"Warn: too many arguments given to int_to_byte, ignoring all but the first...\n");
+			fprintf(stderr,"Warn [line %u]: too many arguments given to int_to_byte, ignoring all but the first...\n",line_number);
 		}
 	}else{
-		fprintf(stderr,"Err: no arguments given to int_to_byte, can't convert NULL! (returning NULL)\n");
+		ERR_EXIT("no arguments given to int_to_byte, can't convert NULL! (returning NULL)");
 	}
 	
 	return ret;
@@ -264,6 +270,8 @@ nl_val *nl_array_idx(nl_val *a, nl_val *idx){
 	int index=0;
 	if((idx!=NULL) && (idx->t==NUM) && (idx->d.num.d==1)){
 		index=idx->d.num.n;
+	}else{
+		ERR_EXIT("array index is not an integer!");
 	}
 	//TODO: error handling for null and non-array a values, or out-of-bounds indexes
 //	return &(a->d.array.v[index]);
@@ -296,10 +304,10 @@ nl_val *nl_array_size(nl_val *array_list){
 		acc->d.num.n=array_list->d.pair.f->d.array.size;
 		
 		if(array_list->d.pair.r!=NULL){
-			fprintf(stderr,"Warn: too many arguments given to array size operation, only the first will be used...\n");
+			fprintf(stderr,"Warn [line %u]: too many arguments given to array size operation, only the first will be used...\n",line_number);
 		}
 	}else{
-		fprintf(stderr,"Err: wrong syntax for array size operation (did you give us a NULL?)\n");
+		ERR_EXIT("wrong syntax for array size operation (did you give us a NULL?)");
 	}
 	return acc;
 }
@@ -324,9 +332,12 @@ nl_val *nl_array_cat(nl_val *array_list){
 	}
 	
 	if(array_list!=NULL){
-		fprintf(stderr,"Err: got a non-array value in array concatenation operation; value was ");
+		fprintf(stderr,"Err [line %u]: got a non-array value in array concatenation operation; value was ",line_number);
 		nl_out(stderr,array_list->d.pair.f);
 		fprintf(stderr,"\n");
+#ifdef _STRICT
+		exit(1);
+#endif
 	}
 	
 	return acc;
@@ -381,9 +392,12 @@ nl_val *nl_list_idx(nl_val *list, nl_val *idx){
 	nl_val *ret=NULL;
 	
 	if((idx->t!=NUM) || (idx->d.num.d!=1)){
-		fprintf(stderr,"Err: nl_list_idx only accepts integer list indices, given index was ");
+		fprintf(stderr,"Err [line %u]: nl_list_idx only accepts integer list indices, given index was ",line_number);
 		nl_out(stderr,idx);
 		fprintf(stderr,"\n");
+#ifdef _STRICT
+		exit(1);
+#endif
 		return NULL;
 	}
 	
@@ -410,7 +424,7 @@ nl_val *nl_add(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		fprintf(stderr,"Err: incorrect use of add operation (null list or incorrect type in first operand)\n");
+		ERR_EXIT("incorrect use of add operation (null list or incorrect type in first operand)");
 		return NULL;
 	}
 	
@@ -423,7 +437,7 @@ nl_val *nl_add(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			fprintf(stderr,"Err: non-number given to add operation, returning NULL from add\n");
+			ERR_EXIT("non-number given to add operation, returning NULL from add");
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -452,7 +466,7 @@ nl_val *nl_sub(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		fprintf(stderr,"Err: incorrect use of sub operation (null list or incorrect type in first operand)\n");
+		ERR_EXIT("incorrect use of sub operation (null list or incorrect type in first operand)");
 		return NULL;
 	}
 	
@@ -465,7 +479,7 @@ nl_val *nl_sub(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			fprintf(stderr,"Err: non-number given to subtract operation, returning NULL from subtract\n");
+			ERR_EXIT("non-number given to subtract operation, returning NULL from subtract");
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -494,7 +508,7 @@ nl_val *nl_mul(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		fprintf(stderr,"Err: incorrect use of mul operation (null list or incorrect type in first operand)\n");
+		ERR_EXIT("incorrect use of mul operation (null list or incorrect type in first operand)");
 		return NULL;
 	}
 	
@@ -507,7 +521,7 @@ nl_val *nl_mul(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			fprintf(stderr,"Err: non-number given to mul operation, returning NULL from mul\n");
+			ERR_EXIT("non-number given to mul operation, returning NULL from mul");
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -536,7 +550,7 @@ nl_val *nl_div(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		fprintf(stderr,"Err: incorrect use of mul operation (null list or incorrect type in first operand)\n");
+		ERR_EXIT("incorrect use of div operation (null list or incorrect type in first operand)");
 		return NULL;
 	}
 	
@@ -549,7 +563,7 @@ nl_val *nl_div(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			fprintf(stderr,"Err: non-number given to mul operation, returning NULL from mul\n");
+			ERR_EXIT("non-number given to div operation, returning NULL from mul");
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -585,12 +599,12 @@ nl_val *nl_eq(nl_val *val_list){
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		fprintf(stderr,"Err: a NULL argument was given to equality operator, returning NULL\n");
+		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
 		return NULL;
 	}
 	
 	if(!((nl_list_len(val_list)==2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
-		fprintf(stderr,"Err: incorrect use of equality operator =; arg count != 2 or incorrect type (for string equality use ar=)\n");
+		ERR_EXIT("incorrect use of equality operator =; arg count != 2 or incorrect type (for string equality use ar=)");
 		return NULL;
 	}
 	
@@ -610,11 +624,11 @@ nl_val *nl_gt(nl_val *val_list){
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		fprintf(stderr,"Err: a NULL argument was given to equality operator, returning NULL\n");
+		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
 		return NULL;
 	}
 	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
-		fprintf(stderr,"Err: incorrect use of gt operator >; arg count < 2 or incorrect type (for string gt use ar>)\n");
+		ERR_EXIT("incorrect use of gt operator >; arg count < 2 or incorrect type (for string gt use ar>)");
 		return NULL;
 	}
 	
@@ -646,11 +660,11 @@ nl_val *nl_lt(nl_val *val_list){
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		fprintf(stderr,"Err: a NULL argument was given to equality operator, returning NULL\n");
+		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
 		return NULL;
 	}
 	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
-		fprintf(stderr,"Err: incorrect use of lt operator <; arg count < 2 or incorrect type (for string lt use ar<)\n");
+		ERR_EXIT("incorrect use of lt operator <; arg count < 2 or incorrect type (for string lt use ar<)");
 		return NULL;
 	}
 	

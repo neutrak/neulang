@@ -13,8 +13,8 @@
 //BEGIN GLOBAL DATA -----------------------------------------------------------------------------------------------
 
 //bookkeeping
-char end_program;
-unsigned int line_number;
+//char end_program;
+//unsigned int line_number;
 
 //keywords
 nl_val *true_keyword;
@@ -53,8 +53,7 @@ nl_val *list_keyword;
 nl_val *nl_val_malloc(nl_type t){
 	nl_val *ret=(nl_val*)(malloc(sizeof(nl_val)));
 	if(ret==NULL){
-		fprintf(stderr,"Err: could not malloc a value (out of memory?)\n");
-		exit(1);
+		ERR_EXIT("could not malloc a value (out of memory?)");
 	}
 	
 	ret->t=t;
@@ -273,7 +272,7 @@ void nl_env_frame_free(nl_env_frame *env){
 char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	//can't bind to a null environment
 	if(env==NULL){
-		fprintf(stderr,"Err: cannot bind to a null environment\n");
+		ERR("cannot bind to a null environment");
 		return FALSE;
 /*
 #ifdef _DEBUG
@@ -286,7 +285,7 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	}
 	
 	if(symbol==NULL){
-		fprintf(stderr,"Err: cannot bind a null symbol\n");
+		ERR_EXIT("Err: cannot bind a null symbol");
 		return FALSE;
 	}
 	
@@ -301,11 +300,14 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			//if this symbol was already bound and the type we're trying to re-bind has a different type, don't bind!
 //			if((value!=NULL) && (value->t!=((&(env->symbol_array->d.array.v[n]))->d.sym.t))){
 			if((value!=NULL) && (value->t!=(env->symbol_array->d.array.v[n]->d.sym.t))){
-				fprintf(stderr,"Err: re-binding ");
+				fprintf(stderr,"Err [line %u]: re-binding ",line_number);
 				nl_out(stderr,symbol);
 //				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,(&(env->symbol_array->d.array.v[n]))->d.sym.t);
 				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,env->symbol_array->d.array.v[n]->d.sym.t);
 				nl_val_free(value);
+#ifdef _STRICT
+				exit(1);
+#endif
 				
 //				found=TRUE;
 //				break;
@@ -391,9 +393,12 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 nl_val *nl_lookup(nl_val *symbol, nl_env_frame *env){
 	//a null environment can't contain anything
 	if(env==NULL){
-		fprintf(stderr,"Err: unbound symbol ");
+		fprintf(stderr,"Err [line %u]: unbound symbol ",line_number);
 		nl_out(stderr,symbol);
 		fprintf(stderr,"\n");
+#ifdef _STRICT
+		exit(1);
+#endif
 		return NULL;
 	}
 	
@@ -462,7 +467,7 @@ char nl_is_true(nl_val *v){
 //returns TRUE if replacements were made, else FALSE
 char nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val){
 	if(old_val==NULL){
-		fprintf(stderr,"Err: cannot substitute NULLs in a list; that would just be silly\n");
+		ERR("cannot substitute NULLs in a list; that would just be silly");
 		return FALSE;
 	}
 	
@@ -659,10 +664,13 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 	
 	if(!(sub!=NULL && (sub->t==PRI || sub->t==SUB))){
 		if(sub==NULL){
-			fprintf(stderr,"Err: cannot apply NULL!!!\n");
+			ERR_EXIT("cannot apply NULL!!!");
 		}else{
-			fprintf(stderr,"Err: invalid type given to apply, expected subroutine or primitve procedure, got %i\n",sub->t);
+			fprintf(stderr,"Err [line %u]: invalid type given to apply, expected subroutine or primitve procedure, got %i\n",line_number,sub->t);
 		}
+#ifdef _STRICT
+		exit(1);
+#endif
 		return NULL;
 	}
 	
@@ -691,7 +699,7 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		nl_val *arg_syms=sub->d.sub.args;
 		nl_val *arg_vals=arguments;
 		if(!nl_bind_list(arg_syms,arg_vals,apply_env)){
-			fprintf(stderr,"Err: could not bind arguments to application environment (call stack) from apply\n");
+			ERR_EXIT("could not bind arguments to application environment (call stack) from apply (this usually means number of arguments declared and given differ)");
 		}
 		//set the apply env read-only so any new vars go into the closure env
 		apply_env->rw=FALSE;
@@ -757,7 +765,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 	nl_val *ret=NULL;
 	
 	if((arguments==NULL) || (arguments->t!=PAIR)){
-		fprintf(stderr,"Err: invalid condition given to if statement\n");
+		ERR_EXIT("invalid condition given to if statement");
 		return NULL;
 	}
 	
@@ -875,7 +883,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp){
 		
 		ret=tmp_result;
 	}else{
-		fprintf(stderr,"Err: if statement condition evaluated to NULL\n");
+		ERR_EXIT("if statement condition evaluated to NULL");
 	}
 	
 	//the calling context didn't free the arguments so do it here if we got to here
@@ -891,8 +899,8 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	
 	//invalid syntax case
 	if(!((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==PAIR))){
-		fprintf(stderr,"Err: first argument to subroutine expression isn't a list (should be the list of arguments); invalid syntax!\n");
 		nl_val_free(ret);
+		ERR_EXIT("first argument to subroutine expression isn't a list (should be the list of arguments); invalid syntax!");
 		return NULL;
 	}
 	
@@ -964,7 +972,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==SYMBOL) && (arguments->d.pair.r!=NULL) && (arguments->d.pair.r->t==PAIR)){
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp);
 			if(!nl_bind(arguments->d.pair.f,bound_value,env)){
-				fprintf(stderr,"Err: let couldn't bind symbol to value\n");
+				ERR_EXIT("let couldn't bind symbol to value");
 			}
 			
 			//if this bind was unsuccessful (for example a type error) then re-set bound_value to NULL so we don't try to access it
@@ -983,7 +991,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			//null-out the list elements we got rid of
 			arguments->d.pair.r->d.pair.f=NULL;
 		}else{
-			fprintf(stderr,"Err: wrong syntax for let statement\n");
+			ERR_EXIT("wrong syntax for let statement");
 		}
 	//check for subroutine definitions (lambda expressions which are used as closures)
 	}else if(nl_val_cmp(keyword,sub_keyword)==0){
@@ -1017,7 +1025,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 	//check for while statements (we'll convert this to tail recursion)
 	}else if(nl_val_cmp(keyword,while_keyword)==0){
 		if(nl_list_len(arguments)<2){
-			fprintf(stderr,"Err: too few arguments given to while statement\n");
+			ERR_EXIT("too few arguments given to while statement");
 		}else{
 			nl_val *cond=arguments->d.pair.f;
 			nl_val *body=arguments->d.pair.r;
@@ -1100,7 +1108,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 	//check for for statements/loops
 	}else if(nl_val_cmp(keyword,for_keyword)==0){
 		if(nl_list_len(arguments)<5){
-			fprintf(stderr,"Err: too few arguments given to for statement\n");
+			ERR_EXIT("too few arguments given to for statement");
 		}else{
 			nl_val *counter=arguments->d.pair.f;
 			nl_val *init_val=arguments->d.pair.r->d.pair.f;
@@ -1213,10 +1221,10 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 					ret->ref++;
 				}
 			}else{
-				fprintf(stderr,"Err: argument given to f statement was not a pair\n");
+				ERR_EXIT("argument given to f statement was not a pair");
 			}
 		}else{
-			fprintf(stderr,"Err: incorrect usage of f statement\n");
+			ERR_EXIT("incorrect usage of f statement");
 		}
 	//check for r statements (cdr)
 	}else if(nl_val_cmp(keyword,r_keyword)==0){
@@ -1233,10 +1241,10 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 					ret->ref++;
 				}
 			}else{
-				fprintf(stderr,"Err: argument given to r statement was not a pair\n");
+				ERR_EXIT("argument given to r statement was not a pair");
 			}
 		}else{
-			fprintf(stderr,"Err: incorrect usage of r statement\n");
+			ERR_EXIT("incorrect usage of r statement");
 		}
 	//check for list statements (evaluates argument list, returns it)
 	}else if(nl_val_cmp(keyword,list_keyword)==0){
@@ -1280,7 +1288,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 	//check for boolean operator not
 	}else if(nl_val_cmp(keyword,not_keyword)==0){
 		if(nl_list_len(arguments)>1){
-			fprintf(stderr,"Err: too many arguments given to not, ignoring all but the first...\n");
+			ERR("too many arguments given to not, ignoring all but the first...");
 		}
 		ret=nl_val_malloc(BYTE);
 		//false by default
@@ -1335,9 +1343,12 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			//call apply
 			ret=nl_apply(prim_sub,arguments,env,last_exp);
 		}else{
-			fprintf(stderr,"Err: unknown keyword ");
+			fprintf(stderr,"Err [line %u]: unknown keyword ",line_number);
 			nl_out(stderr,keyword);
 			fprintf(stderr,"\n");
+#ifdef _STRICT
+			exit(1);
+#endif
 		}
 	}
 	
@@ -1411,7 +1422,7 @@ tailcall:
 				//if this is the last expression then it doesn't need any environment trickery and we can just execute the body directly
 				if((last_exp) && (sub->t==SUB)){
 					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
-						fprintf(stderr,"Err: could not bind arguments to application environment (call stack) from eval\n");
+						ERR_EXIT("Err: could not bind arguments to application environment (call stack) from eval (this usually means number of arguments declared and given differ)");
 					}
 					
 					nl_val_free(exp);
@@ -1588,7 +1599,10 @@ nl_val *nl_read_num(FILE *fp){
 			
 			(ret->d.num.d)*=10;
 		}else{
-			fprintf(stderr,"Err: invalid character in numeric literal, \'%c\'\n",c);
+			fprintf(stderr,"Err [line %u]: invalid character in numeric literal, \'%c\'\n",line_number,c);
+#ifdef _STRICT
+			exit(1);
+#endif
 		}
 		
 		c=getc(fp);
@@ -1606,8 +1620,8 @@ nl_val *nl_read_num(FILE *fp){
 	}
 	
 	if(ret->d.num.d==0){
-		fprintf(stderr,"Err: divide-by-0 in rational number; did you forget a denominator?\n");
 		nl_val_free(ret);
+		ERR_EXIT("divide-by-0 in rational number; did you forget a denominator?");
 		ret=NULL;
 	}else{
 		//gcd reduce the number for faster computation
@@ -1623,7 +1637,10 @@ nl_val *nl_read_string(FILE *fp){
 	
 	char c=getc(fp);
 	if(c!='"'){
-		fprintf(stderr,"Err: string literal didn't start with \"; WHAT DID YOU DO? (started with \'%c\')\n",c);
+		fprintf(stderr,"Err [line %u]: string literal didn't start with \"; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
 		return ret;
 	}
 	
@@ -1653,7 +1670,10 @@ nl_val *nl_read_char(FILE *fp){
 	
 	char c=getc(fp);
 	if(c!='\''){
-		fprintf(stderr,"Err: character literal didn't start with \'; WHAT DID YOU DO? (started with \'%c\')\n",c);
+		fprintf(stderr,"Err [line %u]: character literal didn't start with \'; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
 		return ret;
 	}
 	
@@ -1665,7 +1685,10 @@ nl_val *nl_read_char(FILE *fp){
 	
 	c=getc(fp);
 	if(c!='\''){
-		fprintf(stderr,"Warn: single-character literal didn't end with \'; (ended with \'%c\')\n",c);
+		fprintf(stderr,"Warn [line %u]: single-character literal didn't end with \'; (ended with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
 		if(c=='\n'){
 			line_number++;
 		}
@@ -1680,7 +1703,10 @@ nl_val *nl_read_exp_list(FILE *fp){
 	
 	char c=getc(fp);
 	if(c!='('){
-		fprintf(stderr,"Err: expression list didn't start with (; WHAT DID YOU DO? (started with \'%c\')\n",c);
+		fprintf(stderr,"Err [line %u]: expression list didn't start with (; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
 		return ret;
 	}
 	
@@ -1825,8 +1851,8 @@ nl_val *nl_read_exp(FILE *fp){
 			symbol->d.pair.f=ret;
 			ret=symbol;
 		}else{
-			fprintf(stderr,"Err: could not read evaluation (internal parsing error)\n");
 			nl_val_free(ret);
+			ERR_EXIT("could not read evaluation (internal parsing error)");
 			ret=NULL;
 		}
 	//if it starts with anything not already handled read a symbol
@@ -1926,7 +1952,7 @@ void nl_out(FILE *fp, const nl_val *exp){
 			fprintf(fp,">");
 			break;
 		default:
-			fprintf(fp,"Err: Unknown type");
+			ERR("unknown type");
 			break;
 	}
 /*
