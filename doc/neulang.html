@@ -18,6 +18,7 @@
 	<li><a href='#intro'>Introduction</a></li>
 	<li><a href='#types'>Primitive Types</a></li>
 	<li><a href='#pri'>Primitive Operations</a></li>
+	<li><a href='#keyword'>Keywords</a></li>
 	<li><a href='#if'>If Statments</a></li>
 	<li><a href='#sub'>Subroutines</a></li>
 	<li><a href='#loops'>While and For Loops</a></li>
@@ -121,6 +122,8 @@ Just for completeness, here are two alternate versions of the same code, one rec
 </textarea>
 </code>
 <br>
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='types'></a>
 <h1>Primitive Types</h1>
@@ -166,6 +169,8 @@ Strings are <b>ARRAY</b>s of <b>BYTE</b>s.  They work like pascal strings, stori
 </p>
 
 <!-- TODO: examples of values of each type -->
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='pri'></a>
 <h1>Primitive Operations</h1>
@@ -210,6 +215,62 @@ Nextly, the numeric comparision primitives.
 </ul>
 
 <!-- TODO: All other primitives (definitely need string equality and such here) -->
+<a href='#top'>Return to the top of this page</a>
+<br><br>
+
+<a name='keyword'></a>
+<h1>Keywords</h1>
+<hr>
+
+<p>
+There are many keywords which have a meaning other than direct application.  Although many of them are discussed in more detail in other sections, this is a brief overview.  
+</p>
+
+<ul>
+	<li>
+	<b>TRUE</b> - a byte with value 1, which is considered TRUE for conditions (any nonzero byte or int is also considered true)
+	</li>
+	<li>
+	<b>FALSE</b> - a byte with value 0, which is considered FALSE for conditions (any zero byte or int is also considered false)
+	</li>
+	<li>
+	<b>NULL</b> - the NULL value, used for functions without returns, as well as NaN values and end-of-list value
+	</li>
+
+	<li>
+	<b>let</b> - the assignment operator, (let symbol $value)
+	</li>
+	<li>
+	<b>lit</b> - short for "literal"; returns its literal arguments without doing evaluation on them (this differs from list, which evaluates first)
+	</li>
+	<li>
+	<b>exit</b> - ends the program
+	</li>
+	<li>
+	<b>if</b> ... [<b>else</b>] - the conditional operator
+	</li>
+	<li>
+	<b>sub</b> - short for subroutine; declares a closure (similar to a lambda expression in other languages)
+	</li>
+	<li>
+	<b>recur</b> - recursive call; this allows anonymous recursion within a subroutine
+	</li>
+	<li>
+	<b>return</b> - an early return (if this is omitted the last expression is taken as the return value); used in loops, this acts as a "break" statement
+	</li>
+	<li>
+	<b>begin</b> - evaluates the given sequence in order and returns the evaluation of the last element, once all elements are evaluated
+	</li>
+	<li>
+	<b>while</b> - the while loop (syntactic sugar for anonymous tail-recursion with no arguments)
+	</li>
+	<li>
+	<b>for</b> - the for loop (syntactic sugar for anonymous tail-recursion with one argument)
+	</li>
+</ul>
+
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='if'></a>
 <h1>If Statements</h1>
@@ -239,6 +300,8 @@ else
 There is no switch statement, as we do not have the basic integer types necessary to efficiently compile to a jump table like in C.  An if statement already acts as a ternary operator since it has a return value; I'm considering making "?" evaluate the same as "if" for simplicity but I'm not sure if it's needed.  
 If statements do NOT have their own environment like closures and loops, and act on the environment just the same as a let statement would (a let within an if is totally fine and will update values the same way it would outside the if).  
 </p>
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='sub'></a>
 <h1>Subroutines</h1>
@@ -289,6 +352,8 @@ Some simple subroutines are shown below.
 </textarea>
 </code>
 <br>
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='loops'></a>
 <h1>While and For Loops</h1>
@@ -362,6 +427,8 @@ after
 </textarea>
 </code>
 <br>
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='comments'></a>
 <h1>Comments</h1>
@@ -378,6 +445,9 @@ There are two types of comments, single-line and multi-line.
 	<b>/* ... */</b> - a multi-line comment, from <b>/*</b> to <b>*/</b> is all a comment, even if it includes newlines
 	</li>
 </ul>
+
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='bool'></a>
 <h1>Boolean Operators</h1>
@@ -401,18 +471,92 @@ There are a number of boolean operators, which are pretty straightforward.  They
 	<b>xor</b> - the short-circuiting xor operator, taking any number of arguments (xor a b c ...) and returning a xor b xor c xor ... (short-circuits after 2 true values are found)
 	</li>
 </ul>
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='array'></a>
 <h1>Array (and by extension string) Primitives</h1>
 <hr>
 
-<!-- TODO: write this! -->
+<p>
+Arrays are the preferred means of combining pieces of data to form larger structures.  Arrays are dynamically sized and store their size internally.  Array primitive subroutines are listed below.  
+</p>
+
+<ul>
+	<li>
+	<b>array</b> - creates a new array consisting of the arguments given (in the given order)
+	</li>
+<!-- TODO: implement these in the interpreter -->
+	<li>
+	<b>ar-sz</b> - returns size of an array (number of elements)
+	</li>
+	<li>
+	<b>ar-push</b> - returns a new array with the given element added onto the end of the array (let array (ar-push $array $new))
+	</li>
+	<li>
+	<b>ar-pop</b> - returns a new array with the last element removed from the end of the array (let array (ar-pop $array))
+	</li>
+	<li>
+	<b>ar-idx</b> - returns a copy of the element of the array at the given index (let element (ar-idx $array $index))
+	</li>
+	<li>
+	<b>ar-rm</b> - returns a new array with the element of the array at the given index removed (let array (ar-rm $array $index))
+	</li>
+	<li>
+	<b>ar-ins</b> - returns a new array with the given element included at the given index, pushing later elements down (let array (ar-ins $array $index $new))
+	</li>
+	<li>
+	<b>ar=</b> - array equality operator
+	</li>
+	<li>
+	<b>ar&lt;</b> - array less-than operator
+	</li>
+	<li>
+	<b>ar&gt;</b> - array greater-than operator
+	</li>
+</ul>
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <a name='list'></a>
 <h1>List Primitives</h1>
 <hr>
 
 <!-- TODO: write this! -->
+<p>
+Lists are used for interal parsing and are useful for data that you plan to iterate through but not access by index.  The primitive list subroutines are listed below.  
+</p>
+
+<ul>
+	<li>
+	<b>list</b> - creates a new list consisting of the arguments given (in the given order)
+	</li>
+	<li>
+	<b>f</b> - returns the first element in a pair/list (f $list) (equivalent to scheme car)
+	</li>
+	<li>
+	<b>r</b> - returns the second element in a pair/(remainder of the list) (r $list) (equivalent to scheme cdr)
+	</li>
+	<li>
+	<b>null?</b> - returns TRUE if this is end of list/NULL; else FALSE
+	</li>
+<!-- TODO: implement these in the interpreter -->
+	<li>
+	<b>list-sz</b> - returns the number of elements in a list (has to iterate through to get this)
+	</li>
+	<li>
+	<b>list=</b> - list equality operator
+	</li>
+	<li>
+	<b>list&lt;</b> - list less-than operator
+	</li>
+	<li>
+	<b>list&gt;</b> - list greater-than operator
+	</li>
+</ul>
+
+<a href='#top'>Return to the top of this page</a>
+<br><br>
 
 <hr>
 End of documentation<br>
