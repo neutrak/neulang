@@ -204,17 +204,23 @@ Nextly, the numeric comparision primitives.
 
 <ul>
 	<li>
-	<b>=</b> - the equality operator, taking exactly two arguments (= a b) and returning a==b
+	<b>=</b> - the equality operator, taking any number of arguments &gt;=2 (= a b c ...) and returning a==b==c==...
 	</li>
 	<li>
-	<b>&lt;</b> - the less than operator, taking any number of arguments (&lt; a b c ...) and returning a&lt;b&lt;c&lt;...
+	<b>&lt;</b> - the less than operator, taking any number of arguments &gt;=2 (&lt; a b c ...) and returning a&lt;b&lt;c&lt;...
 	</li>
 	<li>
-	<b>&gt;</b> - the greater than operator, taking any number of arguments (&gt; a b c ...) and returning a&gt;b&gt;c&gt;...
+	<b>&gt;</b> - the greater than operator, taking any number of arguments &gt;=2 (&gt; a b c ...) and returning a&gt;b&gt;c&gt;...
+	</li>
+	<li>
+	<b>&lt;=</b> - the less than or equal to operator, equivalent to (or (&lt; ...) (= ...))
+	</li>
+	<li>
+	<b>&gt;=</b> - the greater than or equal to operator, equivalent to (or (&gt; ...) (= ...))
 	</li>
 </ul>
 
-<!-- TODO: All other primitives (definitely need string equality and such here) -->
+<!-- TODO: All other primitives -->
 <a href='#top'>Return to the top of this page</a>
 <br><br>
 
@@ -486,10 +492,28 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 	<li>
 	<b>array</b> - creates a new array consisting of the arguments given (in the given order)
 	</li>
-<!-- TODO: implement these in the interpreter -->
+	<li>
+	<b>ar=</b> - array equality operator
+	</li>
+	<li>
+	<b>ar&lt;</b> - array less than operator
+	</li>
+	<li>
+	<b>ar&gt;</b> - array greater than operator
+	</li>
+	<li>
+	<b>ar&lt;=</b> - array less than or equal to operator
+	</li>
+	<li>
+	<b>ar&gt;=</b> - array greater than or equal to operator
+	</li>
 	<li>
 	<b>ar-sz</b> - returns size of an array (number of elements)
 	</li>
+	<li>
+	<b>ar-idx</b> - returns a copy of the element of the array at the given index (let element (ar-idx $array $index))
+	</li>
+<!-- TODO: implement these in the interpreter -->
 	<li>
 	<b>ar-push</b> - returns a new array with the given element added onto the end of the array (let array (ar-push $array $new))
 	</li>
@@ -497,22 +521,10 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 	<b>ar-pop</b> - returns a new array with the last element removed from the end of the array (let array (ar-pop $array))
 	</li>
 	<li>
-	<b>ar-idx</b> - returns a copy of the element of the array at the given index (let element (ar-idx $array $index))
-	</li>
-	<li>
 	<b>ar-rm</b> - returns a new array with the element of the array at the given index removed (let array (ar-rm $array $index))
 	</li>
 	<li>
 	<b>ar-ins</b> - returns a new array with the given element included at the given index, pushing later elements down (let array (ar-ins $array $index $new))
-	</li>
-	<li>
-	<b>ar=</b> - array equality operator
-	</li>
-	<li>
-	<b>ar&lt;</b> - array less-than operator
-	</li>
-	<li>
-	<b>ar&gt;</b> - array greater-than operator
 	</li>
 </ul>
 <a href='#top'>Return to the top of this page</a>
@@ -522,7 +534,6 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 <h1>List Primitives</h1>
 <hr>
 
-<!-- TODO: write this! -->
 <p>
 Lists are used for interal parsing and are useful for data that you plan to iterate through but not access by index.  The primitive list subroutines are listed below.  
 </p>
@@ -540,7 +551,6 @@ Lists are used for interal parsing and are useful for data that you plan to iter
 	<li>
 	<b>null?</b> - returns TRUE if this is end of list/NULL; else FALSE
 	</li>
-<!-- TODO: implement these in the interpreter -->
 	<li>
 	<b>list-sz</b> - returns the number of elements in a list (has to iterate through to get this)
 	</li>
@@ -548,10 +558,16 @@ Lists are used for interal parsing and are useful for data that you plan to iter
 	<b>list=</b> - list equality operator
 	</li>
 	<li>
-	<b>list&lt;</b> - list less-than operator
+	<b>list&lt;</b> - list less than operator
 	</li>
 	<li>
-	<b>list&gt;</b> - list greater-than operator
+	<b>list&gt;</b> - list greater than operator
+	</li>
+	<li>
+	<b>list&lt;=</b> - list less than or equal to operator
+	</li>
+	<li>
+	<b>list&gt;=</b> - list greater than or equal to operator
 	</li>
 </ul>
 

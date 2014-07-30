@@ -2038,19 +2038,43 @@ void nl_bind_stdlib(nl_env_frame *env){
 /*
 	nl_bind_new(nl_sym_from_c_str("%"),nl_primitive_wrap(nl_mod),env);
 */
+	
+	
 	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_eq),env);
 	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_gt),env);
 	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_lt),env);
+	nl_bind_new(nl_sym_from_c_str(">="),nl_primitive_wrap(nl_ge),env);
+	nl_bind_new(nl_sym_from_c_str("<="),nl_primitive_wrap(nl_le),env);
+	nl_bind_new(nl_sym_from_c_str("ar="),nl_primitive_wrap(nl_ar_eq),env);
+	nl_bind_new(nl_sym_from_c_str("ar>"),nl_primitive_wrap(nl_ar_gt),env);
+	nl_bind_new(nl_sym_from_c_str("ar<"),nl_primitive_wrap(nl_ar_lt),env);
+	nl_bind_new(nl_sym_from_c_str("ar>="),nl_primitive_wrap(nl_ar_ge),env);
+	nl_bind_new(nl_sym_from_c_str("ar<="),nl_primitive_wrap(nl_ar_le),env);
+	nl_bind_new(nl_sym_from_c_str("list="),nl_primitive_wrap(nl_list_eq),env);
+	nl_bind_new(nl_sym_from_c_str("list>"),nl_primitive_wrap(nl_list_gt),env);
+	nl_bind_new(nl_sym_from_c_str("list<"),nl_primitive_wrap(nl_list_lt),env);
+	nl_bind_new(nl_sym_from_c_str("list>="),nl_primitive_wrap(nl_list_ge),env);
+	nl_bind_new(nl_sym_from_c_str("list<="),nl_primitive_wrap(nl_list_le),env);
 	nl_bind_new(nl_sym_from_c_str("null?"),nl_primitive_wrap(nl_is_null),env);
 	
+	//array concatenation!
 	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_array_cat),env);
 	
+	//size and length are bound to the same primitive function, just to make life easier (only ar-sz is "official")
 	nl_bind_new(nl_sym_from_c_str("ar-sz"),nl_primitive_wrap(nl_array_size),env);
+	nl_bind_new(nl_sym_from_c_str("ar-len"),nl_primitive_wrap(nl_array_size),env);
+	nl_bind_new(nl_sym_from_c_str("ar-idx"),nl_primitive_wrap(nl_array_idx),env);
+	//TODO: make and bind additional array subroutines
+	
+	//same as for arrays; size and length mean the same thing, sz is the official/recommended one
+	nl_bind_new(nl_sym_from_c_str("list-sz"),nl_primitive_wrap(nl_list_size),env);
+	nl_bind_new(nl_sym_from_c_str("list-len"),nl_primitive_wrap(nl_list_size),env);
 	
 	nl_bind_new(nl_sym_from_c_str("strout"),nl_primitive_wrap(nl_strout),env);
 	nl_bind_new(nl_sym_from_c_str("out"),nl_primitive_wrap(nl_output),env);
 	
 	nl_bind_new(nl_sym_from_c_str("int->byte"),nl_primitive_wrap(nl_int_to_byte),env);
+	//TODO: all other sensical type conversions
 }
 
 //the repl for neulang; this is separated from main for embedding purposes

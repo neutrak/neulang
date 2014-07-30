@@ -265,17 +265,40 @@ void nl_array_push(nl_val *a, nl_val *v){
 	a->d.array.v[(new_size-1)]=v;
 }
 
-//return the entry in the array a at index idx
-nl_val *nl_array_idx(nl_val *a, nl_val *idx){
+//returns the entry in the array a (first arg) at index idx (second arg)
+nl_val *nl_array_idx(nl_val *args){
+	if(nl_list_len(args)!=2){
+		ERR_EXIT("wrong number of arguments to array idx");
+		return NULL;
+	}
+	
+	nl_val *a=args->d.pair.f;
+	nl_val *idx=args->d.pair.r->d.pair.f;
+	
+	if((a==NULL) || (idx==NULL)){
+		ERR_EXIT("null argument given to array idx");
+		return NULL;
+	}
+	
+	if((a->t!=ARRAY) || (idx->t!=NUM)){
+		ERR_EXIT("wrong type given to array idx, takes array then index (an integer)");
+		return NULL;
+	}
+	
 	int index=0;
 	if((idx!=NULL) && (idx->t==NUM) && (idx->d.num.d==1)){
 		index=idx->d.num.n;
 	}else{
-		ERR_EXIT("array index is not an integer!");
+		ERR_EXIT("given array index is not an integer");
+		return NULL;
 	}
-	//TODO: error handling for null and non-array a values, or out-of-bounds indexes
-//	return &(a->d.array.v[index]);
-	return a->d.array.v[index];
+	
+	if((index<0) || (index>=(a->d.array.size))){
+		ERR_EXIT("out-of-bounds index given to array idx");
+		return NULL;
+	}
+//	return nl_val_cp(&(a->d.array.v[index]));
+	return nl_val_cp(a->d.array.v[index]);
 }
 
 
@@ -409,6 +432,41 @@ nl_val *nl_list_idx(nl_val *list, nl_val *idx){
 		}
 		
 		list=list->d.pair.r;
+	}
+	return ret;
+}
+
+//return the size of the first argument
+//NOTE: subsequent arguments are IGNORED
+nl_val *nl_list_size(nl_val *list_list){
+	nl_val *ret=nl_val_malloc(NUM);
+	ret->d.num.d=1;
+	ret->d.num.n=0;
+	
+	if((list_list!=NULL) && (list_list->t==PAIR)){
+		if(list_list->d.pair.r!=NULL){
+			fprintf(stderr,"Warn [line %u]: too many arguments given to list size operation, only the first will be used...\n",line_number);
+		}
+		
+		nl_val *list_entry=list_list->d.pair.f;
+		if(list_entry->t!=PAIR){
+			nl_val_free(ret);
+			ret=NULL;
+			ERR_EXIT("wrong type given to list size operation!");
+		}else{
+			//if we started on a NULL just skip past that (the empty list is technically NULL . NULL)
+			if(list_entry->d.pair.f==NULL){
+				list_entry=list_entry->d.pair.r;
+			}
+			while((list_entry!=NULL) && (list_entry->t==PAIR)){
+				ret->d.num.n++;
+				list_entry=list_entry->d.pair.r;
+			}
+		}
+	}else{
+		nl_val_free(ret);
+		ret=NULL;
+		ERR_EXIT("wrong syntax for list size operation (did you give us a NULL?)");
 	}
 	return ret;
 }
@@ -592,9 +650,8 @@ nl_val *nl_div(nl_val *num_list){
 
 //BEGIN C-NL-STDLIB-CMP SUBROUTINES  ------------------------------------------------------------------------------
 
-//numeric equality operator =
-//TWO ARGUMENTS ONLY!
-nl_val *nl_eq(nl_val *val_list){
+//checks if the values of given type t within val_list are equal
+nl_val *nl_generic_eq(nl_val *val_list, nl_type t){
 	nl_val *ret=NULL;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
@@ -602,33 +659,43 @@ nl_val *nl_eq(nl_val *val_list){
 		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
 		return NULL;
 	}
-	
-	if(!((nl_list_len(val_list)==2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
-		ERR_EXIT("incorrect use of equality operator =; arg count != 2 or incorrect type (for string equality use ar=)");
+	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
+		ERR_EXIT("incorrect use of eq operator =; arg count < 2 or incorrect type");
 		return NULL;
 	}
 	
 	ret=nl_val_malloc(BYTE);
 	ret->d.byte.v=FALSE;
 	
-	if(nl_val_cmp(val_list->d.pair.f,val_list->d.pair.r->d.pair.f)==0){
-		ret->d.byte.v=TRUE;
+	nl_val *last_value=val_list->d.pair.f;
+	val_list=val_list->d.pair.r;
+	
+	while((val_list!=NULL) && (val_list->t==PAIR)){
+		//if we got a==b, then set the return to true and keep going
+		if(nl_val_cmp(last_value,val_list->d.pair.f)==0){
+			ret->d.byte.v=TRUE;
+		//as soon as we get one case that's false the whole thing is false so just return out
+		}else{
+			ret->d.byte.v=FALSE;
+			break;
+		}
+		last_value=val_list->d.pair.f;
+		val_list=val_list->d.pair.r;
 	}
 	return ret;
 }
 
-//numeric gt operator >
-//if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
-nl_val *nl_gt(nl_val *val_list){
+//checks if the values of a given type t within val_list are in descending order
+nl_val *nl_generic_gt(nl_val *val_list, nl_type t){
 	nl_val *ret=NULL;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
+		ERR_EXIT("a NULL argument was given to greater than operator, returning NULL");
 		return NULL;
 	}
-	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
-		ERR_EXIT("incorrect use of gt operator >; arg count < 2 or incorrect type (for string gt use ar>)");
+	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
+		ERR_EXIT("incorrect use of gt operator >; arg count < 2 or incorrect type");
 		return NULL;
 	}
 	
@@ -653,18 +720,17 @@ nl_val *nl_gt(nl_val *val_list){
 	return ret;
 }
 
-//numeric lt operator <
-//if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
-nl_val *nl_lt(nl_val *val_list){
+//checks if the values of a given type t within val_list are in ascending order
+nl_val *nl_generic_lt(nl_val *val_list, nl_type t){
 	nl_val *ret=NULL;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
+		ERR_EXIT("a NULL argument was given to less than operator, returning NULL");
 		return NULL;
 	}
-	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==NUM) && (val_list->d.pair.r->d.pair.f->t==NUM))){
-		ERR_EXIT("incorrect use of lt operator <; arg count < 2 or incorrect type (for string lt use ar<)");
+	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
+		ERR_EXIT("incorrect use of lt operator <; arg count < 2 or incorrect type");
 		return NULL;
 	}
 	
@@ -687,6 +753,107 @@ nl_val *nl_lt(nl_val *val_list){
 		val_list=val_list->d.pair.r;
 	}
 	return ret;
+
+}
+
+//checks if list is descending or equal, >=
+nl_val *nl_generic_ge(nl_val *val_list, nl_type t){
+	nl_val *gt_result=nl_generic_gt(val_list,t);
+	if(nl_is_true(gt_result)){
+		return gt_result;
+	}else{
+		nl_val_free(gt_result);
+		return nl_generic_eq(val_list,t);
+	}
+}
+
+//checks if list is ascending or equal, <=
+nl_val *nl_generic_le(nl_val *val_list, nl_type t){
+	nl_val *gt_result=nl_generic_lt(val_list,t);
+	if(nl_is_true(gt_result)){
+		return gt_result;
+	}else{
+		nl_val_free(gt_result);
+		return nl_generic_eq(val_list,t);
+	}
+}
+
+//numeric equality operator =
+//if more than two arguments are given then this will only return true if a==b==c==... for (= a b c ...)
+nl_val *nl_eq(nl_val *val_list){
+	return nl_generic_eq(val_list,NUM);
+}
+
+//numeric gt operator >
+//if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
+nl_val *nl_gt(nl_val *val_list){
+	return nl_generic_gt(val_list,NUM);
+}
+
+//numeric lt operator <
+//if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
+nl_val *nl_lt(nl_val *val_list){
+	return nl_generic_lt(val_list,NUM);
+}
+
+//numeric ge operator >=
+nl_val *nl_ge(nl_val *val_list){
+	return nl_generic_ge(val_list,NUM);
+}
+
+//numeric le operator <=
+nl_val *nl_le(nl_val *val_list){
+	return nl_generic_le(val_list,NUM);
+}
+
+//array equality operator ar=
+nl_val *nl_ar_eq(nl_val *val_list){
+	return nl_generic_eq(val_list,ARRAY);
+}
+
+//array greater than operator ar>
+nl_val *nl_ar_gt(nl_val *val_list){
+	return nl_generic_gt(val_list,ARRAY);
+}
+
+//array less than operator ar<
+nl_val *nl_ar_lt(nl_val *val_list){
+	return nl_generic_lt(val_list,ARRAY);
+}
+
+//array greater than or equal to operator ar>=
+nl_val *nl_ar_ge(nl_val *val_list){
+	return nl_generic_ge(val_list,ARRAY);
+}
+
+//array less than or equal to operator ar<=
+nl_val *nl_ar_le(nl_val *val_list){
+	return nl_generic_le(val_list,ARRAY);
+}
+
+//list equality operator list=
+nl_val *nl_list_eq(nl_val *val_list){
+	return nl_generic_eq(val_list,PAIR);
+}
+
+//list greater than operator list>
+nl_val *nl_list_gt(nl_val *val_list){
+	return nl_generic_gt(val_list,PAIR);
+}
+
+//list less than operator list<
+nl_val *nl_list_lt(nl_val *val_list){
+	return nl_generic_lt(val_list,PAIR);
+}
+
+//list greater than or equal to operator list>=
+nl_val *nl_list_ge(nl_val *val_list){
+	return nl_generic_ge(val_list,PAIR);
+}
+
+//list less than or equal to operator list<=
+nl_val *nl_list_le(nl_val *val_list){
+	return nl_generic_le(val_list,PAIR);
 }
 
 //null check null?
