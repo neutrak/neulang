@@ -189,7 +189,7 @@ char nl_contains_nulls(nl_val *val_list){
 nl_val *nl_int_to_byte(nl_val *num_list){
 	nl_val *ret=NULL;
 	
-	int arg_count=nl_list_len(num_list);
+	int arg_count=nl_c_list_size(num_list);
 	if(arg_count>=1){
 		if(num_list->d.pair.f->d.num.d==1){
 			if(num_list->d.pair.f->d.num.n<256){
@@ -267,7 +267,7 @@ void nl_array_push(nl_val *a, nl_val *v){
 
 //returns the entry in the array a (first arg) at index idx (second arg)
 nl_val *nl_array_idx(nl_val *args){
-	if(nl_list_len(args)!=2){
+	if(nl_c_list_size(args)!=2){
 		ERR_EXIT("wrong number of arguments to array idx");
 		return NULL;
 	}
@@ -399,9 +399,9 @@ nl_val *nl_output(nl_val *v_list){
 
 //BEGIN C-NL-STDLIB-LIST SUBROUTINES  -----------------------------------------------------------------------------
 
-//returns the length of a singly-linked list
+//returns the length (size) of a singly-linked list
 //note that cyclic lists are infinite and this will never terminate on them
-int nl_list_len(nl_val *list){
+int nl_c_list_size(nl_val *list){
 	int len=0;
 	while((list!=NULL) && (list->t==PAIR)){
 		len++;
@@ -411,7 +411,7 @@ int nl_list_len(nl_val *list){
 }
 
 //returns the list element at the given index (we use 0-indexing)
-nl_val *nl_list_idx(nl_val *list, nl_val *idx){
+nl_val *nl_c_list_idx(nl_val *list, nl_val *idx){
 	nl_val *ret=NULL;
 	
 	if((idx->t!=NUM) || (idx->d.num.d!=1)){
@@ -427,10 +427,11 @@ nl_val *nl_list_idx(nl_val *list, nl_val *idx){
 	int current_idx=0;
 	while((list!=NULL) && (list->t==PAIR)){
 		if(current_idx==(idx->d.num.n)){
-			ret=list->d.pair.f;
+			ret=nl_val_cp(list->d.pair.f);
 			break;
 		}
 		
+		current_idx++;
 		list=list->d.pair.r;
 	}
 	return ret;
@@ -469,6 +470,22 @@ nl_val *nl_list_size(nl_val *list_list){
 		ERR_EXIT("wrong syntax for list size operation (did you give us a NULL?)");
 	}
 	return ret;
+}
+
+//returns the list element at the given index (we use 0-indexing)
+//this calls out to the c version which cannot be used directly due to argument count
+nl_val *nl_list_idx(nl_val *arg_list){
+	int args=nl_c_list_size(arg_list);
+	if(args<2 || nl_contains_nulls(arg_list)){
+		ERR_EXIT("too few arguments (or a NULL) given to list idx operation");
+		return NULL;
+	}
+	if(arg_list->d.pair.f->t!=PAIR && arg_list->d.pair.r->d.pair.f->t!=NUM){
+		ERR_EXIT("incorrect types given to list idx operation");
+		return NULL;
+	}
+	
+	return nl_c_list_idx(arg_list->d.pair.f,arg_list->d.pair.r->d.pair.f);
 }
 
 //END C-NL-STDLIB-LIST SUBROUTINES  -------------------------------------------------------------------------------
@@ -659,7 +676,7 @@ nl_val *nl_generic_eq(nl_val *val_list, nl_type t){
 		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
 		return NULL;
 	}
-	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
+	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
 		ERR_EXIT("incorrect use of eq operator =; arg count < 2 or incorrect type");
 		return NULL;
 	}
@@ -694,7 +711,7 @@ nl_val *nl_generic_gt(nl_val *val_list, nl_type t){
 		ERR_EXIT("a NULL argument was given to greater than operator, returning NULL");
 		return NULL;
 	}
-	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
+	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
 		ERR_EXIT("incorrect use of gt operator >; arg count < 2 or incorrect type");
 		return NULL;
 	}
@@ -729,7 +746,7 @@ nl_val *nl_generic_lt(nl_val *val_list, nl_type t){
 		ERR_EXIT("a NULL argument was given to less than operator, returning NULL");
 		return NULL;
 	}
-	if(!((nl_list_len(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
+	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
 		ERR_EXIT("incorrect use of lt operator <; arg count < 2 or incorrect type");
 		return NULL;
 	}

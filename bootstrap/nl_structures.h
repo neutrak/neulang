@@ -333,16 +333,20 @@ nl_val *nl_strout(nl_val *array_list);
 //returns NULL (a void function)
 nl_val *nl_output(nl_val *v_list);
 
-//returns the length of a singly-linked list
+//returns the length (size) of a singly-linked list
 //note that cyclic lists are infinite and this will never terminate on them
-int nl_list_len(nl_val *list);
+int nl_c_list_size(nl_val *list);
 
 //returns the list element at the given index (we use 0-indexing)
-nl_val *nl_list_idx(nl_val *list, nl_val *idx);
+nl_val *nl_c_list_idx(nl_val *list, nl_val *idx);
 
 //return the size of the first argument
 //NOTE: subsequent arguments are IGNORED
 nl_val *nl_list_size(nl_val *list_list);
+
+//returns the list element at the given index (we use 0-indexing)
+//this calls out to the c version which cannot be used directly due to argument count
+nl_val *nl_list_idx(nl_val *arg_list);
 
 //add a list of (rational) numbers
 nl_val *nl_add(nl_val *num_list);

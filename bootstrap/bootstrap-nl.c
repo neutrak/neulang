@@ -1024,7 +1024,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		return nl_eval_sequence(arguments,env);
 	//check for while statements (we'll convert this to tail recursion)
 	}else if(nl_val_cmp(keyword,while_keyword)==0){
-		if(nl_list_len(arguments)<2){
+		if(nl_c_list_size(arguments)<2){
 			ERR_EXIT("too few arguments given to while statement");
 		}else{
 			nl_val *cond=arguments->d.pair.f;
@@ -1107,7 +1107,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		}
 	//check for for statements/loops
 	}else if(nl_val_cmp(keyword,for_keyword)==0){
-		if(nl_list_len(arguments)<5){
+		if(nl_c_list_size(arguments)<5){
 			ERR_EXIT("too few arguments given to for statement");
 		}else{
 			nl_val *counter=arguments->d.pair.f;
@@ -1287,7 +1287,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 		}
 	//check for boolean operator not
 	}else if(nl_val_cmp(keyword,not_keyword)==0){
-		if(nl_list_len(arguments)>1){
+		if(nl_c_list_size(arguments)>1){
 			ERR("too many arguments given to not, ignoring all but the first...");
 		}
 		ret=nl_val_malloc(BYTE);
@@ -2069,6 +2069,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	//same as for arrays; size and length mean the same thing, sz is the official/recommended one
 	nl_bind_new(nl_sym_from_c_str("list-sz"),nl_primitive_wrap(nl_list_size),env);
 	nl_bind_new(nl_sym_from_c_str("list-len"),nl_primitive_wrap(nl_list_size),env);
+	nl_bind_new(nl_sym_from_c_str("list-idx"),nl_primitive_wrap(nl_list_idx),env);
 	
 	nl_bind_new(nl_sym_from_c_str("strout"),nl_primitive_wrap(nl_strout),env);
 	nl_bind_new(nl_sym_from_c_str("out"),nl_primitive_wrap(nl_output),env);

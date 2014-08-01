@@ -13,17 +13,53 @@
 
 //handle cli switches
 (let switch-args (sub (argv)
-	(return (for n 0 (< $n (ar-size $argv)) (+ $n 1)
-		(if (str= (ar-idx $argv $n) "--help")
+	(strout "switch-args debug 0, argv is ")
+	(out $argv)
+	(strout $newline)
+	
+	(if (null? $argv)
+		(return FALSE)
+	)
+	
+	(if (ar= (f $argv) "--help")
+		(strout "[help] please see the manual page for detailed help" $newline)
+		(return TRUE)
+	)
+	
+	(while (not (null? (r $argv)))
+//	(if (not (null? (r $argv)))
+		(out argv)
+		(strout $newline)
+		(strout "arguments continue" $newline)
+		
+		(let argv (r $argv))
+		
+		(out $argv)
+		(strout $newline)
+	)
+	(return FALSE)
+	
+/*
+	(return (for n 0 (< $n (list-sz $argv)) (+ $n 1)
+		(if (ar= (list-idx $argv $n) "--help")
 			(strout "[help] please see the manual page for detailed help" $newline)
 			(return TRUE)
-		else (if (str= (ar-idx $argv $n) "--version")
-			(strout (, "[version] line editor (in neulang) v" VERSION $newline))
+		else (if (ar= (list-idx $argv $n) "--version")
+			(strout (, "[version] line editor (in neulang) v" $VERSION $newline))
 			(return TRUE)
 		))
 	after
 		(return FALSE)
 	))
+*/
+/*
+	(return (while (not (null? $argv))
+		(strout (, "skipping unknown argument " (f $argv) $newline))
+		(let argv (r $argv))
+	after
+		(return FALSE)
+	))
+*/
 ))
 
 
@@ -36,8 +72,8 @@
 	)
 	
 	//if we're given a file name, try to edit that
-	(if (> (ar-size $argv) 1)
-//		($edit (ar-idx $argv 1))
+	(if (> (list-sz $argv) 1)
+//		($edit (list-idx $argv 1))
 	//no file name, create a new buffer
 	else
 //		($edit)
@@ -48,6 +84,11 @@
 	(return 0)
 ))
 
+
 //runtime!
-($main $argv)
+//($main $argv)
+
+($switch-args $argv)
+
+(exit)
 
