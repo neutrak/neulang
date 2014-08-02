@@ -42,7 +42,7 @@ I know it's common to start with hello world but that's just so boring and even 
 </p>
 
 <code>
-<textarea cols='80' rows='24'>
+<textarea readonly cols='80' rows='24'>
 //this is a function to naively calculate a factorial with a while loop
 (let fact (sub (n)
 	//initialize variables (in an imperative style)
@@ -87,7 +87,7 @@ Just for completeness, here are two alternate versions of the same code, one rec
 </p>
 
 <code>
-<textarea cols='80' rows='24'>
+<textarea readonly cols='80' rows='24'>
 //this is a function to naively calculate a factorial with a for loop
 (let fact (sub (n)
 	//initialize variables (in an imperative style)
@@ -288,7 +288,7 @@ There is no else-if per se, but rather this behavior is acheived by nesting if s
 </p>
 
 <code>
-<textarea cols='80' rows='24'>
+<textarea readonly cols='80' rows='24'>
 //this is stored as gcd(85/100)
 (let x 8.5)
 (if (&gt; 7 $x 9) //7&gt;8.5&gt;9
@@ -327,7 +327,7 @@ Some simple subroutines are shown below.
 </p>
 
 <code>
-<textarea cols='80' rows='24'>
+<textarea readonly cols='80' rows='24'>
 (let newline (array (int-&gt;byte 10)))
 
 (let max 10)
@@ -377,7 +377,7 @@ The while loop takes at least two arguments (a condition and a body) and will ex
 </p>
 
 <code>
-<textarea cols='80' rows='24'>
+<textarea readonly cols='80' rows='24'>
 (let newline (array (int-&gt;byte 10)))
 
 (let max 10)
@@ -398,7 +398,7 @@ It evaluates to a immediately-applied subroutine which takes one argument (you m
 </p>
 
 <code>
-<textarea cols='80' rows='24'>
+<textarea readonly cols='80' rows='24'>
 (let newline (array (int-&gt;byte 10)))
 
 //for loop version (returns -4)

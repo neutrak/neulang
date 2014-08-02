@@ -725,6 +725,11 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		//now clean up the apply environment (call stack)
 		//if we re-used a previous call stack entry then don't free that here (it'll be free'd after returning from this)
 		if(!last_exp){
+/*
+#ifdef _DEBUG
+			printf("nl_apply debug 6.4, NOT going into tailcall...\n");
+#endif
+*/
 			//now evaluate the body in the application env
 			nl_val *body=sub->d.sub.body;
 			ret=nl_eval_sequence(nl_val_cp(body),apply_env);
@@ -732,6 +737,11 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 			nl_env_frame_free(apply_env);
 		//if we ARE the last expression, make a tailcall (this depends on C's own TCO (-O3 or -O2))
 		}else{
+/*
+#ifdef _DEBUG
+			printf("nl_apply debug 6.5, going into tailcall...\n");
+#endif
+*/
 			nl_val *body=sub->d.sub.body;
 			return nl_eval_sequence(nl_val_cp(body),apply_env);
 		}
@@ -1365,6 +1375,18 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp){
 	nl_val *ret=NULL;
 	
 tailcall:
+
+/*
+#ifdef _DEBUG
+	printf("nl_eval sequence debug 0, trying to evaluate ");
+	nl_out(stdout,exp);
+	if(exp!=NULL){
+		printf(" with %i references",exp->ref);
+	}
+	printf("\n");
+#endif
+*/
+
 	//null is self-evaluating
 	if(exp==NULL){
 		return exp;
@@ -1418,13 +1440,26 @@ tailcall:
 				
 				//do eager evaluation on arguments
 				nl_eval_elements(exp->d.pair.r,env);
+
+				//this is to handle anonymous subroutines, which don't have a reference from the environment frame
+				//this also handles anonymous recursion
+				//(it seems like it doesn't, but it does, somehow; honestly I moved this code and am amazed it still works)
+				if(sub->ref==1){
+					sub->ref++;
+					
+					//call out to apply; this will run through the body (in the case of a closure)
+					ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
+					
+					//free the original sub expression and substitute in the closure so it can be free'd later
+					nl_val_free(exp->d.pair.f);
+					exp->d.pair.f=sub;
 				
 				//if this is the last expression then it doesn't need any environment trickery and we can just execute the body directly
-				if((last_exp) && (sub->t==SUB)){
+				}else if((last_exp) && (sub->t==SUB)){
 					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
 						ERR_EXIT("Err: could not bind arguments to application environment (call stack) from eval (this usually means number of arguments declared and given differ)");
 					}
-					
+
 					nl_val_free(exp);
 					nl_val_free(sub);
 					
@@ -1449,35 +1484,8 @@ tailcall:
 					
 					goto tailcall;
 				}else{
-					int recursive_refs=0;
-					if(sub->t==SUB){
-						//check for instances of recursion
-						recursive_refs=nl_list_occur(sub->d.sub.body,sub);
-					//primitive subs are never recursive, at least not from our point of view
-					}
-					
-					//if this is the only reference to this sub and we'll free it after this call, but it's recurisve
-					if((sub->ref==1) && (recursive_refs>0)){
-						//add however many recursive calls
-//						sub->ref+=recursive_refs;
-						
-						//add a self-reference
-						sub->ref++;
-						
-						//call out to apply; this will run through the body (in the case of a closure)
-						ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
-						
-						//now clean up the sub, since we're done with the extra refs
-						//if this is being free'd then recursive free calls should clean up ALL extra refs
-//						nl_val_free(sub);
-						
-						//free the original sub expression and substitute in the closure so it can be free'd later
-						nl_val_free(exp->d.pair.f);
-						exp->d.pair.f=sub;
-					}else{
-						//call out to apply; this will run through the body (in the case of a closure)
-						ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
-					}
+					//call out to apply; this will run through the body (in the case of a closure)
+					ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
 				}
 /*
 #ifdef _DEBUG

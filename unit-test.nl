@@ -210,6 +210,27 @@ $return-value
 
 ((sub (x) (- $x 5)) 7)
 
+(let sub-sub (sub ()
+	((sub (n)
+		(if (< $n 5)
+			"this is a test of a sub WITHIN a sub"
+		else
+			$n
+		)
+	) 0)
+//	"this is after the sub-sub execution completed"
+))
+
+//($sub-sub)
+
+(let sub-a (sub ()
+	($sub-sub)
+))
+
+($sub-a)
+
+//(exit)
+
 // END sub statement testing ------------------------------------------------------------------------------
 
 //BEGIN recursion testing ---------------------------------------------------------------------------------
