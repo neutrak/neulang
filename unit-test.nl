@@ -225,6 +225,7 @@ $return-value
 
 (let sub-a (sub ()
 	($sub-sub)
+	(return FALSE)
 ))
 
 ($sub-a)
@@ -381,6 +382,20 @@ after
 
 //0
 $n
+
+//this is a test of a loop within a sub
+(let a-sub (sub ()
+	(let n 0)
+	(while (< $n 10)
+		(out $n)
+		(strout $newline)
+		(let n (+ $n 1))
+	)
+	//this is just so the loop isn't a tailcall
+	(return FALSE)
+))
+
+($a-sub)
 
 //END loop testing ----------------------------------------------------------------------------------------
 

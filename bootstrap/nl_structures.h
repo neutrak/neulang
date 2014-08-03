@@ -224,8 +224,7 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env);
 char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env);
 
 //apply a given subroutine to its arguments
-//last_exp is set if we are currently executing the last expression of a body block, and can therefore re-use an existing application environment
-nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_exp);
+nl_val *nl_apply(nl_val *sub, nl_val *arguments);
 
 //evaluate an if statement with the given arguments
 nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp);

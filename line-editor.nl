@@ -21,6 +21,7 @@
 		(return FALSE)
 	)
 	
+/*
 	(if (ar= (f $argv) "--help")
 		(strout "[help] please see the manual page for detailed help" $newline)
 		(return TRUE)
@@ -28,7 +29,7 @@
 	
 	(while (not (null? (r $argv)))
 //	(if (not (null? (r $argv)))
-		(out argv)
+		(out $argv)
 		(strout $newline)
 		(strout "arguments continue" $newline)
 		
@@ -38,8 +39,8 @@
 		(strout $newline)
 	)
 	(return FALSE)
+*/
 	
-/*
 	(return (for n 0 (< $n (list-sz $argv)) (+ $n 1)
 		(if (ar= (list-idx $argv $n) "--help")
 			(strout "[help] please see the manual page for detailed help" $newline)
@@ -51,7 +52,6 @@
 	after
 		(return FALSE)
 	))
-*/
 /*
 	(return (while (not (null? $argv))
 		(strout (, "skipping unknown argument " (f $argv) $newline))

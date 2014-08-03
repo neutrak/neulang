@@ -598,6 +598,13 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 		
 		//if we're not going into a tailcall then keep this expression around and free it when we're done
 		if(!on_last_exp){
+/*
+#ifdef _DEBUG
+			printf("nl_eval_sequence debug 0.4, calling nl_eval in non-tailcall, to_eval=");
+			nl_out(stdout,to_eval);
+			printf("\n");
+#endif
+*/
 			//always set this to ret, so ret ends up with the last-evaluated thing
 			ret=nl_eval(to_eval,env,on_last_exp);
 			
@@ -607,6 +614,11 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env){
 			//if we're not going to return this then we need to free the result since it will be unused
 			nl_val_free(ret);
 			ret=NULL;
+/*
+#ifdef _DEBUG
+			printf("nl_eval_sequence debug 0.5, freed memory...\n");
+#endif
+*/
 		
 		//if we ARE going into a tailcall then clean up our extra references and return
 		}else{
@@ -658,8 +670,7 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env){
 //TODO: change this to support return statements (maybe last_exp can just force a tailcall behavior?)
 
 //apply a given subroutine to its arguments
-//last_exp is set if we are currently executing the last expression of a body block, and can therefore re-use an existing application environment
-nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_exp){
+nl_val *nl_apply(nl_val *sub, nl_val *arguments){
 	nl_val *ret=NULL;
 	
 	if(!(sub!=NULL && (sub->t==PRI || sub->t==SUB))){
@@ -682,19 +693,8 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		//create an apply environment with an up_scope of the closure environment
 		nl_env_frame *apply_env;
 		
-		//TODO: change this whole thing; we're handling tailcalls differently now (in eval with eval_sequence)
-		if(!last_exp){
-			apply_env=nl_env_frame_malloc(sub->d.sub.env);
-		}else{
-			//in this case we came from the last statement in a closure, and so can re-use the environment we're already in
-/*
-#ifdef _DEBUG
-			printf("Info: detected tail-recursion; re-using existing application environment frame\n");
-#endif
-*/
-			apply_env=env;
-			apply_env->rw=TRUE;
-		}
+		//note that apply is never called on a tailcall, so we're always building up stack
+		apply_env=nl_env_frame_malloc(sub->d.sub.env);
 		
 		nl_val *arg_syms=sub->d.sub.args;
 		nl_val *arg_vals=arguments;
@@ -704,47 +704,20 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, nl_env_frame *env, char last_ex
 		//set the apply env read-only so any new vars go into the closure env
 		apply_env->rw=FALSE;
 		
-		//TODO: handle return and recur keywords correctly in here somewhere/somehow
+		//return keywords are handled in nl_eval_sequence (by setting last expression and executing as begin)
+		//and recur are handled in nl_eval_sub (by substituting the closure for all instances of recur in the body)
 		
 		//now evaluate the body in the application env
 //		nl_val *body=sub->d.sub.body;
 //		ret=nl_eval_sequence(nl_val_cp(body),apply_env);
 
-/*
-#ifdef _DEBUG
-		printf("nl_apply debug 6, returning ret ");
-		nl_out(stdout,ret);
-		if(ret!=NULL){
-			printf(" with %u references\n",ret->ref);
-		}else{
-			printf("\n");
-		}
-#endif
-*/
+		//now evaluate the body in the application env
+		nl_val *body=sub->d.sub.body;
+		ret=nl_eval_sequence(nl_val_cp(body),apply_env);
 		
-		//now clean up the apply environment (call stack)
-		//if we re-used a previous call stack entry then don't free that here (it'll be free'd after returning from this)
-		if(!last_exp){
-/*
-#ifdef _DEBUG
-			printf("nl_apply debug 6.4, NOT going into tailcall...\n");
-#endif
-*/
-			//now evaluate the body in the application env
-			nl_val *body=sub->d.sub.body;
-			ret=nl_eval_sequence(nl_val_cp(body),apply_env);
-			
-			nl_env_frame_free(apply_env);
-		//if we ARE the last expression, make a tailcall (this depends on C's own TCO (-O3 or -O2))
-		}else{
-/*
-#ifdef _DEBUG
-			printf("nl_apply debug 6.5, going into tailcall...\n");
-#endif
-*/
-			nl_val *body=sub->d.sub.body;
-			return nl_eval_sequence(nl_val_cp(body),apply_env);
-		}
+		//now clean up the apply environment (call stack); again, tailcalls are handled in eval, this is never called on a tailcall
+		nl_env_frame_free(apply_env);
+
 /*
 #ifdef _DEBUG
 		printf("nl_apply debug 7, free'd application environment and returning up\n");
@@ -1054,7 +1027,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			}
 			
 			cond->ref++;
-			body->ref++;
+//			body->ref++;
 			if(post_loop!=NULL){
 //				post_loop->ref++;
 			}
@@ -1075,7 +1048,9 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.f=nl_val_cp(if_keyword);
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r=nl_val_malloc(PAIR);
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.f=cond;
-			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=body;
+//			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=body;
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=nl_val_cp(body);
+			body=sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r;
 			while((body!=NULL) && (body->t==PAIR)){
 				if(body->d.pair.r==NULL){
 					//add in the recursive call that makes it, you know, loop
@@ -1111,6 +1086,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			printf("\n");
 #endif
 */
+			
 			//NOTE: this is used for tailcalls and depends on C TCO (-O3 or -O2)
 			//evaluate the sub expression, thereby doing the while loop via tail recursion
 			return nl_eval(to_eval,env,last_exp);
@@ -1143,7 +1119,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			init_val->ref++;
 			cond->ref++;
 			update->ref++;
-			body->ref++;
+//			body->ref++;
 			if(post_loop!=NULL){
 //				post_loop->ref++;
 			}
@@ -1164,7 +1140,9 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.f=nl_val_cp(if_keyword);
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r=nl_val_malloc(PAIR);
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.f=cond;
-			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=body;
+//			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=body;
+			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=nl_val_cp(body);
+			body=sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r;
 			while((body!=NULL) && (body->t==PAIR)){
 				if(body->d.pair.r==NULL){
 					//add in the recursive call that makes it, you know, loop
@@ -1351,7 +1329,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp){
 			//do eager evaluation on arguments
 			nl_eval_elements(arguments,env);
 			//call apply
-			ret=nl_apply(prim_sub,arguments,env,last_exp);
+			ret=nl_apply(prim_sub,arguments);
 		}else{
 			fprintf(stderr,"Err [line %u]: unknown keyword ",line_number);
 			nl_out(stderr,keyword);
@@ -1378,7 +1356,7 @@ tailcall:
 
 /*
 #ifdef _DEBUG
-	printf("nl_eval sequence debug 0, trying to evaluate ");
+	printf("nl_eval debug 0, trying to evaluate ");
 	nl_out(stdout,exp);
 	if(exp!=NULL){
 		printf(" with %i references",exp->ref);
@@ -1440,26 +1418,39 @@ tailcall:
 				
 				//do eager evaluation on arguments
 				nl_eval_elements(exp->d.pair.r,env);
-
+				
 				//this is to handle anonymous subroutines, which don't have a reference from the environment frame
 				//this also handles anonymous recursion
 				//(it seems like it doesn't, but it does, somehow; honestly I moved this code and am amazed it still works)
 				if(sub->ref==1){
+/*
+#ifdef _DEBUG
+					printf("nl_eval debug 0.5, got a sub with one reference, expression was ");
+					nl_out(stdout,exp);
+					printf("\n");
+#endif
+*/
 					sub->ref++;
 					
 					//call out to apply; this will run through the body (in the case of a closure)
-					ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
+					ret=nl_apply(sub,exp->d.pair.r);
 					
 					//free the original sub expression and substitute in the closure so it can be free'd later
 					nl_val_free(exp->d.pair.f);
 					exp->d.pair.f=sub;
-				
+/*
+#ifdef _DEBUG
+					printf("nl_eval debug 0.6, finished apply call, expression is ");
+					nl_out(stdout,exp);
+					printf("\n");
+#endif
+*/
 				//if this is the last expression then it doesn't need any environment trickery and we can just execute the body directly
 				}else if((last_exp) && (sub->t==SUB)){
 					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
-						ERR_EXIT("Err: could not bind arguments to application environment (call stack) from eval (this usually means number of arguments declared and given differ)");
+						ERR_EXIT("could not bind arguments to application environment (call stack) from eval (this usually means number of arguments declared and given differ)");
 					}
-
+					
 					nl_val_free(exp);
 					nl_val_free(sub);
 					
@@ -1471,7 +1462,7 @@ tailcall:
 					
 /*
 #ifdef _DEBUG
-					printf("nl_eval debug 0, executing tailcall via goto with ");
+					printf("nl_eval debug 1, executing tailcall via goto with ");
 					nl_env_frame *frame_iterator=env;
 					int n=0;
 					while(frame_iterator!=NULL){
@@ -1485,17 +1476,22 @@ tailcall:
 					goto tailcall;
 				}else{
 					//call out to apply; this will run through the body (in the case of a closure)
-					ret=nl_apply(sub,exp->d.pair.r,env,last_exp);
+					ret=nl_apply(sub,exp->d.pair.r);
 				}
 /*
 #ifdef _DEBUG
-				printf("nl_eval debug 1, returned from apply with value ");
+				printf("nl_eval debug 2, returned from apply with value ");
 				nl_out(stdout,ret);
 				printf("\n");
 #endif
 */
 				//clean up the evaluation of the first element; if we use it again we'll re-make it with another eval call
 				nl_val_free(sub);
+/*
+#ifdef _DEBUG
+				printf("nl_eval debug 2.5, free'd sub we just called...\n");
+#endif
+*/
 			//null lists are self-evaluating (the empty list)
 			}else{
 				exp->ref++;
@@ -1524,7 +1520,7 @@ tailcall:
 
 /*
 #ifdef _DEBUG
-	printf("nl_eval debug 2, returning from eval...\n");
+	printf("nl_eval debug 3, returning from eval...\n");
 #endif
 */
 	
@@ -2166,9 +2162,8 @@ int main(int argc, char *argv[]){
 	nl_val *nl_argv=NULL;
 	
 	//if we got more arguments, then pass them to the interpreter as strings
+	nl_argv=nl_val_malloc(PAIR);
 	if(argc>2){
-		nl_argv=nl_val_malloc(PAIR);
-		
 		nl_val *current_arg=nl_argv;
 		int n;
 		for(n=2;n<argc;n++){
@@ -2187,6 +2182,10 @@ int main(int argc, char *argv[]){
 				current_arg->d.pair.r=NULL;
 			}
 		}
+	//no arguments, pass an empty arg list in
+	}else{
+		nl_argv->d.pair.f=NULL;
+		nl_argv->d.pair.r=NULL;
 	}
 	
 	//go into the read eval print loop!
