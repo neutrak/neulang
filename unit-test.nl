@@ -1,3 +1,5 @@
+#!/usr/bin/nl
+
 //a unit test ensuring compliance to the neulang spec
 //please run this in valgrind to ensure there are no memory leaks kthnx
 
@@ -55,40 +57,48 @@ k I think it works
 //null return from conditional
 //(if)
 //EXPECT: NULL
-(if 1)
+(assert (null? (if 1)))
 //EXPECT: NULL
-(if FALSE 5)
+(assert (null? (if FALSE 5)))
 
 //(exit)
 
 //true condition, return 0
 //EXPECT: 0
-(if 1
-	0
-)
+(assert (= 0 
+	(if 1
+		0
+	)
+))
 
 //false condition, return 5
 //EXPECT: 5
-(if 0
-	2
-else
-	5
-)
+(assert (= 5 
+	(if 0
+		2
+	else
+		5
+	)
+))
 
 //nested if as condition
 //EXPECT: "asdf"
-(if (if 0 0 else 1)
-	"asdf"
-)
+(assert (ar= "asdf"
+	(if (if 0 0 else 1)
+		"asdf"
+	)
+))
 
 //nested if as result
 //EXPECT: "yo"
-(if 0
-	"hey"
-else (if 1
-	"yo"
-else
-	"aah"
+(assert (ar= "yo"
+	(if 0
+		"hey"
+	else (if 1
+		"yo"
+	else
+		"aah"
+	))
 ))
 
 // END if statement testing -------------------------------------------------------------------------------
@@ -98,7 +108,7 @@ else
 (let a-number /* this
 is a very
 weird test */ 5)
-$a-number
+(assert (= $a-number 5))
 
 //invalid syntax
 //EXPECT: NULL
@@ -108,52 +118,54 @@ $a-number
 //assign a numeric value
 (let a 5)
 //EXPECT: 5
-$a
+(assert (= $a 5))
 
 //assign a string
 (let b "asdf")
 //EXPECT: "asdf"
-$b
+(assert (ar= $b "asdf"))
 
 //copy a value
 (let c $a)
 //EXPECT: 5
-$c
+(assert (= $c 5))
 
 //re-set the value for a, ensure that c's value is unchanged
 (let a -4.1)
 //EXPECT: -4.1
-$a
+(assert (= $a -4.1))
 //EXPECT: 5
-$c
+(assert (= $c 5))
+
+//strict compilation mode causes the following few statements to just exit, so they are commented out so the rest of the test can run
 
 //unassigned variables have value NULL, so set that now
 //(let a $d)
 //EXPECT: NULL
-$a
+//$a
 
 //variables cannot be re-bound to a different type
 //(let b 1)
 //EXPECT: "asdf"
-$b
+//$b
 
 //some special symbols evaluate to byte values, for boolean and char expressions
 //so test those
 (let bool TRUE)
-$bool
+(assert (b= $bool TRUE))
 (let bool FALSE)
-$bool
+(assert (b= $bool FALSE))
 //NULLs are generic and are always allowed
 (let bool NULL)
-$bool
+(assert (null? $bool))
 //but setting a variable to null doesn't re-set its type, so this should be a failure
 //(let bool "asdf")
 //EXPECT: NULL
-$bool
+//$bool
 
 //assignment from nested if statements
 (let if_check (if TRUE -4.2 else (if FALSE 4 else 3)))
-$if_check
+(assert (= $if_check -4.2))
 
 // END let statement testing ------------------------------------------------------------------------------
 
@@ -183,7 +195,7 @@ $if_check
 $a-test-sub
 
 //now apply a sub
-((sub () "b"))
+(assert (ar= "b" ((sub () "b"))))
 
 //((sub () 5 -1) 6 7 8)
 
@@ -204,11 +216,11 @@ $return-value
 ((sub (x) $x) -3)
 ((sub (x y z) "asdf" (+ 4 5) -2) -4 -5 -6)
 
-((sub () FALSE))
+(assert (b= FALSE ((sub () FALSE))))
 
-((sub () FALSE 1))
+(assert (= 1 ((sub () FALSE 1))))
 
-((sub (x) (- $x 5)) 7)
+(assert (= 2 ((sub (x) (- $x 5)) 7)))
 
 (let sub-sub (sub ()
 	((sub (n)
@@ -228,9 +240,7 @@ $return-value
 	(return FALSE)
 ))
 
-($sub-a)
-
-//(exit)
+(assert (b= FALSE ($sub-a)))
 
 // END sub statement testing ------------------------------------------------------------------------------
 
@@ -381,7 +391,7 @@ after
 )
 
 //0
-$n
+(assert (= $n 0))
 
 //this is a test of a loop within a sub
 (let a-sub (sub ()
@@ -404,51 +414,51 @@ $n
 //boolean operators
 //basic and case (FALSE)
 (if (and 1 0)
-	"and failed"
+	(strout "and failed" $newline)
 else
-	"and worked"
+	(strout "and worked" $newline)
 )
 
 //basic or case (TRUE)
 (if (or 0 1)
-	"or worked"
+	(strout "or worked" $newline)
 else
-	"or failed"
+	(strout "or failed" $newline)
 )
 
 //basic not case (TRUE)
 (if (not 0)
-	"not worked"
+	(strout "not worked" $newline)
 else
-	"not failed"
+	(strout "not failed" $newline)
 )
 
 //basic xor case (TRUE)
 (if (xor 0 1 0)
-	"xor worked"
+	(strout "xor worked" $newline)
 else
-	"xor failed"
+	(strout "xor failed" $newline)
 )
 
 //short-circuiting and case
 (if (and 0 ((sub () (strout "and didn't short-circuit!" $newline))))
-	"short-circuiting and failed"
+	(strout "short-circuiting and failed" $newline)
 else
-	"short circuiting and worked"
+	(strout "short circuiting and worked" $newline)
 )
 
 //short-circuiting or case
 (if (or 1 ((sub () (strout "or didn't short-circuit!" $newline))))
-	"short-circuiting or worked"
+	(strout "short-circuiting or worked" $newline)
 else
-	"short circuiting or failed"
+	(strout "short circuiting or failed" $newline)
 )
 
 //short-circuiting xor case
 (if (xor 1 1 ((sub () (strout "xor didn't short-circuit!" $newline))))
-	"short circuiting xor failed"
+	(strout "short circuiting xor failed" $newline)
 else
-	"short-circuiting xor worked"
+	(strout "short-circuiting xor worked" $newline)
 )
 
 //END boolean operator testing ----------------------------------------------------------------------------
@@ -480,7 +490,8 @@ else
 		(strout $newline)
 	)
 ))
-//($output-list $argv)
+($output-list $argv)
+//$argv
 
 // EXIT
 (exit)

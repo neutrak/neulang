@@ -2044,6 +2044,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 */
 	
 	
+	//ALL the comparison operators (for each type)
 	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_eq),env);
 	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_gt),env);
 	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_lt),env);
@@ -2059,6 +2060,11 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("list<"),nl_primitive_wrap(nl_list_lt),env);
 	nl_bind_new(nl_sym_from_c_str("list>="),nl_primitive_wrap(nl_list_ge),env);
 	nl_bind_new(nl_sym_from_c_str("list<="),nl_primitive_wrap(nl_list_le),env);
+	nl_bind_new(nl_sym_from_c_str("b="),nl_primitive_wrap(nl_byte_eq),env);
+	nl_bind_new(nl_sym_from_c_str("b>"),nl_primitive_wrap(nl_byte_gt),env);
+	nl_bind_new(nl_sym_from_c_str("b<"),nl_primitive_wrap(nl_byte_lt),env);
+	nl_bind_new(nl_sym_from_c_str("b>="),nl_primitive_wrap(nl_byte_ge),env);
+	nl_bind_new(nl_sym_from_c_str("b<="),nl_primitive_wrap(nl_byte_le),env);
 	nl_bind_new(nl_sym_from_c_str("null?"),nl_primitive_wrap(nl_is_null),env);
 	
 	//array concatenation!
@@ -2070,6 +2076,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-idx"),nl_primitive_wrap(nl_array_idx),env);
 	//TODO: make and bind additional array subroutines
 	
+	//TODO: list concatenation
+	
 	//same as for arrays; size and length mean the same thing, sz is the official/recommended one
 	nl_bind_new(nl_sym_from_c_str("list-sz"),nl_primitive_wrap(nl_list_size),env);
 	nl_bind_new(nl_sym_from_c_str("list-len"),nl_primitive_wrap(nl_list_size),env);
@@ -2080,14 +2088,14 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	nl_bind_new(nl_sym_from_c_str("int->byte"),nl_primitive_wrap(nl_int_to_byte),env);
 	//TODO: all other sensical type conversions
+	
+	nl_bind_new(nl_sym_from_c_str("assert"),nl_primitive_wrap(nl_assert),env);
 }
 
 //the repl for neulang; this is separated from main for embedding purposes
 //the only thing you have to do outside this is give us an open file and close it when we're done
 //arguments given are interpreted as command-line arguments and are bound to argv in the interpreter (NULL works)
 void nl_repl(FILE *fp, nl_val *argv){
-	//TODO: ignore shebang (#!) line, if there is one
-	
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
 	
 	//allocate keywords
@@ -2109,13 +2117,33 @@ void nl_repl(FILE *fp, nl_val *argv){
 		nl_val_free(argv_symbol);
 	}
 	
+	//read in a little bit in case there's a shebang line
+	//read a character from the given file
+	char c=getc(fp);
+	
+	//peek a character after that, for two-char tokens
+	char next_c=getc(fp);
+	ungetc(next_c,fp);
+	
+	//ignore shebang (#!) line, if there is one
+	if(c=='#' && next_c=='!'){
+		while(c!='\n'){
+			c=getc(fp);
+		}
+	}else{
+		ungetc(c,fp);
+	}
+	
 	//initialize the line number
 //	line_number=0;
 	line_number=1;
 	
 	end_program=FALSE;
 	while(!end_program){
-		printf("[line %u] nl >> ",line_number);
+		//only display prompt for interactive mode
+		if(fp==stdin){
+			printf("[line %u] nl >> ",line_number);
+		}
 		
 		//read an expression in
 		nl_val *exp=nl_read_exp(fp);

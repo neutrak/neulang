@@ -873,11 +873,41 @@ nl_val *nl_list_le(nl_val *val_list){
 	return nl_generic_le(val_list,PAIR);
 }
 
+//byte equality operator b=
+//if more than two arguments are given then this will only return true if a==b==c==... for (b= a b c ...)
+nl_val *nl_byte_eq(nl_val *val_list){
+	return nl_generic_eq(val_list,BYTE);
+}
+
+//byte greater than operator b>
+nl_val *nl_byte_gt(nl_val *val_list){
+	return nl_generic_gt(val_list,BYTE);
+}
+
+//byte less than operator b<
+nl_val *nl_byte_lt(nl_val *val_list){
+	return nl_generic_lt(val_list,BYTE);
+}
+
+//byte greater than or equal to operator b>=
+nl_val *nl_byte_ge(nl_val *val_list){
+	return nl_generic_ge(val_list,BYTE);
+}
+
+//byte less than or equal to operator b<=
+nl_val *nl_byte_le(nl_val *val_list){
+	return nl_generic_le(val_list,BYTE);
+}
+
 //null check null?
 //returns TRUE iff all elements given in the list are NULL
 nl_val *nl_is_null(nl_val *val_list){
 	nl_val *ret=nl_val_malloc(BYTE);
 	ret->d.byte.v=TRUE;
+	
+	nl_val *val_list_start=val_list;
+
+	//first check for straight-up NULL values
 	while((val_list!=NULL) && (val_list->t==PAIR)){
 		if(val_list->d.pair.f!=NULL){
 			ret->d.byte.v=FALSE;
@@ -886,10 +916,60 @@ nl_val *nl_is_null(nl_val *val_list){
 		
 		val_list=val_list->d.pair.r;
 	}
+	
+	//if we found any NULL values then check for empty lists
+	if(ret->d.byte.v==FALSE){
+		ret->d.byte.v=TRUE;
+		
+		val_list=val_list_start;
+		nl_val *list_entry=NULL;
+		while((ret->d.byte.v==TRUE) && (val_list!=NULL) && (val_list->t==PAIR)){
+			list_entry=val_list->d.pair.f;
+			while(list_entry!=NULL && list_entry->t==PAIR){
+				//if we found an entry within the list that wasn't null then return false
+				if(list_entry->d.pair.f!=NULL){
+					ret->d.byte.v=FALSE;
+					break;
+				}
+				
+				list_entry=list_entry->d.pair.r;
+			}
+			
+			//if we found a non-list entry that wasn't null then return false
+			if(list_entry!=NULL){
+				ret->d.byte.v=FALSE;
+				break;
+			}
+			
+			val_list=val_list->d.pair.r;
+		}
+	}
+	
 	return ret;
 }
 
 //END C-NL-STDLIB-CMP SUBROUTINES  --------------------------------------------------------------------------------
+
+//assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
+nl_val *nl_assert(nl_val *cond_list){
+	nl_val *ret=nl_val_malloc(BYTE);
+	ret->d.byte.v=TRUE;
+	while(cond_list!=NULL && cond_list->t==PAIR){
+		if(!nl_is_true(cond_list->d.pair.f)){
+			ret->d.byte.v=FALSE;
+#ifdef _STRICT
+			nl_val_free(ret);
+			ERR_EXIT("ASSERT FAILED");
+#endif
+		}
+		
+		cond_list=cond_list->d.pair.r;
+	}
+#ifdef _DEBUG
+	printf("line %i: assert succeeded\n",line_number);
+#endif
+	return ret;
+}
 
 //END C-NL-STDLIB SUBROUTINES  ------------------------------------------------------------------------------------
 

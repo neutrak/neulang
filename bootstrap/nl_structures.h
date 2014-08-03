@@ -422,9 +422,28 @@ nl_val *nl_list_ge(nl_val *val_list);
 //list less than or equal to operator list<=
 nl_val *nl_list_le(nl_val *val_list);
 
+//byte equality operator b=
+//if more than two arguments are given then this will only return true if a==b==c==... for (b= a b c ...)
+nl_val *nl_byte_eq(nl_val *val_list);
+
+//byte greater than operator b>
+nl_val *nl_byte_gt(nl_val *val_list);
+
+//byte less than operator b<
+nl_val *nl_byte_lt(nl_val *val_list);
+
+//byte greater than or equal to operator b>=
+nl_val *nl_byte_ge(nl_val *val_list);
+
+//byte less than or equal to operator b<=
+nl_val *nl_byte_le(nl_val *val_list);
+
 //null check null?
 //returns TRUE iff all elements given in the list are NULL
 nl_val *nl_is_null(nl_val *val_list);
+
+//assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
+nl_val *nl_assert(nl_val *cond_list);
 
 //END NL DECLARATIONS ---------------------------------------------------------------------------------------------
 
