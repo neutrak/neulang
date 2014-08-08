@@ -61,8 +61,6 @@ k I think it works
 //EXPECT: NULL
 (assert (null? (if FALSE 5)))
 
-//(exit)
-
 //true condition, return 0
 //EXPECT: 0
 (assert (= 0 
@@ -199,8 +197,8 @@ $a-test-sub
 
 //((sub () 5 -1) 6 7 8)
 
-//($a-test-sub "muhahahahaha")
-($a-test-sub "muhahahahaha" "a" "b")
+//($a-test-sub "muhahahahaha" "a" "b")
+//(assert (= 5 ($a-test-sub "muhahahahaha" "a" "b")))
 
 (let complex-test (sub (y)
 	(+ 1 2)
@@ -331,12 +329,14 @@ $dumb-loop(+(4 1) 10)
 (let n 0)
 
 //a while loop! (internally this is converted into an anonymous sub)
-(while (< $n 50)
+(while (< $n 800000)
 	(strout "continuing..." $newline)
 	(let n (+ $n 1))
 after
 	-3
 )
+
+(exit)
 
 //equivilent to a sub
 (let a-loop (sub ()
@@ -355,14 +355,20 @@ after
 //anonymous sub (the above while loop internally gets converted into this exact code)
 ((sub ()
 	(if (< $n 1000)
-		(strout "continuing..." $newline)
+		(strout "continuing... (n=")
+		(out $n)
+		(strout ")" $newline)
 		(let n (+ $n 1))
 //		(recur)
 		(return (recur))
+		//if this shows up then the early return above didn't work!
+		(strout "this is broken" $newline)
 	else
 		-3
 	)
 ))
+
+//(exit)
 
 //note that unless it explicitly set after return the value in the outside environment didn't change
 $n //0
@@ -386,6 +392,15 @@ $n //0
 	(strout "this is a for loop and n is ")
 	(out $n)
 	(strout $newline)
+	
+	//an early return acts as a break statement
+	(if (= $n 600)
+		(return 12)
+	)
+	
+	(if (> $n 600)
+		(strout "early return is broken" $newline)
+	)
 after
 	13
 )

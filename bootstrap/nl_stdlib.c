@@ -196,17 +196,18 @@ nl_val *nl_int_to_byte(nl_val *num_list){
 				ret=nl_val_malloc(BYTE);
 				ret->d.byte.v=num_list->d.pair.f->d.num.n;
 			}else{
-				ERR_EXIT("overflow in int_to_byte (given int can't fit in a byte), returning NULL");
+				ERR_EXIT(num_list,"overflow in int_to_byte (given int can't fit in a byte), returning NULL",TRUE);
 			}
 		}else{
-			ERR_EXIT("non-int value given to int_to_byte; type conversion nonsensical, returning NULL");
+			ERR_EXIT(num_list,"non-int value given to int_to_byte; type conversion nonsensical, returning NULL",TRUE);
 		}
 		
 		if(arg_count>1){
-			fprintf(stderr,"Warn [line %u]: too many arguments given to int_to_byte, ignoring all but the first...\n",line_number);
+//			fprintf(stderr,"Warn [line %u]: too many arguments given to int_to_byte, ignoring all but the first...\n",line_number);
+			ERR(num_list,"too many arguments given to int_to_byte, ignoring all but the first...",TRUE);
 		}
 	}else{
-		ERR_EXIT("no arguments given to int_to_byte, can't convert NULL! (returning NULL)");
+		ERR_EXIT(num_list,"no arguments given to int_to_byte, can't convert NULL! (returning NULL)",TRUE);
 	}
 	
 	return ret;
@@ -268,7 +269,7 @@ void nl_array_push(nl_val *a, nl_val *v){
 //returns the entry in the array a (first arg) at index idx (second arg)
 nl_val *nl_array_idx(nl_val *args){
 	if(nl_c_list_size(args)!=2){
-		ERR_EXIT("wrong number of arguments to array idx");
+		ERR_EXIT(args,"wrong number of arguments to array idx",TRUE);
 		return NULL;
 	}
 	
@@ -276,12 +277,12 @@ nl_val *nl_array_idx(nl_val *args){
 	nl_val *idx=args->d.pair.r->d.pair.f;
 	
 	if((a==NULL) || (idx==NULL)){
-		ERR_EXIT("null argument given to array idx");
+		ERR_EXIT(args,"null argument given to array idx",TRUE);
 		return NULL;
 	}
 	
 	if((a->t!=ARRAY) || (idx->t!=NUM)){
-		ERR_EXIT("wrong type given to array idx, takes array then index (an integer)");
+		ERR_EXIT(args,"wrong type given to array idx, takes array then index (an integer)",TRUE);
 		return NULL;
 	}
 	
@@ -289,12 +290,12 @@ nl_val *nl_array_idx(nl_val *args){
 	if((idx!=NULL) && (idx->t==NUM) && (idx->d.num.d==1)){
 		index=idx->d.num.n;
 	}else{
-		ERR_EXIT("given array index is not an integer");
+		ERR_EXIT(args,"given array index is not an integer",TRUE);
 		return NULL;
 	}
 	
 	if((index<0) || (index>=(a->d.array.size))){
-		ERR_EXIT("out-of-bounds index given to array idx");
+		ERR_EXIT(args,"out-of-bounds index given to array idx",TRUE);
 		return NULL;
 	}
 //	return nl_val_cp(&(a->d.array.v[index]));
@@ -321,16 +322,17 @@ void nl_array_rm(nl_val *a, nl_val *index){
 //NOTE: subsequent arguments are IGNORED
 nl_val *nl_array_size(nl_val *array_list){
 	nl_val *acc=NULL;
-	if((array_list!=NULL) && (array_list->t==PAIR)){
+	if((array_list!=NULL) && (array_list->t==PAIR) && (array_list->d.pair.f->t==ARRAY)){
 		acc=nl_val_malloc(NUM);
 		acc->d.num.d=1;
 		acc->d.num.n=array_list->d.pair.f->d.array.size;
 		
 		if(array_list->d.pair.r!=NULL){
-			fprintf(stderr,"Warn [line %u]: too many arguments given to array size operation, only the first will be used...\n",line_number);
+//			fprintf(stderr,"Warn [line %u]: too many arguments given to array size operation, only the first will be used...\n",line_number);
+			ERR(array_list,"too many arguments given to array size operation, only the first will be used...",TRUE);
 		}
 	}else{
-		ERR_EXIT("wrong syntax for array size operation (did you give us a NULL?)");
+		ERR_EXIT(array_list,"wrong syntax or type for array size operation (did you give us a NULL?)",TRUE);
 	}
 	return acc;
 }
@@ -446,14 +448,15 @@ nl_val *nl_list_size(nl_val *list_list){
 	
 	if((list_list!=NULL) && (list_list->t==PAIR)){
 		if(list_list->d.pair.r!=NULL){
-			fprintf(stderr,"Warn [line %u]: too many arguments given to list size operation, only the first will be used...\n",line_number);
+//			fprintf(stderr,"Warn [line %u]: too many arguments given to list size operation, only the first will be used...\n",line_number);
+			ERR(list_list,"too many arguments given to list size operation, only the first will be used...",TRUE);
 		}
 		
 		nl_val *list_entry=list_list->d.pair.f;
 		if(list_entry->t!=PAIR){
 			nl_val_free(ret);
 			ret=NULL;
-			ERR_EXIT("wrong type given to list size operation!");
+			ERR_EXIT(list_list,"wrong type given to list size operation!",TRUE);
 		}else{
 			//if we started on a NULL just skip past that (the empty list is technically NULL . NULL)
 			if(list_entry->d.pair.f==NULL){
@@ -467,7 +470,7 @@ nl_val *nl_list_size(nl_val *list_list){
 	}else{
 		nl_val_free(ret);
 		ret=NULL;
-		ERR_EXIT("wrong syntax for list size operation (did you give us a NULL?)");
+		ERR_EXIT(list_list,"wrong syntax for list size operation (did you give us a NULL?)",TRUE);
 	}
 	return ret;
 }
@@ -477,11 +480,11 @@ nl_val *nl_list_size(nl_val *list_list){
 nl_val *nl_list_idx(nl_val *arg_list){
 	int args=nl_c_list_size(arg_list);
 	if(args<2 || nl_contains_nulls(arg_list)){
-		ERR_EXIT("too few arguments (or a NULL) given to list idx operation");
+		ERR_EXIT(arg_list,"too few arguments (or a NULL) given to list idx operation",TRUE);
 		return NULL;
 	}
 	if(arg_list->d.pair.f->t!=PAIR && arg_list->d.pair.r->d.pair.f->t!=NUM){
-		ERR_EXIT("incorrect types given to list idx operation");
+		ERR_EXIT(arg_list,"incorrect types given to list idx operation",TRUE);
 		return NULL;
 	}
 	
@@ -499,7 +502,7 @@ nl_val *nl_add(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		ERR_EXIT("incorrect use of add operation (null list or incorrect type in first operand)");
+		ERR_EXIT(num_list,"incorrect use of add operation (null list or incorrect type in first operand)",TRUE);
 		return NULL;
 	}
 	
@@ -512,7 +515,7 @@ nl_val *nl_add(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			ERR_EXIT("non-number given to add operation, returning NULL from add");
+			ERR_EXIT(num_list,"non-number given to add operation, returning NULL from add",TRUE);
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -541,7 +544,7 @@ nl_val *nl_sub(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		ERR_EXIT("incorrect use of sub operation (null list or incorrect type in first operand)");
+		ERR_EXIT(num_list,"incorrect use of sub operation (null list or incorrect type in first operand)",TRUE);
 		return NULL;
 	}
 	
@@ -554,7 +557,7 @@ nl_val *nl_sub(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			ERR_EXIT("non-number given to subtract operation, returning NULL from subtract");
+			ERR_EXIT(num_list,"non-number given to subtract operation, returning NULL from subtract",TRUE);
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -583,7 +586,7 @@ nl_val *nl_mul(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		ERR_EXIT("incorrect use of mul operation (null list or incorrect type in first operand)");
+		ERR_EXIT(num_list,"incorrect use of mul operation (null list or incorrect type in first operand)",TRUE);
 		return NULL;
 	}
 	
@@ -596,7 +599,7 @@ nl_val *nl_mul(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			ERR_EXIT("non-number given to mul operation, returning NULL from mul");
+			ERR_EXIT(num_list,"non-number given to mul operation, returning NULL from mul",TRUE);
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -625,7 +628,7 @@ nl_val *nl_div(nl_val *num_list){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
-		ERR_EXIT("incorrect use of div operation (null list or incorrect type in first operand)");
+		ERR_EXIT(num_list,"incorrect use of div operation (null list or incorrect type in first operand)",TRUE);
 		return NULL;
 	}
 	
@@ -638,7 +641,7 @@ nl_val *nl_div(nl_val *num_list){
 		
 		//error on non-numbers
 		if(num_list->d.pair.f->t!=NUM){
-			ERR_EXIT("non-number given to div operation, returning NULL from mul");
+			ERR_EXIT(num_list,"non-number given to div operation, returning NULL from mul",TRUE);
 			nl_val_free(acc);
 			return NULL;
 		}
@@ -673,11 +676,11 @@ nl_val *nl_generic_eq(nl_val *val_list, nl_type t){
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		ERR_EXIT("a NULL argument was given to equality operator, returning NULL");
+		ERR_EXIT(val_list,"a NULL argument was given to equality operator, returning NULL",TRUE);
 		return NULL;
 	}
 	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
-		ERR_EXIT("incorrect use of eq operator =; arg count < 2 or incorrect type");
+		ERR_EXIT(val_list,"incorrect use of eq operator =; arg count < 2 or incorrect type",TRUE);
 		return NULL;
 	}
 	
@@ -708,11 +711,11 @@ nl_val *nl_generic_gt(nl_val *val_list, nl_type t){
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		ERR_EXIT("a NULL argument was given to greater than operator, returning NULL");
+		ERR_EXIT(val_list,"a NULL argument was given to greater than operator, returning NULL",TRUE);
 		return NULL;
 	}
 	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
-		ERR_EXIT("incorrect use of gt operator >; arg count < 2 or incorrect type");
+		ERR_EXIT(val_list,"incorrect use of gt operator >; arg count < 2 or incorrect type",TRUE);
 		return NULL;
 	}
 	
@@ -743,11 +746,11 @@ nl_val *nl_generic_lt(nl_val *val_list, nl_type t){
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
-		ERR_EXIT("a NULL argument was given to less than operator, returning NULL");
+		ERR_EXIT(val_list,"a NULL argument was given to less than operator, returning NULL",TRUE);
 		return NULL;
 	}
 	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
-		ERR_EXIT("incorrect use of lt operator <; arg count < 2 or incorrect type");
+		ERR_EXIT(val_list,"incorrect use of lt operator <; arg count < 2 or incorrect type",TRUE);
 		return NULL;
 	}
 	
@@ -959,14 +962,18 @@ nl_val *nl_assert(nl_val *cond_list){
 			ret->d.byte.v=FALSE;
 #ifdef _STRICT
 			nl_val_free(ret);
-			ERR_EXIT("ASSERT FAILED");
+			ERR_EXIT(cond_list,"ASSERT FAILED",TRUE);
 #endif
 		}
 		
 		cond_list=cond_list->d.pair.r;
 	}
 #ifdef _DEBUG
-	printf("line %i: assert succeeded\n",line_number);
+	if(cond_list!=NULL){
+		printf("line %i: assert succeeded\n",cond_list->line);
+	}else{
+		printf("line %i: assert succeeded\n",line_number);
+	}
 #endif
 	return ret;
 }

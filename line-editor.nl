@@ -13,34 +13,17 @@
 
 //handle cli switches
 (let switch-args (sub (argv)
+/*
 	(strout "switch-args debug 0, argv is ")
 	(out $argv)
 	(strout $newline)
+*/
 	
 	(if (null? $argv)
 		(return FALSE)
 	)
 	
 /*
-	(if (ar= (f $argv) "--help")
-		(strout "[help] please see the manual page for detailed help" $newline)
-		(return TRUE)
-	)
-	
-	(while (not (null? (r $argv)))
-//	(if (not (null? (r $argv)))
-		(out $argv)
-		(strout $newline)
-		(strout "arguments continue" $newline)
-		
-		(let argv (r $argv))
-		
-		(out $argv)
-		(strout $newline)
-	)
-	(return FALSE)
-*/
-	
 	(return (for n 0 (< $n (list-sz $argv)) (+ $n 1)
 		(if (ar= (list-idx $argv $n) "--help")
 			(strout "[help] please see the manual page for detailed help" $newline)
@@ -52,14 +35,23 @@
 	after
 		(return FALSE)
 	))
-/*
+*/
+
 	(return (while (not (null? $argv))
-		(strout (, "skipping unknown argument " (f $argv) $newline))
+		(if (ar= (f $argv) "--help")
+			(strout "[help] please see the manual page for detailed help" $newline)
+			(return TRUE)
+		else (if (ar= (f $argv) "--version")
+			(strout (, "[version] line editor (in neulang) v" $VERSION $newline))
+			(return TRUE)
+		else
+			(strout (, "skipping unknown argument " (f $argv) $newline))
+		))
+		
 		(let argv (r $argv))
 	after
 		(return FALSE)
 	))
-*/
 ))
 
 

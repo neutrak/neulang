@@ -12,12 +12,11 @@
 
 //BEGIN GLOBAL MACROS ---------------------------------------------------------------------------------------------
 
-#define ERR(msg) fprintf(stderr,"Err [line %u]: %s\n",line_number,msg)
-
+#define ERR(val,msg,output) nl_err(val,msg,output)
 #ifdef _STRICT
-	#define ERR_EXIT(msg) fprintf(stderr,"Err [line %i]: %s\n",line_number,msg); exit(1)
+	#define ERR_EXIT(val,msg,output) ERR(val,msg,output); exit(1)
 #else
-	#define ERR_EXIT(msg) ERR(msg)
+	#define ERR_EXIT(val,msg,output) ERR(val,msg,output)
 #endif
 
 //END GLOBAL MACROS -----------------------------------------------------------------------------------------------
@@ -164,6 +163,9 @@ unsigned int line_number;
 
 //BEGIN NL DECLARATIONS -------------------------------------------------------------------------------------------
 
+//error message function
+void nl_err(nl_val *v, const char *msg, char output);
+
 //allocate a value, and initialize it so that we're not doing anything too crazy
 nl_val *nl_val_malloc(nl_type t);
 
@@ -217,27 +219,29 @@ int nl_list_occur(nl_val *list, nl_val *value);
 void nl_eval_elements(nl_val *list, nl_env_frame *env);
 
 //evaluate the list of values in order, returning the evaluation of the last statement only
-nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env);
+nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret);
 
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
 char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env);
 
 //apply a given subroutine to its arguments
-nl_val *nl_apply(nl_val *sub, nl_val *arguments);
+//note that returns are handled in eval_sequence
+//also note tailcalls never get here (they are handled by eval turning body into begin, and then by eval_sequence tailcalling back into eval)
+nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret);
 
 //evaluate an if statement with the given arguments
-nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp);
+nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *early_ret);
 
 //evaluate a sub statement with the given arguments
 nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env);
 
 //proper evaluation of keywords!
 //evaluate a keyword expression (or primitive function, if keyword isn't found)
-nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp);
+nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, char *early_ret);
 
 //evaluate the given expression in the given environment
-nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp);
+nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp, char *early_ret);
 
 //check if a givne character counts as whitespace in neulang
 char nl_is_whitespace(char c);
