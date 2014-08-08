@@ -323,14 +323,11 @@ $dumb-loop(+(4 1) 10)
 
 //BEGIN loop testing --------------------------------------------------------------------------------------
 
-//not part of this test, just for convenience (part of the test below this, for the standard library)
-(let newline (array (int->byte 10))) //\n
-
 (let n 0)
 
 //a while loop! (internally this is converted into an anonymous sub)
 (while (< $n 1000)
-	(strout "continuing..." $newline)
+	(strout "continuing..." $newl)
 	(let n (+ $n 1))
 after
 	-3
@@ -339,11 +336,11 @@ after
 //equivilent to a sub
 (let a-loop (sub ()
 	(if (< $n 5)
-		(strout "continuing..." $newline)
+		(strout "continuing..." $newl)
 		(let n (+ $n 1))
 		(recur)
 		//double recur just to make sure that's handled correctly
-		(strout "recursing AGAIN" $newline)
+		(strout "recursing AGAIN" $newl)
 		(recur)
 	else
 		-3
@@ -355,12 +352,12 @@ after
 	(if (< $n 10000)
 		(strout "continuing... (n=")
 		(out $n)
-		(strout ")" $newline)
+		(strout ")" $newl)
 		(let n (+ $n 1))
 //		(recur)
 		(return (recur))
 		//if this shows up then the early return above didn't work!
-		(strout "this is broken" $newline)
+		(strout "this is broken" $newl)
 		(exit 1)
 	else
 		-3
@@ -375,7 +372,7 @@ $n //0
 //now a really long loop to demonstrate the fact that this uses tail recursion
 (while (< $n 40000)
 	(out $n)
-	(strout $newline "here's johnny!!" $newline)
+	(strout $newl "here's johnny!!" $newl)
 	(let n (+ $n 1))
 )
 
@@ -390,7 +387,7 @@ $n //0
 (for n 0 (< $n 640) (+ $n 1)
 	(strout "this is a for loop and n is ")
 	(out $n)
-	(strout $newline)
+	(strout $newl)
 	
 	//an early return acts as a break statement
 	(if (= $n 600)
@@ -398,7 +395,7 @@ $n //0
 	)
 	
 	(if (> $n 600)
-		(strout "early return is broken" $newline)
+		(strout "early return is broken" $newl)
 	)
 after
 	13
@@ -412,7 +409,7 @@ after
 	(let n 0)
 	(while (< $n 10)
 		(out $n)
-		(strout $newline)
+		(strout $newl)
 		(let n (+ $n 1))
 	)
 	//this is just so the loop isn't a tailcall
@@ -428,51 +425,51 @@ after
 //boolean operators
 //basic and case (FALSE)
 (if (and 1 0)
-	(strout "and failed" $newline)
+	(strout "and failed" $newl)
 else
-	(strout "and worked" $newline)
+	(strout "and worked" $newl)
 )
 
 //basic or case (TRUE)
 (if (or 0 1)
-	(strout "or worked" $newline)
+	(strout "or worked" $newl)
 else
-	(strout "or failed" $newline)
+	(strout "or failed" $newl)
 )
 
 //basic not case (TRUE)
 (if (not 0)
-	(strout "not worked" $newline)
+	(strout "not worked" $newl)
 else
-	(strout "not failed" $newline)
+	(strout "not failed" $newl)
 )
 
 //basic xor case (TRUE)
 (if (xor 0 1 0)
-	(strout "xor worked" $newline)
+	(strout "xor worked" $newl)
 else
-	(strout "xor failed" $newline)
+	(strout "xor failed" $newl)
 )
 
 //short-circuiting and case
-(if (and 0 ((sub () (strout "and didn't short-circuit!" $newline))))
-	(strout "short-circuiting and failed" $newline)
+(if (and 0 ((sub () (strout "and didn't short-circuit!" $newl))))
+	(strout "short-circuiting and failed" $newl)
 else
-	(strout "short circuiting and worked" $newline)
+	(strout "short circuiting and worked" $newl)
 )
 
 //short-circuiting or case
-(if (or 1 ((sub () (strout "or didn't short-circuit!" $newline))))
-	(strout "short-circuiting or worked" $newline)
+(if (or 1 ((sub () (strout "or didn't short-circuit!" $newl))))
+	(strout "short-circuiting or worked" $newl)
 else
-	(strout "short circuiting or failed" $newline)
+	(strout "short circuiting or failed" $newl)
 )
 
 //short-circuiting xor case
-(if (xor 1 1 ((sub () (strout "xor didn't short-circuit!" $newline))))
-	(strout "short circuiting xor failed" $newline)
+(if (xor 1 1 ((sub () (strout "xor didn't short-circuit!" $newl))))
+	(strout "short circuiting xor failed" $newl)
 else
-	(strout "short-circuiting xor worked" $newline)
+	(strout "short-circuiting xor worked" $newl)
 )
 
 //END boolean operator testing ----------------------------------------------------------------------------
@@ -501,7 +498,7 @@ else
 		(strout " ")
 		($output-list (r $l))
 	else
-		(strout $newline)
+		(strout $newl)
 	)
 ))
 ($output-list $argv)

@@ -3,6 +3,9 @@
 <title>neulang v0.1.0 documentation</title>
 
 <style>
+pre{
+	background:#eeeeee;
+}
 
 </style>
 
@@ -26,6 +29,7 @@
 	<li><a href='#bool'>Boolean Operators</a></li>
 	<li><a href='#array'>Array (and by extension string) Primitives</a></li>
 	<li><a href='#list'>List Primitives</a></li>
+	<li><a href='#vars'>Pre-Defined Global Variables</a></li>
 </ul>
 
 <a name='intro'></a>
@@ -41,8 +45,8 @@ There are many many languages and obviously each of them has a context in which 
 I know it's common to start with hello world but that's just so boring and even a non-programmer wants a little more than that.  With that in mind let's take a look at a simple code example.  
 </p>
 
+<pre>
 <code>
-<textarea readonly cols='80' rows='24'>
 //this is a function to naively calculate a factorial with a while loop
 (let fact (sub (n)
 	//initialize variables (in an imperative style)
@@ -64,8 +68,8 @@ I know it's common to start with hello world but that's just so boring and even 
 //(keywords and primitives do not need this,
 //but user-defined subroutines/closures do)
 ($fact 5) //returns 120
-</textarea>
 </code>
+</pre>
 
 <p>
 Okay so at this point a couple notes might be important.  The first thing you'll notice is probably assignment; this is done with the let statement.  Let binds a symbol to a value; it's important to note that the value can be updated, but the type cannot be changed.  
@@ -86,8 +90,8 @@ The "after" keyword is used to define what happens when the condition is FALSE. 
 Just for completeness, here are two alternate versions of the same code, one recursive and another iterative but using a for loop instead of a while.  
 </p>
 
+<pre>
 <code>
-<textarea readonly cols='80' rows='24'>
 //this is a function to naively calculate a factorial with a for loop
 (let fact (sub (n)
 	//initialize variables (in an imperative style)
@@ -119,8 +123,8 @@ Just for completeness, here are two alternate versions of the same code, one rec
 //returns 120
 ($fact 5)
 
-</textarea>
 </code>
+</pre>
 <br>
 <a href='#top'>Return to the top of this page</a>
 <br><br>
@@ -220,6 +224,35 @@ Nextly, the numeric comparision primitives.
 	</li>
 </ul>
 
+<p>
+And the byte comparision primitives (used for single character and boolean comparisons).
+</p>
+
+<ul>
+	<li>
+	<b>b=</b> - the equality operator, taking any number of arguments &gt;=2 (= a b c ...) and returning a==b==c==...
+	</li>
+	<li>
+	<b>b&lt;</b> - the less than operator, taking any number of arguments &gt;=2 (&lt; a b c ...) and returning a&lt;b&lt;c&lt;...
+	</li>
+	<li>
+	<b>b&gt;</b> - the greater than operator, taking any number of arguments &gt;=2 (&gt; a b c ...) and returning a&gt;b&gt;c&gt;...
+	</li>
+	<li>
+	<b>b&lt;=</b> - the less than or equal to operator, equivalent to (or (&lt; ...) (= ...))
+	</li>
+	<li>
+	<b>b&gt;=</b> - the greater than or equal to operator, equivalent to (or (&gt; ...) (= ...))
+	</li>
+</ul>
+
+<p>
+For primitives used with other types, see the documentation for that specific section.  
+<br>
+<a href='#array'>Array (and by extension string) Primitives</a><br>
+<a href='#list'>List Primitives</a><br>
+</p>
+
 <!-- TODO: All other primitives -->
 <a href='#top'>Return to the top of this page</a>
 <br><br>
@@ -287,8 +320,8 @@ If statements are the basic conditional in neulang.  Unlike scheme, the if state
 There is no else-if per se, but rather this behavior is acheived by nesting if statements as shown below.  
 </p>
 
+<pre>
 <code>
-<textarea readonly cols='80' rows='24'>
 //this is stored as gcd(85/100)
 (let x 8.5)
 (if (&gt; 7 $x 9) //7&gt;8.5&gt;9
@@ -299,8 +332,8 @@ else
 	"$x is not in the range (7,9)"
 ))
 
-</textarea>
 </code>
+</pre>
 
 <p>
 There is no switch statement, as we do not have the basic integer types necessary to efficiently compile to a jump table like in C.  An if statement already acts as a ternary operator since it has a return value; I'm considering making "?" evaluate the same as "if" for simplicity but I'm not sure if it's needed.  
@@ -326,8 +359,8 @@ The <b>return</b> keyword can be used to return early from a function, short-cir
 Some simple subroutines are shown below.  
 </p>
 
+<pre>
 <code>
-<textarea readonly cols='80' rows='24'>
 (let newline (array (int-&gt;byte 10)))
 
 (let max 10)
@@ -355,8 +388,8 @@ Some simple subroutines are shown below.
 
 ($fib 10) //returns 55
 
-</textarea>
 </code>
+</pre>
 <br>
 <a href='#top'>Return to the top of this page</a>
 <br><br>
@@ -376,8 +409,8 @@ The <b>return</b> keyword functions in the same way as any other closure, and be
 The while loop takes at least two arguments (a condition and a body) and will execute the body until the condition becomes false.  
 </p>
 
+<pre>
 <code>
-<textarea readonly cols='80' rows='24'>
 (let newline (array (int-&gt;byte 10)))
 
 (let max 10)
@@ -389,16 +422,16 @@ The while loop takes at least two arguments (a condition and a body) and will ex
 	(let n (+ $n 1))
 )
 
-</textarea>
 </code>
+</pre>
 
 <p>
 The for loop takes at least five arguments (a symbol for the argument, an initial value for the symbol, the condition, the update which returns the new value each iteration, and the body).  
 It evaluates to a immediately-applied subroutine which takes one argument (you may use a list if you need more than this), the initial call getting the initial value.  On each iteration the body is executed, then the update is executed as an argument to the tail-recursive call.  Below is an example of a for loop and the subroutine it will translate into.  
 </p>
 
+<pre>
 <code>
-<textarea readonly cols='80' rows='24'>
 (let newline (array (int-&gt;byte 10)))
 
 //for loop version (returns -4)
@@ -430,8 +463,8 @@ after
 
 //note that $n is unbound in this outside environment ($n == NULL)
 
-</textarea>
 </code>
+</pre>
 <br>
 <a href='#top'>Return to the top of this page</a>
 <br><br>
@@ -485,12 +518,15 @@ There are a number of boolean operators, which are pretty straightforward.  They
 <hr>
 
 <p>
-Arrays are the preferred means of combining pieces of data to form larger structures.  Arrays are dynamically sized and store their size internally.  Array primitive subroutines are listed below.  
+Arrays are the preferred means of combining pieces of data to form larger structures.  Arrays are dynamically sized and store their size internally.  Array primitive subroutines are listed below.  Note that strings are byte arrays, and these subroutines are also how string data is manipulated.  
 </p>
 
 <ul>
 	<li>
 	<b>array</b> - creates a new array consisting of the arguments given (in the given order)
+	</li>
+	<li>
+	<b>,</b> - , (comma) is the array (and therefore string) concatenation operator in neulang; this makes much more sense than something like + for string data, and is less ambiguous; it takes any number of arguments (all arrays!) and returns one array composed of all the elements of the argument arrays in order; to make a 2D array rather than flattening data, call <b>array</b> instead.  <b>,</b> is a very useful operator because you cannot escape characters in neulang (strings are from one " to the next " with no ifs, ands, or buts) and therefore must concatenate to output generated data, non-printable characters, and characters like <b>$newl</b> which might hurt your code formatting.  
 	</li>
 	<li>
 	<b>ar=</b> - array equality operator
@@ -568,6 +604,29 @@ Lists are used for interal parsing and are useful for data that you plan to iter
 	</li>
 	<li>
 	<b>list&gt;=</b> - list greater than or equal to operator
+	</li>
+</ul>
+
+<a href='#top'>Return to the top of this page</a>
+<br><br>
+
+<a name='vars'></a>
+<h1>Pre-Defined Global Variables</h1>
+<hr>
+
+<p>
+There are some variables that are pre-defined for convenience.  These variables may be set by the user (though obviously only in the global scope, as we are in a contextually imperative functional paradigm), but their type may not be changed.  
+</p>
+
+<ul>
+	<li>
+	<b>$newl</b> - A one-byte array, the newline character \n (equivalent to (array (int-&gt;byte 10))); note that if you're a savage (windows user) you may want to re-define this as (array (int-&gt;byte 13) (int-&gt;byte 10)) in your script
+	</li>
+	<li>
+	<b>$squo</b> - A one-byte array, the single-quote character \' (equivalent to (array (int-&gt;byte 39)))
+	</li>
+	<li>
+	<b>$squo</b> - A one-byte array, the double-quote character \" (equivalent to (array (int-&gt;byte 34)))
 	</li>
 </ul>
 

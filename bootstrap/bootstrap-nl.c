@@ -2136,6 +2136,26 @@ void nl_bind_stdlib(nl_env_frame *env){
 	//TODO: all other sensical type conversions
 	
 	nl_bind_new(nl_sym_from_c_str("assert"),nl_primitive_wrap(nl_assert),env);
+	
+	//pre-defined variables for convenience
+	nl_val *newline=nl_val_malloc(ARRAY);
+	nl_val *newline_char=nl_val_malloc(BYTE);
+	newline_char->d.byte.v=10;
+	nl_array_push(newline,newline_char);
+	
+	nl_val *dquote=nl_val_malloc(ARRAY);
+	nl_val *dquote_char=nl_val_malloc(BYTE);
+	dquote_char->d.byte.v=34;
+	nl_array_push(dquote,dquote_char);
+	
+	nl_val *squote=nl_val_malloc(ARRAY);
+	nl_val *squote_char=nl_val_malloc(BYTE);
+	squote_char->d.byte.v=39;
+	nl_array_push(squote,squote_char);
+	
+	nl_bind_new(nl_sym_from_c_str("newl"),newline,env);
+	nl_bind_new(nl_sym_from_c_str("dquo"),dquote,env);
+	nl_bind_new(nl_sym_from_c_str("squo"),squote,env);
 }
 
 //the repl for neulang; this is separated from main for embedding purposes
