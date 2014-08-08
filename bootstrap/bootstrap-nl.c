@@ -832,43 +832,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *ea
 		//advance past the condition itself
 		arguments=arguments->d.pair.r;
 		
-/*
-		//true eval
-		while((arguments!=NULL) && (arguments->t==PAIR)){
-			//if we hit an else statement then break out (skipping over false case)
-			if((arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
-				break;
-			}
-			
-			//TODO: replace this with an eval_sequence call, so return works right and it's just generally cleaner (that should also fix returns)
-			
-			nl_val *next_exp=arguments->d.pair.r;
-			//on the last expression pass last_exp through
-			//an else case also counts as the end of expressions, since we don't execute after that
-			if((next_exp==NULL) || ((next_exp->d.pair.f!=NULL) && (next_exp->d.pair.f->t==SYMBOL) && (nl_val_cmp(next_exp->d.pair.f,else_keyword)==0))){
-				//we need a reference directly to the last expression since the containing expression (arguments) will be free'd
-				nl_val *to_eval=arguments->d.pair.f;
-				to_eval->ref++;
-				nl_val_free(argument_start);
-				
-				//tailcall out to eval!
-				//NOTE: this is used for tailcalls and depends on C TCO (-O3 or -O2)
-				return nl_eval(to_eval,env,last_exp,early_ret);
-			//otherwise it's not the last expression (we might still need the old env, for old argument values)
-			}else{
-				tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
-			}
-			arguments->d.pair.f=tmp_result;
-			arguments=arguments->d.pair.r;
-		}
-		
-		if(tmp_result!=NULL){
-			tmp_result->ref++;
-		}
-		
-		//when we're done with the list then break out
-		ret=tmp_result;
-*/
 		//true eval
 		nl_val *tmp_args=arguments;
 		while((tmp_args!=NULL) && (tmp_args->t==PAIR)){
@@ -899,37 +862,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *ea
 			arguments=arguments->d.pair.r;
 		}
 		
-/*
-		//false eval
-		//if we actually hit an else statement just then (rather than the list end)
-		if((arguments!=NULL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
-			//evaluate false case
-			while((arguments!=NULL) && (arguments->t==PAIR)){
-				//on the last expression pass last_exp through
-				if(arguments->d.pair.r==NULL){
-					//we need a reference directly to the last expression since the containing expression (arguments) will be free'd
-					nl_val *to_eval=arguments->d.pair.f;
-					to_eval->ref++;
-					nl_val_free(argument_start);
-					
-					//tailcall out to eval!
-					//NOTE: this is used for tailcalls and depends on C TCO (-O3 or -O2)
-					return nl_eval(to_eval,env,last_exp,early_ret);
-				//otherwise it's not the last expression (we might still need the old env, for old argument values)
-				}else{
-					tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
-				}
-				arguments->d.pair.f=tmp_result;
-				arguments=arguments->d.pair.r;
-			}
-		}
-		
-		if(tmp_result!=NULL){
-			tmp_result->ref++;
-		}
-		
-		ret=tmp_result;
-*/
 		//false eval
 		//if we actually hit an else statement just then (rather than the list end)
 		if((arguments!=NULL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
