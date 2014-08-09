@@ -1878,6 +1878,9 @@ nl_val *nl_read_exp(FILE *fp){
 	}else if(c=='/' && next_c=='*'){
 		next_c=getc(fp);
 		next_c=getc(fp);
+		if(next_c=='\n'){
+			line_number++;
+		}
 		
 		while(!((c=='*') && (next_c=='/'))){
 			c=next_c;
@@ -2191,30 +2194,37 @@ void nl_repl(FILE *fp, nl_val *argv){
 	char next_c=getc(fp);
 	ungetc(next_c,fp);
 	
+	//initialize the line number
+//	line_number=0;
+	line_number=1;
+	
 	//ignore shebang (#!) line, if there is one
 	if(c=='#' && next_c=='!'){
 		while(c!='\n'){
 			c=getc(fp);
 		}
+		line_number++;
 	}else{
 		ungetc(c,fp);
 	}
 	
-	//initialize the line number
-//	line_number=0;
-	line_number=1;
-	
 	end_program=FALSE;
 	while(!end_program){
 		//only display prompt for interactive mode
-//		if(fp==stdin){
+		if(fp==stdin){
 			printf("[line %u] nl >> ",line_number);
-//		}
+		}
 		
 		//read an expression in
 		nl_val *exp=nl_read_exp(fp);
 		
-//		printf("\n");
+#ifdef _DEBUG
+		printf("\n");
+		
+		printf("Info [line %i]: evaluating ",line_number);
+		nl_out(stdout,exp);
+		printf("\n");
+#endif
 		
 		//evalute the expression in the global environment
 		nl_val *result=nl_eval(exp,global_env,FALSE,NULL);
@@ -2232,6 +2242,10 @@ void nl_repl(FILE *fp, nl_val *argv){
 		
 		//loop (completing the REPL)
 	}
+
+#ifdef _DEBUG
+	printf("Info [line %i]: exited program\n",line_number);
+#endif
 	
 	//de-allocate the global environment
 	nl_env_frame_free(global_env);

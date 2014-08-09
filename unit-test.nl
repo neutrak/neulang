@@ -370,7 +370,7 @@ after
 $n //0
 
 //now a really long loop to demonstrate the fact that this uses tail recursion
-(while (< $n 40000)
+(while (< $n 8000)
 	(out $n)
 	(strout $newl "here's johnny!!" $newl)
 	(let n (+ $n 1))
@@ -384,7 +384,7 @@ $n //0
 <condition to check (loop stops when it's false)>
 <update to yeild new value for recursive call>
 */
-(for n 0 (< $n 640) (+ $n 1)
+(assert (= 12 (for n 0 (< $n 640) (+ $n 1)
 	(strout "this is a for loop and n is ")
 	(out $n)
 	(strout $newl)
@@ -399,7 +399,7 @@ $n //0
 	)
 after
 	13
-)
+)))
 
 //0
 (assert (= $n 0))
@@ -505,7 +505,7 @@ else
 //$argv
 
 // EXIT
-(exit)
+//(exit)
 
 
 
