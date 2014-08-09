@@ -166,6 +166,9 @@ unsigned int line_number;
 //error message function
 void nl_err(nl_val *v, const char *msg, char output);
 
+//returns a C string consisting of the name of the given type
+const char *nl_type_name(nl_type t);
+
 //allocate a value, and initialize it so that we're not doing anything too crazy
 nl_val *nl_val_malloc(nl_type t);
 

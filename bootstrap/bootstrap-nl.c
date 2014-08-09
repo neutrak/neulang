@@ -49,15 +49,59 @@ nl_val *list_keyword;
 //error message function
 void nl_err(nl_val *v, const char *msg, char output){
 	if(v!=NULL){
-		fprintf(stderr,"Err [line %u]: %s\n",v->line,msg);
+		if(output){
+			fprintf(stderr,"Err [line %u]: %s ",v->line,msg);
+			fprintf(stderr,"(relevant value might be ");
+			nl_out(stderr,v);
+			fprintf(stderr,")\n");
+		}else{
+			fprintf(stderr,"Err [line %u]: %s\n",v->line,msg);
+		}
 	}else{
-		fprintf(stderr,"Err [line %u]: %s\n",line_number,msg);
+		//this output case will always list NULL as the value
+		//but since the error value might be null it's important to let the user know that
+		if(output){
+			fprintf(stderr,"Err [line %u]: %s ",line_number,msg);
+			fprintf(stderr,"(relevant value might be ");
+			nl_out(stderr,v);
+			fprintf(stderr,")\n");
+		}else{
+			fprintf(stderr,"Err [line %u]: %s\n",line_number,msg);
+		}
 	}
-	if(output){
-		fprintf(stderr,"(relevant value might be ");
-		nl_out(stderr,v);
-		fprintf(stderr,")\n");
+}
+
+//returns a C string consisting of the name of the given type
+const char *nl_type_name(nl_type t){
+	switch(t){
+		case BYTE:
+			return "BYTE";
+			break;
+		case NUM:
+			return "NUM";
+			break;
+		case PAIR:
+			return "PAIR";
+			break;
+		case ARRAY:
+			return "ARRAY";
+			break;
+		case PRI:
+			return "PRI";
+			break;
+		case SUB:
+			return "SUB";
+			break;
+		case SYMBOL:
+			return "SYMBOL";
+			break;
+		case EVALUATION:
+			return "EVALUATION";
+			break;
+		default:
+			break;
 	}
+	return "UNKNOWN";
 }
 
 //BEGIN MEMORY MANAGEMENT SUBROUTINES -----------------------------------------------------------------------------
@@ -317,14 +361,15 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			//if this symbol was already bound and the type we're trying to re-bind has a different type, don't bind!
 //			if((value!=NULL) && (value->t!=((&(env->symbol_array->d.array.v[n]))->d.sym.t))){
 			if((value!=NULL) && (value->t!=(env->symbol_array->d.array.v[n]->d.sym.t))){
-				fprintf(stderr,"Err [line %u]: re-binding ",line_number);
+				fprintf(stderr,"Err [line %u]: re-binding ",value->line);
 				nl_out(stderr,symbol);
 //				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,(&(env->symbol_array->d.array.v[n]))->d.sym.t);
-				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,env->symbol_array->d.array.v[n]->d.sym.t);
+				fprintf(stderr," to value of wrong type (type %s != type %s) (symbol value unchanged)\n",nl_type_name(value->t),nl_type_name(env->symbol_array->d.array.v[n]->d.sym.t));
 				nl_val_free(value);
 #ifdef _STRICT
 				exit(1);
 #endif
+//				ERR_EXIT(symbol,"re-binding symbol to wrong type (symbol value unchanged)",TRUE);
 				
 //				found=TRUE;
 //				break;
@@ -1382,12 +1427,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 //			ret=nl_apply(prim_sub,arguments,early_ret);
 			ret=nl_apply(prim_sub,arguments,NULL);
 		}else{
-			fprintf(stderr,"Err [line %u]: unknown keyword ",line_number);
-			nl_out(stderr,keyword);
-			fprintf(stderr,"\n");
-#ifdef _STRICT
-			exit(1);
-#endif
+			ERR_EXIT(keyword,"unknown keyword",TRUE);
 		}
 	}
 	
@@ -1681,8 +1721,8 @@ nl_val *nl_read_num(FILE *fp){
 	}
 	
 	if(ret->d.num.d==0){
-		nl_val_free(ret);
 		ERR_EXIT(ret,"divide-by-0 in rational number; did you forget a denominator?",TRUE);
+		nl_val_free(ret);
 		ret=NULL;
 	}else{
 		//gcd reduce the number for faster computation
@@ -2191,7 +2231,9 @@ void nl_bind_stdlib(nl_env_frame *env){
 //the only thing you have to do outside this is give us an open file and close it when we're done
 //arguments given are interpreted as command-line arguments and are bound to argv in the interpreter (NULL works)
 void nl_repl(FILE *fp, nl_val *argv){
+#ifdef _DEBUG
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
+#endif
 	
 	//allocate keywords
 	nl_keyword_malloc();
@@ -2259,14 +2301,16 @@ void nl_repl(FILE *fp, nl_val *argv){
 		
 		//expressions should be free-d in nl_eval, unless they are self-evaluating
 		
-		//output (print) the result of evaluation
-		nl_out(stdout,result);
+		//only output the result for interactive mode
+		if(fp==stdin){
+			//output (print) the result of evaluation
+			nl_out(stdout,result);
+			//pretty formatting
+			printf("\n");
+		}
 		
 		//free the resulting expression
 		nl_val_free(result);
-		
-		//pretty formatting
-		printf("\n");
 		
 		//loop (completing the REPL)
 	}

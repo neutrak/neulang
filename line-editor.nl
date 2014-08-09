@@ -84,9 +84,11 @@
 
 //runtime entry point, with command line arguments
 (let main (sub (argv)
+/*
 	(strout "main debug 0, argv is ")
 	(out $argv)
 	(strout $newl)
+*/
 	
 	//skip over the script name
 	(if (not (null? $argv))
@@ -98,7 +100,6 @@
 		//if these were found return early
 		(return 0)
 	)
-	(strout "main debug 1" $newl)
 	
 	//if we're given a file name, try to edit that
 	(if (not (null? $argv))

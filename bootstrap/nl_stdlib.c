@@ -523,7 +523,7 @@ nl_val *nl_list_idx(nl_val *arg_list){
 //add a list of (rational) numbers
 nl_val *nl_add(nl_val *num_list){
 	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
@@ -565,7 +565,7 @@ nl_val *nl_add(nl_val *num_list){
 //subtract a list of (rational) numbers
 nl_val *nl_sub(nl_val *num_list){
 	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
@@ -607,7 +607,7 @@ nl_val *nl_sub(nl_val *num_list){
 //multiply a list of (rational) numbers
 nl_val *nl_mul(nl_val *num_list){
 	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
@@ -649,7 +649,7 @@ nl_val *nl_mul(nl_val *num_list){
 //divide a list of (rational) numbers
 nl_val *nl_div(nl_val *num_list){
 	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
+	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
