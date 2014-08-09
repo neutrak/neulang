@@ -576,6 +576,9 @@ Lists are used for interal parsing and are useful for data that you plan to iter
 
 <ul>
 	<li>
+	<b>pair</b> - creates a new list cell with the 2 arguments given (takes EXACTLY 2 arguments); this is a cons cell, for you lisp people
+	</li>
+	<li>
 	<b>list</b> - creates a new list consisting of the arguments given (in the given order)
 	</li>
 	<li>
@@ -627,6 +630,9 @@ There are some variables that are pre-defined for convenience.  These variables 
 	</li>
 	<li>
 	<b>$squo</b> - A one-byte array, the double-quote character \" (equivalent to (array (int-&gt;byte 34)))
+	</li>
+	<li>
+	<b>$argv</b> - A list of strings (strings==arrays); the command line arguments given to this script
 	</li>
 </ul>
 

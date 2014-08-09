@@ -21,6 +21,7 @@ nl_val *true_keyword;
 nl_val *false_keyword;
 nl_val *null_keyword;
 
+nl_val *pair_keyword;
 nl_val *f_keyword;
 nl_val *r_keyword;
 nl_val *if_keyword;
@@ -1348,6 +1349,21 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			}
 			arguments=arguments->d.pair.r;
 		}
+	//check for pair keyword
+	}else if(nl_val_cmp(keyword,pair_keyword)==0){
+		if(nl_c_list_size(arguments)!=2){
+			ERR_EXIT(keyword_exp,"wrong number of arguments given to pair",TRUE);
+		}else{
+			//eager evaluation
+			nl_eval_elements(arguments,env);
+			
+			//make a pair from the list entries
+			ret=nl_val_malloc(PAIR);
+			ret->d.pair.f=arguments->d.pair.f;
+			ret->d.pair.f->ref++;
+			ret->d.pair.r=arguments->d.pair.r->d.pair.f;
+			ret->d.pair.r->ref++;
+		}
 	//check for exits
 	}else if(nl_val_cmp(keyword,exit_keyword)==0){
 		end_program=TRUE;
@@ -2022,6 +2038,7 @@ void nl_keyword_malloc(){
 	false_keyword=nl_sym_from_c_str("FALSE");
 	null_keyword=nl_sym_from_c_str("NULL");
 	
+	pair_keyword=nl_sym_from_c_str("pair");
 	f_keyword=nl_sym_from_c_str("f");
 	r_keyword=nl_sym_from_c_str("r");
 	if_keyword=nl_sym_from_c_str("if");
@@ -2050,6 +2067,7 @@ void nl_keyword_free(){
 	nl_val_free(false_keyword);
 	nl_val_free(null_keyword);
 	
+	nl_val_free(pair_keyword);
 	nl_val_free(f_keyword);
 	nl_val_free(r_keyword);
 	nl_val_free(if_keyword);
@@ -2217,6 +2235,7 @@ void nl_repl(FILE *fp, nl_val *argv){
 		//read an expression in
 		nl_val *exp=nl_read_exp(fp);
 		
+/*
 #ifdef _DEBUG
 		printf("\n");
 		
@@ -2224,6 +2243,7 @@ void nl_repl(FILE *fp, nl_val *argv){
 		nl_out(stdout,exp);
 		printf("\n");
 #endif
+*/
 		
 		//evalute the expression in the global environment
 		nl_val *result=nl_eval(exp,global_env,FALSE,NULL);
@@ -2270,10 +2290,10 @@ int main(int argc, char *argv[]){
 	
 	//if we got more arguments, then pass them to the interpreter as strings
 	nl_argv=nl_val_malloc(PAIR);
-	if(argc>2){
+	if(argc>1){
 		nl_val *current_arg=nl_argv;
 		int n;
-		for(n=2;n<argc;n++){
+		for(n=1;n<argc;n++){
 			current_arg->d.pair.f=nl_val_malloc(ARRAY);
 			int n2;
 			for(n2=0;n2<strlen(argv[n]);n2++){
