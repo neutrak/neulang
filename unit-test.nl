@@ -370,7 +370,7 @@ after
 $n //0
 
 //now a really long loop to demonstrate the fact that this uses tail recursion
-(while (< $n 8000)
+(while (< $n 100000)
 	(out $n)
 	(strout $newl "here's johnny!!" $newl)
 	(let n (+ $n 1))

@@ -563,14 +563,11 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env){
 nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 	nl_val *ret=NULL;
 	
-	//if given a NULL then just don't pass the result up, no worries
-	char tmp_early_ret;
-	if(early_ret==NULL){
-		early_ret=&tmp_early_ret;
+	//if given a NULL then just don't pass the early_ret result up, no worries
+	if(early_ret!=NULL){
+		//this did NOT return early (yet)
+		(*early_ret)=FALSE;
 	}
-	
-	//this did NOT return early (yet)
-	(*early_ret)=FALSE;
 	
 	//whether or not this is the last statement in the body
 	char on_last_exp=FALSE;
@@ -617,7 +614,9 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 #endif
 */
 			//this returned early, so signal the calling code and let it know that
-			(*early_ret)=TRUE;
+			if(early_ret!=NULL){
+				(*early_ret)=TRUE;
+			}
 		}
 		
 		//if we're not going into a tailcall then keep this expression around and free it when we're done
@@ -667,7 +666,7 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 			printf("nl_eval_sequence debug 1, tailcalling into nl_eval...\n");
 #endif
 */
-			//TODO: figure out why C's TCO broke when I added the early_ret argument to eval functions!
+			//NOTE: C's TCO is broken if you pass a local var's reference as the early_ret argument to eval functions!
 			
 			//NOTE: this depends on C's own TCO behavior and so requires compilation with -O3 or -O2
 //			return nl_eval(to_eval,env,on_last_exp,early_ret);
