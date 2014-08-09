@@ -304,7 +304,10 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b);
 char nl_contains_nulls(nl_val *val_list);
 
 //return a byte version of the given number constant, if possible
-nl_val *nl_int_to_byte(nl_val *num_list);
+nl_val *nl_num_to_byte(nl_val *num_list);
+
+//return an integer version of the given byte
+nl_val *nl_byte_to_num(nl_val *byte_list);
 
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v);
@@ -448,6 +451,12 @@ nl_val *nl_is_null(nl_val *val_list);
 
 //assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
 nl_val *nl_assert(nl_val *cond_list);
+
+//bitwise OR operation on the byte type
+nl_val *nl_byte_or(nl_val *byte_list);
+
+//bitwise AND operation on the byte type
+nl_val *nl_byte_and(nl_val *byte_list);
 
 //END NL DECLARATIONS ---------------------------------------------------------------------------------------------
 

@@ -186,12 +186,12 @@ char nl_contains_nulls(nl_val *val_list){
 }
 
 //return a byte version of the given number constant, if possible
-nl_val *nl_int_to_byte(nl_val *num_list){
+nl_val *nl_num_to_byte(nl_val *num_list){
 	nl_val *ret=NULL;
 	
 	int arg_count=nl_c_list_size(num_list);
 	if(arg_count>=1){
-		if(num_list->d.pair.f->d.num.d==1){
+		if((num_list->d.pair.f->t==NUM) && (num_list->d.pair.f->d.num.d==1)){
 			if(num_list->d.pair.f->d.num.n<256){
 				ret=nl_val_malloc(BYTE);
 				ret->d.byte.v=num_list->d.pair.f->d.num.n;
@@ -208,6 +208,31 @@ nl_val *nl_int_to_byte(nl_val *num_list){
 		}
 	}else{
 		ERR_EXIT(num_list,"no arguments given to int_to_byte, can't convert NULL! (returning NULL)",TRUE);
+	}
+	
+	return ret;
+}
+
+//return an integer version of the given byte
+nl_val *nl_byte_to_num(nl_val *byte_list){
+	nl_val *ret=NULL;
+	
+	int arg_count=nl_c_list_size(byte_list);
+	if(arg_count>=1){
+		if(byte_list->d.pair.f->t==BYTE){
+			ret=nl_val_malloc(NUM);
+			ret->d.num.d=1;
+			ret->d.num.n=byte_list->d.pair.f->d.byte.v;
+		}else{
+			ERR_EXIT(byte_list,"wrong type given to byte_to_num",TRUE);
+		}
+		
+		if(arg_count>1){
+//			fprintf(stderr,"Warn [line %u]: too many arguments given to int_to_byte, ignoring all but the first...\n",line_number);
+			ERR(byte_list,"too many arguments given to byte_to_num, ignoring all but the first...",TRUE);
+		}
+	}else{
+		ERR_EXIT(byte_list,"no arguments given to byte_to_num, can't convert NULL! (returning NULL)",TRUE);
 	}
 	
 	return ret;
@@ -952,6 +977,68 @@ nl_val *nl_is_null(nl_val *val_list){
 }
 
 //END C-NL-STDLIB-CMP SUBROUTINES  --------------------------------------------------------------------------------
+
+//BEGIN C-NL-STDLIB-BITOP SUBROUTINES  ----------------------------------------------------------------------------
+
+//bitwise OR operation on the byte type
+nl_val *nl_byte_or(nl_val *byte_list){
+	nl_val *ret=NULL;
+	if(nl_c_list_size(byte_list)<2){
+		ERR_EXIT(byte_list,"insufficient arguments given to bitwise or operation",TRUE);
+		return NULL;
+	}
+	
+	//allocate an accumulator
+	ret=nl_val_malloc(BYTE);
+	//start with 0 because we'll OR everything else
+	ret->d.byte.v=0;
+	
+	while((byte_list!=NULL) && (byte_list->t==PAIR)){
+		if(byte_list->d.pair.f!=NULL && byte_list->d.pair.f->t==BYTE){
+			//store a bitwise OR of the accumulator and the list element in the accumulator
+			ret->d.byte.v=((ret->d.byte.v)|(byte_list->d.pair.f->d.byte.v));
+		}else{
+			nl_val_free(ret);
+			ERR_EXIT(byte_list,"incorrect type given to bitwise or operation",TRUE);
+			return NULL;
+		}
+		
+		byte_list=byte_list->d.pair.r;
+	}
+	
+	return ret;
+}
+
+//bitwise AND operation on the byte type
+nl_val *nl_byte_and(nl_val *byte_list){
+	nl_val *ret=NULL;
+	if(nl_c_list_size(byte_list)<2){
+		ERR_EXIT(byte_list,"insufficient arguments given to bitwise or operation",TRUE);
+		return NULL;
+	}
+	
+	//allocate an accumulator
+	ret=nl_val_malloc(BYTE);
+	//start with 0xff because we'll AND everything else
+	ret->d.byte.v=0xff;
+	
+	while((byte_list!=NULL) && (byte_list->t==PAIR)){
+		if(byte_list->d.pair.f!=NULL && byte_list->d.pair.f->t==BYTE){
+			//store a bitwise AND of the accumulator and the list element in the accumulator
+			ret->d.byte.v=((ret->d.byte.v)&(byte_list->d.pair.f->d.byte.v));
+		}else{
+			nl_val_free(ret);
+			ERR_EXIT(byte_list,"incorrect type given to bitwise or operation",TRUE);
+			return NULL;
+		}
+		
+		byte_list=byte_list->d.pair.r;
+	}
+	
+	return ret;
+}
+
+//END C-NL-STDLIB-BITOP SUBROUTINES  ------------------------------------------------------------------------------
 
 //assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
 nl_val *nl_assert(nl_val *cond_list){

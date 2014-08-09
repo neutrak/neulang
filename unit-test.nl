@@ -310,7 +310,7 @@ $dumb-loop(+(4 1) 10)
 //the "recur" keyword allowing anonymous recursion!
 (let recur-test (sub (min max)
 //	(out $min)
-//	(strout (array (int->byte 10)))
+//	(strout (array (num->byte 10)))
 	(if (< $min $max)
 		(recur (+ $min 1) $max)
 	else
@@ -420,6 +420,23 @@ after
 
 //END loop testing ----------------------------------------------------------------------------------------
 
+//BEGIN argument testing ----------------------------------------------------------------------------------
+
+//output any arguments
+(let output-list (sub (l)
+	(if (not (null? $l))
+		(strout (f $l))
+		(strout " ")
+		($output-list (r $l))
+	else
+		(strout $newl)
+	)
+))
+($output-list $argv)
+//$argv
+
+//END argument testing ------------------------------------------------------------------------------------
+
 //BEGIN boolean operator testing --------------------------------------------------------------------------
 
 //boolean operators
@@ -477,32 +494,27 @@ else
 //BEGIN standard library testing --------------------------------------------------------------------------
 
 //make a newline from other primitives (this is how you can output arbitrary characters, remember quotes and newlines cannot be escaped in strings)
-(let newline (array (int->byte 10))) //\n
-(let quote (array (int->byte 39))) //'
-(let quotes (array (int->byte 34))) //"
+(let newline (array (num->byte 10))) //\n
+(let quote (array (num->byte 39))) //'
+(let quotes (array (num->byte 34))) //"
 
 (strout "this is " "a test" "..." $newline)
 (strout (, "now with " "explicit concatenation" $newline))
 
 //array operations, via strings
 (let str-len $ar-sz)
-($str-len "a test")
+(assert (= 6 ($str-len "a test")))
+
+//allocate some byte types to test byte operations
+(let byte-5 (num->byte 5))
+(let byte-6 (num->byte 6))
+
+//bitwise OR test
+(assert (b= (num->byte 7) (b| $byte-5 $byte-6)))
+//bitwise AND test
+(assert (b= (num->byte 4) (b& $byte-5 $byte-6)))
 
 //END standard library testing ----------------------------------------------------------------------------
-
-//TODO: put this in a more appropriate testing position
-//output any arguments
-(let output-list (sub (l)
-	(if (not (null? $l))
-		(strout (f $l))
-		(strout " ")
-		($output-list (r $l))
-	else
-		(strout $newl)
-	)
-))
-($output-list $argv)
-//$argv
 
 // EXIT
 //(exit)

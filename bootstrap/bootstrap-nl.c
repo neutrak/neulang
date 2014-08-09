@@ -205,6 +205,8 @@ nl_val *nl_val_cp(nl_val *v){
 	//(primitive subroutines and closures are copied pointer-wise)
 	if((v->t!=PRI) && (v->t!=SUB)){
 		ret=nl_val_malloc(v->t);
+		//copy the line number too; if we're copying it then the user didn't just enter it
+		ret->line=v->line;
 	}
 	
 	switch(v->t){
@@ -2152,9 +2154,16 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("strout"),nl_primitive_wrap(nl_strout),env);
 	nl_bind_new(nl_sym_from_c_str("out"),nl_primitive_wrap(nl_output),env);
 	
-	nl_bind_new(nl_sym_from_c_str("int->byte"),nl_primitive_wrap(nl_int_to_byte),env);
+	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
+	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);
 	//TODO: all other sensical type conversions
 	
+	//TODO: any other bitwise operations that make sense
+	//bitwise operations
+	nl_bind_new(nl_sym_from_c_str("b|"),nl_primitive_wrap(nl_byte_or),env);
+	nl_bind_new(nl_sym_from_c_str("b&"),nl_primitive_wrap(nl_byte_and),env);
+	
+	//for testing purposes, an assert function
 	nl_bind_new(nl_sym_from_c_str("assert"),nl_primitive_wrap(nl_assert),env);
 	
 	//pre-defined variables for convenience
