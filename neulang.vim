@@ -13,7 +13,7 @@ endif
 "set iskeyword="@,65-90,97-122,63,_"
 
 " keywords
-syn keyword nl_keywords exit let if else and or not xor lit sub begin recur while for after array return strout out null? pair f r assert
+syn keyword nl_keywords exit let if else and or not xor lit sub begin recur while for after array return outs outexp inexp null? pair f r assert
 syn keyword nl_symbols TRUE FALSE NULL
 
 " parens (highlighting included by matchgroup parameter)

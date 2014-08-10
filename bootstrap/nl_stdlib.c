@@ -395,7 +395,7 @@ nl_val *nl_array_cat(nl_val *array_list){
 
 //output the given list of strings in sequence
 //returns NULL (a void function)
-nl_val *nl_strout(nl_val *array_list){
+nl_val *nl_outstr(nl_val *array_list){
 	while((array_list!=NULL) && (array_list->t==PAIR))
 	{
 		nl_val *output_str=array_list->d.pair.f;
@@ -414,12 +414,18 @@ nl_val *nl_strout(nl_val *array_list){
 
 //outputs the given value to stdout
 //returns NULL (a void function)
-nl_val *nl_output(nl_val *v_list){
+nl_val *nl_outexp(nl_val *v_list){
 	while(v_list!=NULL && v_list->t==PAIR){
 		nl_out(stdout,v_list->d.pair.f);
 		v_list=v_list->d.pair.r;
 	}
 	return NULL;
+}
+
+//reads input from stdin and returns the resulting expression
+nl_val *nl_inexp(nl_val *arg_list){
+	//TODO: support other files (by means of arguments)!
+	return nl_read_exp(stdin);
 }
 
 //END C-NL-STDLIB-ARRAY SUBROUTINES  ------------------------------------------------------------------------------

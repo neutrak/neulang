@@ -2191,8 +2191,9 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("list-len"),nl_primitive_wrap(nl_list_size),env);
 	nl_bind_new(nl_sym_from_c_str("list-idx"),nl_primitive_wrap(nl_list_idx),env);
 	
-	nl_bind_new(nl_sym_from_c_str("strout"),nl_primitive_wrap(nl_strout),env);
-	nl_bind_new(nl_sym_from_c_str("out"),nl_primitive_wrap(nl_output),env);
+	nl_bind_new(nl_sym_from_c_str("outs"),nl_primitive_wrap(nl_outstr),env);
+	nl_bind_new(nl_sym_from_c_str("outexp"),nl_primitive_wrap(nl_outexp),env);
+	nl_bind_new(nl_sym_from_c_str("inexp"),nl_primitive_wrap(nl_inexp),env);
 	
 	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
 	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);

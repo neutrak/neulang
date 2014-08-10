@@ -361,7 +361,7 @@ Some simple subroutines are shown below.
 
 <pre>
 <code>
-(let newline (array (int-&gt;byte 10)))
+(let newline (array (num-&gt;byte 10)))
 
 (let max 10)
 (let n 0)
@@ -370,8 +370,8 @@ Some simple subroutines are shown below.
 //but that's okay since it's only doing output
 ((sub () //note the two open parens here; the second defines the sub, the first applies it
 	(if (&lt; $n $max)
-		(out $n)
-		(strout $newline)
+		(outexp $n)
+		(outs $newline)
 		(let n (+ $n 1))
 		(recur)
 	)
@@ -411,14 +411,14 @@ The while loop takes at least two arguments (a condition and a body) and will ex
 
 <pre>
 <code>
-(let newline (array (int-&gt;byte 10)))
+(let newline (array (num-&gt;byte 10)))
 
 (let max 10)
 (let n 0)
 //this is the while version of the loop in the subroutine section
 (while (&lt; $n $max)
-	(out $n)
-	(strout $newline)
+	(outexp $n)
+	(outs $newline)
 	(let n (+ $n 1))
 )
 
@@ -432,12 +432,12 @@ It evaluates to a immediately-applied subroutine which takes one argument (you m
 
 <pre>
 <code>
-(let newline (array (int-&gt;byte 10)))
+(let newline (array (num-&gt;byte 10)))
 
 //for loop version (returns -4)
 (for n 0 (&lt; $n 10) (+ $n 1)
-	(out $n)
-	(strout $newline)
+	(outexp $n)
+	(outs $newline)
 after
 	-4
 )
@@ -448,8 +448,8 @@ after
 	//check condition, maybe execute the body
 	(if (&lt; $n 10)
 		//the body
-		(out $n)
-		(strout $newline)
+		(outexp $n)
+		(outs $newline)
 		
 		//this is where the update goes, in the recursive call
 		(recur (+ $n 1))
@@ -623,13 +623,13 @@ There are some variables that are pre-defined for convenience.  These variables 
 
 <ul>
 	<li>
-	<b>$newl</b> - A one-byte array, the newline character \n (equivalent to (array (int-&gt;byte 10))); note that if you're a savage (windows user) you may want to re-define this as (array (int-&gt;byte 13) (int-&gt;byte 10)) in your script
+	<b>$newl</b> - A one-byte array, the newline character \n (equivalent to (array (num-&gt;byte 10))); note that if you're a savage (windows user) you may want to re-define this as (array (num-&gt;byte 13) (num-&gt;byte 10)) in your script
 	</li>
 	<li>
-	<b>$squo</b> - A one-byte array, the single-quote character \' (equivalent to (array (int-&gt;byte 39)))
+	<b>$squo</b> - A one-byte array, the single-quote character \' (equivalent to (array (num-&gt;byte 39)))
 	</li>
 	<li>
-	<b>$squo</b> - A one-byte array, the double-quote character \" (equivalent to (array (int-&gt;byte 34)))
+	<b>$squo</b> - A one-byte array, the double-quote character \" (equivalent to (array (num-&gt;byte 34)))
 	</li>
 	<li>
 	<b>$argv</b> - A list of strings (strings==arrays); the command line arguments given to this script

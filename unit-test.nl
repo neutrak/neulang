@@ -309,8 +309,8 @@ $dumb-loop(+(4 1) 10)
 
 //the "recur" keyword allowing anonymous recursion!
 (let recur-test (sub (min max)
-//	(out $min)
-//	(strout (array (num->byte 10)))
+//	(outexp $min)
+//	(outs (array (num->byte 10)))
 	(if (< $min $max)
 		(recur (+ $min 1) $max)
 	else
@@ -327,7 +327,7 @@ $dumb-loop(+(4 1) 10)
 
 //a while loop! (internally this is converted into an anonymous sub)
 (while (< $n 1000)
-	(strout "continuing..." $newl)
+	(outs "continuing..." $newl)
 	(let n (+ $n 1))
 after
 	-3
@@ -336,11 +336,11 @@ after
 //equivilent to a sub
 (let a-loop (sub ()
 	(if (< $n 5)
-		(strout "continuing..." $newl)
+		(outs "continuing..." $newl)
 		(let n (+ $n 1))
 		(recur)
 		//double recur just to make sure that's handled correctly
-		(strout "recursing AGAIN" $newl)
+		(outs "recursing AGAIN" $newl)
 		(recur)
 	else
 		-3
@@ -350,14 +350,14 @@ after
 //anonymous sub (the above while loop internally gets converted into this exact code)
 ((sub ()
 	(if (< $n 10000)
-		(strout "continuing... (n=")
-		(out $n)
-		(strout ")" $newl)
+		(outs "continuing... (n=")
+		(outexp $n)
+		(outs ")" $newl)
 		(let n (+ $n 1))
 //		(recur)
 		(return (recur))
 		//if this shows up then the early return above didn't work!
-		(strout "this is broken" $newl)
+		(outs "this is broken" $newl)
 		(exit 1)
 	else
 		-3
@@ -371,8 +371,8 @@ $n //0
 
 //now a really long loop to demonstrate the fact that this uses tail recursion
 (while (< $n 100000)
-	(out $n)
-	(strout $newl "here's johnny!!" $newl)
+	(outexp $n)
+	(outs $newl "here's johnny!!" $newl)
 	(let n (+ $n 1))
 )
 
@@ -385,9 +385,9 @@ $n //0
 <update to yeild new value for recursive call>
 */
 (assert (= 12 (for n 0 (< $n 640) (+ $n 1)
-	(strout "this is a for loop and n is ")
-	(out $n)
-	(strout $newl)
+	(outs "this is a for loop and n is ")
+	(outexp $n)
+	(outs $newl)
 	
 	//an early return acts as a break statement
 	(if (= $n 600)
@@ -395,7 +395,7 @@ $n //0
 	)
 	
 	(if (> $n 600)
-		(strout "early return is broken" $newl)
+		(outs "early return is broken" $newl)
 	)
 after
 	13
@@ -408,8 +408,8 @@ after
 (let a-sub (sub ()
 	(let n 0)
 	(while (< $n 10)
-		(out $n)
-		(strout $newl)
+		(outexp $n)
+		(outs $newl)
 		(let n (+ $n 1))
 	)
 	//this is just so the loop isn't a tailcall
@@ -425,11 +425,11 @@ after
 //output any arguments
 (let output-list (sub (l)
 	(if (not (null? $l))
-		(strout (f $l))
-		(strout " ")
+		(outs (f $l))
+		(outs " ")
 		($output-list (r $l))
 	else
-		(strout $newl)
+		(outs $newl)
 	)
 ))
 ($output-list $argv)
@@ -442,51 +442,51 @@ after
 //boolean operators
 //basic and case (FALSE)
 (if (and 1 0)
-	(strout "and failed" $newl)
+	(outs "and failed" $newl)
 else
-	(strout "and worked" $newl)
+	(outs "and worked" $newl)
 )
 
 //basic or case (TRUE)
 (if (or 0 1)
-	(strout "or worked" $newl)
+	(outs "or worked" $newl)
 else
-	(strout "or failed" $newl)
+	(outs "or failed" $newl)
 )
 
 //basic not case (TRUE)
 (if (not 0)
-	(strout "not worked" $newl)
+	(outs "not worked" $newl)
 else
-	(strout "not failed" $newl)
+	(outs "not failed" $newl)
 )
 
 //basic xor case (TRUE)
 (if (xor 0 1 0)
-	(strout "xor worked" $newl)
+	(outs "xor worked" $newl)
 else
-	(strout "xor failed" $newl)
+	(outs "xor failed" $newl)
 )
 
 //short-circuiting and case
-(if (and 0 ((sub () (strout "and didn't short-circuit!" $newl))))
-	(strout "short-circuiting and failed" $newl)
+(if (and 0 ((sub () (outs "and didn't short-circuit!" $newl))))
+	(outs "short-circuiting and failed" $newl)
 else
-	(strout "short circuiting and worked" $newl)
+	(outs "short circuiting and worked" $newl)
 )
 
 //short-circuiting or case
-(if (or 1 ((sub () (strout "or didn't short-circuit!" $newl))))
-	(strout "short-circuiting or worked" $newl)
+(if (or 1 ((sub () (outs "or didn't short-circuit!" $newl))))
+	(outs "short-circuiting or worked" $newl)
 else
-	(strout "short circuiting or failed" $newl)
+	(outs "short circuiting or failed" $newl)
 )
 
 //short-circuiting xor case
-(if (xor 1 1 ((sub () (strout "xor didn't short-circuit!" $newl))))
-	(strout "short circuiting xor failed" $newl)
+(if (xor 1 1 ((sub () (outs "xor didn't short-circuit!" $newl))))
+	(outs "short circuiting xor failed" $newl)
 else
-	(strout "short-circuiting xor worked" $newl)
+	(outs "short-circuiting xor worked" $newl)
 )
 
 //END boolean operator testing ----------------------------------------------------------------------------
@@ -498,8 +498,8 @@ else
 (let quote (array (num->byte 39))) //'
 (let quotes (array (num->byte 34))) //"
 
-(strout "this is " "a test" "..." $newline)
-(strout (, "now with " "explicit concatenation" $newline))
+(outs "this is " "a test" "..." $newline)
+(outs (, "now with " "explicit concatenation" $newline))
 
 //array operations, via strings
 (let str-len $ar-sz)

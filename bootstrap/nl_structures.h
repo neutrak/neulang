@@ -336,11 +336,14 @@ nl_val *nl_array_cat(nl_val *array_list);
 
 //output the given list of strings in sequence
 //returns NULL (a void function)
-nl_val *nl_strout(nl_val *array_list);
+nl_val *nl_outstr(nl_val *array_list);
 
 //outputs the given value to stdout
 //returns NULL (a void function)
-nl_val *nl_output(nl_val *v_list);
+nl_val *nl_outexp(nl_val *v_list);
+
+//reads input from stdin and returns the resulting expression
+nl_val *nl_inexp(nl_val *arg_list);
 
 //returns the length (size) of a singly-linked list
 //note that cyclic lists are infinite and this will never terminate on them

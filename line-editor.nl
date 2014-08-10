@@ -17,9 +17,9 @@
 //edit a file (null for new file)
 (let edit (sub (file)
 	(if (null? $file)
-		(strout "Info: no file given, opening new buffer" $newl)
+		(outs "Info: no file given, opening new buffer" $newl)
 	else
-		(strout "Info: got filename " $file "; opening now..." $newl)
+		(outs "Info: got filename " $file "; opening now..." $newl)
 	)
 	
 	//the whole file
@@ -55,24 +55,24 @@
 
 //handle cli switches
 (let switch-args (sub (argv)
-	(strout "switch-args debug 0, argv is ")
-	(out $argv)
-	(strout $newl)
+	(outs "switch-args debug 0, argv is ")
+	(outexp $argv)
+	(outs $newl)
 	
 	(if (null? $argv)
-		(strout "switch-args debug 1, got a NULL argv value" $newl)
+		(outs "switch-args debug 1, got a NULL argv value" $newl)
 		(return FALSE)
 	)
 	
 	(return (while (not (null? $argv))
 		(if (ar= (f $argv) "--help")
-			(strout "[help] please see the manual page for detailed help" $newl)
+			(outs "[help] please see the manual page for detailed help" $newl)
 			(return TRUE)
 		else (if (ar= (f $argv) "--version")
-			(strout (, "[version] line editor (in neulang) v" $VERSION $newl))
+			(outs (, "[version] line editor (in neulang) v" $VERSION $newl))
 			(return TRUE)
 		else
-			(strout (, "skipping unknown argument " (f $argv) $newl))
+			(outs (, "skipping unknown argument " (f $argv) $newl))
 		))
 		
 		(let argv (r $argv))
@@ -85,9 +85,9 @@
 //runtime entry point, with command line arguments
 (let main (sub (argv)
 /*
-	(strout "main debug 0, argv is ")
-	(out $argv)
-	(strout $newl)
+	(outs "main debug 0, argv is ")
+	(outexp $argv)
+	(outs $newl)
 */
 	
 	//skip over the script name
