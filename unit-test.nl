@@ -514,6 +514,26 @@ else
 //bitwise AND test
 (assert (b= (num->byte 4) (b& $byte-5 $byte-6)))
 
+
+//BEGIN standard library array testing --------------------------------------------------------------------
+(assert (ar= "abcd" (, "a" "bc" "d")))
+
+(let num-array (array 0 1 2 3 4 5))
+(assert (= (ar-sz $num-array) 6))
+(for n 0 (< $n (ar-sz $num-array)) (+ $n 1)
+	(assert (= (ar-idx $num-array $n) $n))
+)
+
+//END standard library array testing ----------------------------------------------------------------------
+
+
+
+//BEGIN standard library list testing ---------------------------------------------------------------------
+(assert (list= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
+
+//END standard library list testing -----------------------------------------------------------------------
+
+
 //END standard library testing ----------------------------------------------------------------------------
 
 // EXIT
