@@ -1499,9 +1499,7 @@ tailcall:
 		case PAIR:
 			//make this check the first list entry, if it is a symbol then check it against keyword and primitive list
 			if((exp->d.pair.f!=NULL) && (exp->d.pair.f->t==SYMBOL)){
-				//TODO: figure out why this isn't tailcall optimized anymore!!! (since I added early_ret?)
 				return nl_eval_keyword(exp,env,last_exp,early_ret);
-//				return nl_eval_keyword(exp,env,last_exp,NULL);
 			//otherwise eagerly evaluate then call out to apply
 			}else if(exp->d.pair.f!=NULL){
 				//evaluate the first element, the thing we're going to apply to the arguments
@@ -1883,6 +1881,8 @@ nl_val *nl_read_symbol(FILE *fp){
 	return ret;
 }
 
+//TODO: add another argument to read_exp for interactive mode, and in interactive mode use getch to handle arrow keys, etc.
+//TODO: (cont) this interactive mode should also be user-accessable via an argument to inexp
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp){
 	//initialize the return to null
@@ -2190,6 +2190,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("list-sz"),nl_primitive_wrap(nl_list_size),env);
 	nl_bind_new(nl_sym_from_c_str("list-len"),nl_primitive_wrap(nl_list_size),env);
 	nl_bind_new(nl_sym_from_c_str("list-idx"),nl_primitive_wrap(nl_list_idx),env);
+	nl_bind_new(nl_sym_from_c_str("list-cat"),nl_primitive_wrap(nl_list_cat),env);
 	
 	nl_bind_new(nl_sym_from_c_str("outs"),nl_primitive_wrap(nl_outstr),env);
 	nl_bind_new(nl_sym_from_c_str("outexp"),nl_primitive_wrap(nl_outexp),env);

@@ -382,12 +382,7 @@ nl_val *nl_array_cat(nl_val *array_list){
 	}
 	
 	if(array_list!=NULL){
-		fprintf(stderr,"Err [line %u]: got a non-array value in array concatenation operation; value was ",line_number);
-		nl_out(stderr,array_list->d.pair.f);
-		fprintf(stderr,"\n");
-#ifdef _STRICT
-		exit(1);
-#endif
+		ERR_EXIT(array_list,"got a non-array value in array concatenation operation",TRUE);
 	}
 	
 	return acc;
@@ -520,6 +515,38 @@ nl_val *nl_list_idx(nl_val *arg_list){
 	}
 	
 	return nl_c_list_idx(arg_list->d.pair.f,arg_list->d.pair.r->d.pair.f);
+}
+
+//concatenates all the given lists
+nl_val *nl_list_cat(nl_val *list_list){
+	nl_val *acc=NULL;
+	nl_val *current_acc_cell=NULL;
+	char first_list=TRUE;
+	
+	while((list_list!=NULL) && (list_list->d.pair.f->t==PAIR)){
+		//we got a list, so add it to the accumulator
+		if(first_list){
+			acc=nl_val_cp(list_list->d.pair.f);
+			current_acc_cell=acc;
+			first_list=FALSE;
+		}else{
+			current_acc_cell->d.pair.r=nl_val_cp(list_list->d.pair.f);
+		}
+		
+		while((current_acc_cell->t==PAIR) && (current_acc_cell->d.pair.r!=NULL)){
+			current_acc_cell=current_acc_cell->d.pair.r;
+		}
+		
+		list_list=list_list->d.pair.r;
+	}
+	
+	if(list_list!=NULL){
+		ERR_EXIT(list_list,"got a non-list value in list concatenation operation",TRUE);
+		nl_val_free(acc);
+		acc=NULL;
+	}
+	
+	return acc;
 }
 
 //END C-NL-STDLIB-LIST SUBROUTINES  -------------------------------------------------------------------------------

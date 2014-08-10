@@ -360,6 +360,9 @@ nl_val *nl_list_size(nl_val *list_list);
 //this calls out to the c version which cannot be used directly due to argument count
 nl_val *nl_list_idx(nl_val *arg_list);
 
+//concatenates all the given lists
+nl_val *nl_list_cat(nl_val *list_list);
+
 //add a list of (rational) numbers
 nl_val *nl_add(nl_val *num_list);
 
