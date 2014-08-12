@@ -410,6 +410,11 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 			printf("\n");
 #endif
 */
+			//if this was an application environment (read-only) then also bind it in a higher scope, updating the value there
+			if(env->rw==FALSE){
+				nl_bind(symbol,value,env->up_scope);
+			}
+			
 			found=TRUE;
 			break;
 		}

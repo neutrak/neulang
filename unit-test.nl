@@ -241,22 +241,24 @@ $return-value
 (assert (b= FALSE ($sub-a)))
 
 
-/*
 //just something I'm trying to see; don't mind this
 (let arg-sub (sub (a)
+	//NOTE: this let is not optional, it's the only thing binding a in the closure env (rather than just the apply env)
+	// ^ maybe that should change? (vars passed as argument also auto-bound to closure env?)
 	(let a 10)
 	(outexp $a)
 	(outs $newl)
 //	(return $a)
 	//TODO: FIX THIS (it returns the $a from the environment that called the sub we're returning, instead of the environment the sub was declared in)
+	// ^ this was because let updated the apply environment but the sub-sub referenced the closure environment; now let updates both, so let's hope we didn't break anything else
 	(return (sub () $a))
 ))
 //(outexp ($arg-sub 5))
+(assert (= 10 (($arg-sub 5))))
 (outexp (($arg-sub 5))) //SHOULD RETURN: 10; ACTUALLY RETURNS: -41/10 (value of $a in global env)
 (outs $newl)
 
-(exit)
-*/
+//(exit)
 
 // END sub statement testing ------------------------------------------------------------------------------
 

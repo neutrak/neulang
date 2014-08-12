@@ -34,7 +34,7 @@ syn region nl_comment start="//" skip="\\$" end="$" contains=nl_todo
 syn region nl_multiline_comment start="/\*" end="\*/" contains=nl_todo
 
 " TODO highlighting
-syn keyword nl_todo TODO FIXME
+syn keyword nl_todo TODO FIXME NOTE
 
 " now apply highlighting
 highlight link nl_keywords Keyword
