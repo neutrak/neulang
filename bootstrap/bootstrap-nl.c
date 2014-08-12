@@ -803,6 +803,10 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 		if(!nl_bind_list(arg_syms,arg_vals,apply_env)){
 			ERR_EXIT(arg_vals,"could not bind arguments to application environment (call stack) from apply (this usually means number of arguments declared and given differ)",TRUE);
 		}
+		//also bind those same arguments to the closure environment
+		//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
+		nl_bind_list(arg_syms,arg_vals,sub->d.sub.env);
+		
 		//set the apply env read-only so any new vars go into the closure env
 		apply_env->rw=FALSE;
 		
@@ -1554,6 +1558,9 @@ tailcall:
 					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
 						ERR_EXIT(exp->d.pair.r,"could not bind arguments to application environment (call stack) from eval (this usually means number of arguments declared and given differ)",TRUE);
 					}
+					//also bind those same arguments to the closure environment
+					//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
+					nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env);
 					
 					nl_val_free(exp);
 					nl_val_free(sub);
