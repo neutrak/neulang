@@ -218,6 +218,10 @@ char nl_val_free(nl_val *exp){
 		case SUB:
 			nl_val_free(exp->d.sub.args);
 			nl_val_free(exp->d.sub.body);
+			//if this was chained in an application environment then it needs another free (had an extra reference)
+//			if(exp->d.sub.env->rw==FALSE){
+//				nl_env_frame_free(exp->d.sub.env);
+//			}
 			nl_env_frame_free(exp->d.sub.env);
 			break;
 		//symbols need a recursive call for the string that's their name
@@ -932,7 +936,10 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	ret->d.sub.args=arguments->d.pair.f;
 	ret->d.sub.args->ref++;
 	
-	//create a new environment for this closure which links up to the existing environment
+	//create a new environment for this closure which links up to the existing environment (the closest rewritable one, application envs don't get used!)
+	while(env!=NULL && env->rw==FALSE){
+		env=env->up_scope;
+	}
 	ret->d.sub.env=nl_env_frame_malloc(env);
 	
 	//the rest of the arguments are the body

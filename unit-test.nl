@@ -370,7 +370,7 @@ after
 $n //0
 
 //now a really long loop to demonstrate the fact that this uses tail recursion
-(while (< $n 100000)
+(while (< $n 10000)
 	(outexp $n)
 	(outs $newl "here's johnny!!" $newl)
 	(let n (+ $n 1))
@@ -532,6 +532,32 @@ else
 (assert (list= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
 
 //END standard library list testing -----------------------------------------------------------------------
+
+//TODO: add some syntactic sugar to make structs super simple? it would be nice
+//this is how you make a structure
+(let new-struct (sub ()
+	//an initial value is in the enclosing scope
+	//note that if this was an argument it would get cleaned up after the call and so wouldn't be available to the sub-closure
+	(let struct (array 0))
+	
+	//return a function with an environment (a closure) with a bound structure that can be accessed via arguments
+	(return (sub (request value)
+		//note that this could be extended to set individual array elements, rather than just the entire array as shown
+		(if (ar= $request "set")
+			(let struct $value)
+		else (if (ar= $request "get")
+			(return $struct)
+		))
+		//in case we got to the end and didn't return (we have to return something)
+		$struct
+	))
+))
+
+(let a-struct ($new-struct))
+($a-struct "set" (array 0 1 2 3 4))
+(assert (ar= ($a-struct "get" NULL) (array 0 1 2 3 4)))
+(outexp ($a-struct "get" NULL))
+(outs $newl)
 
 
 //END standard library testing ----------------------------------------------------------------------------
