@@ -26,17 +26,25 @@ syn match nl_evaluation "\$[a-zA-Z\-\+\/\*\%\_]*"
 " strings
 syn region nl_str start="\"" end="\""
 
+" characters
+syn region nl_char start="\'" end="\'"
+
 " comments
-syn region nl_comment start="//" skip="\\$" end="$"
-syn region nl_multiline_comment start="/\*" end="\*/"
+syn region nl_comment start="//" skip="\\$" end="$" contains=nl_todo
+syn region nl_multiline_comment start="/\*" end="\*/" contains=nl_todo
+
+" TODO highlighting
+syn keyword nl_todo TODO FIXME
 
 " now apply highlighting
 highlight link nl_keywords Keyword
 highlight link nl_symbols Type
 highlight link nl_evaluation Macro
+highlight link nl_char String
 highlight link nl_str String
 highlight link nl_comment Comment
 highlight link nl_multiline_comment Comment
+highlight link nl_todo Todo
 
 let b:current_syntax = "neulang"
 

@@ -240,6 +240,24 @@ $return-value
 
 (assert (b= FALSE ($sub-a)))
 
+
+/*
+//just something I'm trying to see; don't mind this
+(let arg-sub (sub (a)
+	(let a 10)
+	(outexp $a)
+	(outs $newl)
+//	(return $a)
+	//TODO: FIX THIS (it returns the $a from the environment that called the sub we're returning, instead of the environment the sub was declared in)
+	(return (sub () $a))
+))
+//(outexp ($arg-sub 5))
+(outexp (($arg-sub 5))) //SHOULD RETURN: 10; ACTUALLY RETURNS: -41/10 (value of $a in global env)
+(outs $newl)
+
+(exit)
+*/
+
 // END sub statement testing ------------------------------------------------------------------------------
 
 //BEGIN recursion testing ---------------------------------------------------------------------------------
@@ -533,6 +551,9 @@ else
 
 //END standard library list testing -----------------------------------------------------------------------
 
+//this is a type that differs from what's within the struct; I'm just trying to ensure that this isn't ever used by struct calls
+(let struct 'a')
+
 //TODO: add some syntactic sugar to make structs super simple? it would be nice
 //this is how you make a structure
 (let new-struct (sub ()
@@ -554,11 +575,13 @@ else
 ))
 
 (let a-struct ($new-struct))
+(assert (ar= ($a-struct "get" NULL) (array 0)))
 ($a-struct "set" (array 0 1 2 3 4))
 (assert (ar= ($a-struct "get" NULL) (array 0 1 2 3 4)))
 (outexp ($a-struct "get" NULL))
 (outs $newl)
-
+//ensure that the global value for "struct" is unaffected
+(assert (b= $struct 'a'))
 
 //END standard library testing ----------------------------------------------------------------------------
 
