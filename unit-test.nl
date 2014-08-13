@@ -257,6 +257,9 @@ $return-value
 (outexp (($arg-sub 10)))
 (outs $newl)
 
+//ensure the value outside the sub didn't change
+(assert (= $a -4.1))
+
 //(exit)
 
 // END sub statement testing ------------------------------------------------------------------------------
@@ -283,9 +286,9 @@ $return-value
 	)
 ))
 
-($fib 1)
-($fib 2)
-($fib 5)
+(assert (= 1 ($fib 1)))
+(assert (= 1 ($fib 2)))
+(assert (= 8 ($fib 6)))
 
 //tail-recursive naive factorial calculation
 (let ! (sub (n)
@@ -299,7 +302,7 @@ $return-value
 	($iter-fact 1 $n 1)
 ))
 
-($! 20)
+(assert (= 2432902008176640000 ($! 20)))
 
 (let iter-loop (sub (min max)
 	(if (< $min $max)
@@ -336,7 +339,7 @@ $dumb-loop(+(4 1) 10)
 		$min
 	)
 ))
-($recur-test 1 500)
+(assert (= 500 ($recur-test 1 500)))
 
 //END recursion testing -----------------------------------------------------------------------------------
 
@@ -345,12 +348,14 @@ $dumb-loop(+(4 1) 10)
 (let n 0)
 
 //a while loop! (internally this is converted into an anonymous sub)
-(while (< $n 1000)
-	(outs "continuing..." $newl)
-	(let n (+ $n 1))
-after
-	-3
-)
+(assert (= -3
+	(while (< $n 1000)
+		(outs "continuing..." $newl)
+		(let n (+ $n 1))
+	after
+		-3
+	)
+))
 
 //equivilent to a sub
 (let a-loop (sub ()
@@ -364,10 +369,10 @@ after
 	else
 		-3
 	)
-)) ($a-loop)
+)) (assert (= -3 ($a-loop)))
 
 //anonymous sub (the above while loop internally gets converted into this exact code)
-((sub ()
+(assert (= -3 ((sub ()
 	(if (< $n 10000)
 		(outs "continuing... (n=")
 		(outexp $n)
@@ -381,7 +386,7 @@ after
 	else
 		-3
 	)
-))
+))))
 
 //(exit)
 
@@ -462,6 +467,7 @@ after
 //basic and case (FALSE)
 (if (and 1 0)
 	(outs "and failed" $newl)
+	(assert FALSE)
 else
 	(outs "and worked" $newl)
 )
@@ -471,6 +477,7 @@ else
 	(outs "or worked" $newl)
 else
 	(outs "or failed" $newl)
+	(assert FALSE)
 )
 
 //basic not case (TRUE)
@@ -478,6 +485,7 @@ else
 	(outs "not worked" $newl)
 else
 	(outs "not failed" $newl)
+	(assert FALSE)
 )
 
 //basic xor case (TRUE)
@@ -485,25 +493,29 @@ else
 	(outs "xor worked" $newl)
 else
 	(outs "xor failed" $newl)
+	(assert FALSE)
 )
 
 //short-circuiting and case
-(if (and 0 ((sub () (outs "and didn't short-circuit!" $newl))))
+(if (and 0 ((sub () (outs "and didn't short-circuit!" $newl) (assert FALSE))))
 	(outs "short-circuiting and failed" $newl)
+	(assert FALSE)
 else
 	(outs "short circuiting and worked" $newl)
 )
 
 //short-circuiting or case
-(if (or 1 ((sub () (outs "or didn't short-circuit!" $newl))))
+(if (or 1 ((sub () (outs "or didn't short-circuit!" $newl) (assert FALSE))))
 	(outs "short-circuiting or worked" $newl)
 else
 	(outs "short circuiting or failed" $newl)
+	(assert FALSE)
 )
 
 //short-circuiting xor case
-(if (xor 1 1 ((sub () (outs "xor didn't short-circuit!" $newl))))
+(if (xor 1 1 ((sub () (outs "xor didn't short-circuit!" $newl) (assert FALSE))))
 	(outs "short circuiting xor failed" $newl)
+	(assert FALSE)
 else
 	(outs "short-circuiting xor worked" $newl)
 )

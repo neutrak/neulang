@@ -412,7 +412,9 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 */
 			//if this was an application environment (read-only) then also bind it in a higher scope, updating the value there
 			if(env->rw==FALSE){
-				nl_bind(symbol,value,env->up_scope);
+				if(!nl_bind(symbol,value,env->up_scope)){
+					//could not bind in up_scope
+				}
 			}
 			
 			found=TRUE;
@@ -805,7 +807,9 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 		}
 		//also bind those same arguments to the closure environment
 		//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-		nl_bind_list(arg_syms,arg_vals,sub->d.sub.env);
+		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env)){
+			//could not bind to closure scope
+		}
 		
 		//set the apply env read-only so any new vars go into the closure env
 		apply_env->rw=FALSE;
@@ -1560,7 +1564,9 @@ tailcall:
 					}
 					//also bind those same arguments to the closure environment
 					//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-					nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env);
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env)){
+						//could not bind to closure scope
+					}
 					
 					nl_val_free(exp);
 					nl_val_free(sub);
