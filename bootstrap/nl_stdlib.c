@@ -960,6 +960,31 @@ nl_val *nl_byte_le(nl_val *val_list){
 	return nl_generic_le(val_list,BYTE);
 }
 
+//symbol equality operator sym=
+nl_val *nl_sym_eq(nl_val *val_list){
+	return nl_generic_eq(val_list,SYMBOL);
+}
+
+//symbol greater than operator sym>
+nl_val *nl_sym_gt(nl_val *val_list){
+	return nl_generic_gt(val_list,SYMBOL);
+}
+
+//symbol less than operator sym<
+nl_val *nl_sym_lt(nl_val *val_list){
+	return nl_generic_lt(val_list,SYMBOL);
+}
+
+//symbol greater than or equal to operator sym>=
+nl_val *nl_sym_ge(nl_val *val_list){
+	return nl_generic_ge(val_list,SYMBOL);
+}
+
+//symbol less than or equal to operator sym<=
+nl_val *nl_sym_le(nl_val *val_list){
+	return nl_generic_le(val_list,SYMBOL);
+}
+
 //null check null?
 //returns TRUE iff all elements given in the list are NULL
 nl_val *nl_is_null(nl_val *val_list){

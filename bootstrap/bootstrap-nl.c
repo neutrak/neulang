@@ -2198,6 +2198,11 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("b<"),nl_primitive_wrap(nl_byte_lt),env);
 	nl_bind_new(nl_sym_from_c_str("b>="),nl_primitive_wrap(nl_byte_ge),env);
 	nl_bind_new(nl_sym_from_c_str("b<="),nl_primitive_wrap(nl_byte_le),env);
+	nl_bind_new(nl_sym_from_c_str("sym="),nl_primitive_wrap(nl_sym_eq),env);
+	nl_bind_new(nl_sym_from_c_str("sym>"),nl_primitive_wrap(nl_sym_gt),env);
+	nl_bind_new(nl_sym_from_c_str("sym<"),nl_primitive_wrap(nl_sym_lt),env);
+	nl_bind_new(nl_sym_from_c_str("sym>="),nl_primitive_wrap(nl_sym_ge),env);
+	nl_bind_new(nl_sym_from_c_str("sym<="),nl_primitive_wrap(nl_sym_le),env);
 	nl_bind_new(nl_sym_from_c_str("null?"),nl_primitive_wrap(nl_is_null),env);
 	
 	//array concatenation!

@@ -454,6 +454,21 @@ nl_val *nl_byte_ge(nl_val *val_list);
 //byte less than or equal to operator b<=
 nl_val *nl_byte_le(nl_val *val_list);
 
+//symbol equality operator sym=
+nl_val *nl_sym_eq(nl_val *val_list);
+
+//symbol greater than operator sym>
+nl_val *nl_sym_gt(nl_val *val_list);
+
+//symbol less than operator sym<
+nl_val *nl_sym_lt(nl_val *val_list);
+
+//symbol greater than or equal to operator sym>=
+nl_val *nl_sym_ge(nl_val *val_list);
+
+//symbol less than or equal to operator sym<=
+nl_val *nl_sym_le(nl_val *val_list);
+
 //null check null?
 //returns TRUE iff all elements given in the list are NULL
 nl_val *nl_is_null(nl_val *val_list);
