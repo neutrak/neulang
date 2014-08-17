@@ -1,10 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
-//#include <string.h>
+#include <string.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "nl_structures.h"
 
 //BEGIN C-NL-STDLIB SUBROUTINES  ----------------------------------------------------------------------------------
+
+//emulate getch() behavior on *nix /without/ ncurses
+int nix_getch(){
+	struct termios old_t;
+	struct termios new_t;
+	int ch;
+	
+	tcgetattr(STDIN_FILENO,&old_t);
+	memcpy(&new_t,&old_t,sizeof(struct termios));
+	new_t.c_lflag &= ~(ICANON|ECHO);
+	tcsetattr(STDIN_FILENO,TCSANOW,&new_t);
+	
+	ch=getchar();
+	
+	tcsetattr(STDIN_FILENO,TCSANOW,&old_t);
+	return ch;
+}
 
 //gcd-reduce a rational number
 void nl_gcd_reduce(nl_val *v){
@@ -327,22 +346,6 @@ nl_val *nl_array_idx(nl_val *args){
 	return nl_val_cp(a->d.array.v[index]);
 }
 
-
-//pop a value off of the end of an array, resizing if needed
-void nl_array_pop(nl_val *a){
-	
-}
-
-//insert a value into an array, resizing if needed
-void nl_array_ins(nl_val *a, nl_val *v, nl_val *index){
-	
-}
-
-//remove a value from an array, resizing if needed
-void nl_array_rm(nl_val *a, nl_val *index){
-	
-}
-
 //return the size of the first argument
 //NOTE: subsequent arguments are IGNORED
 nl_val *nl_array_size(nl_val *array_list){
@@ -388,6 +391,51 @@ nl_val *nl_array_cat(nl_val *array_list){
 	return acc;
 }
 
+//returns a new array with the given value substituted for value at given index in the given array
+//arguments array, index, new-value
+nl_val *nl_array_replace(nl_val *arg_list){
+	int argc=nl_c_list_size(arg_list);
+	if(argc!=3){
+		ERR_EXIT(arg_list,"incorrect number of arguments given to array replace operation",TRUE);
+		return NULL;
+	}
+	nl_val *ar=arg_list->d.pair.f;
+	nl_val *idx=arg_list->d.pair.r->d.pair.f;
+	nl_val *new_val=arg_list->d.pair.r->d.pair.r->d.pair.f;
+	
+	if((ar==NULL) || (ar->t!=ARRAY) || (idx==NULL) || (idx->t!=NUM)){
+		ERR_EXIT(arg_list,"invalid type given to array replace operation",TRUE);
+		return NULL;
+	}
+	
+	if(idx->d.num.d!=NUM){
+		ERR_EXIT(idx,"non-integer index given to array replace operation",TRUE);
+		return NULL;
+	}
+	
+	if(idx->d.num.n>=(ar->d.array.size)){
+		ERR_EXIT(idx,"index given to array replace operation is larger than array size",TRUE);
+		return NULL;
+	}
+	
+	//okay now we're past the error handling and we can actually do something
+	//make a new array
+	nl_val *ret=nl_val_malloc(ARRAY);
+	
+	//push in copies of all the old values, substituting the new value where appropriate
+	int n;
+	for(n=0;n<(ar->d.array.size);n++){
+		if(n==(idx->d.num.n)){
+			new_val->ref++;
+			nl_array_push(ret,new_val);
+		}else{
+			nl_array_push(ret,nl_val_cp(ar->d.array.v[n]));
+		}
+	}
+	
+	return ret;
+}
+
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list){
@@ -422,6 +470,24 @@ nl_val *nl_inexp(nl_val *arg_list){
 	//TODO: support other files (by means of arguments)!
 	return nl_read_exp(stdin);
 }
+
+//TODO: write this
+//reads a line from stdin and returns the result as a string
+nl_val *nl_inline(nl_val *arg_list){
+	return NULL;
+}
+
+//reads a single keystroke from stdin and returns the result as a num
+nl_val *nl_inchar(nl_val *arg_list){
+	int c=nix_getch();
+	nl_val *ret=nl_val_malloc(NUM);
+	ret->d.num.d=1;
+	ret->d.num.n=c;
+	return ret;
+}
+
+
+//TODO: array search (substring search)
 
 //END C-NL-STDLIB-ARRAY SUBROUTINES  ------------------------------------------------------------------------------
 

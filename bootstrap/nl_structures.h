@@ -209,10 +209,10 @@ nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
 char nl_is_true(nl_val *v);
 
 //replace all instances of old with new in the given list (new CANNOT be a list itself, and old_val cannot be NULL)
-//note that this is recursive and will also descend into lists within the list
+//note that this is recursive and will also descend into lists within the list (except if that list starts with sub, while, or for)
 //note also that this manages memory, and will remove references when needed
 //returns TRUE if replacements were made, else FALSE
-char nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val);
+char nl_substitute_elements_skipsub(nl_val *list, nl_val *old_val, nl_val *new_val);
 
 //returns the number of times value occurred in the list (recursively checks sub-lists)
 //(value CANNOT be a list itself, and also cannot be NULL)
@@ -296,6 +296,9 @@ int main(int argc, char *argv[]);
 
 // Forward declarations for standard library functions ----------------
 
+//emulate getch() behavior on *nix /without/ ncurses
+int nix_getch();
+
 //gcd-reduce a rational number
 void nl_gcd_reduce(nl_val *v);
 
@@ -318,21 +321,16 @@ void nl_array_push(nl_val *a, nl_val *v);
 //returns the entry in the array a (first arg) at index idx (second arg)
 nl_val *nl_array_idx(nl_val *args);
 
-//pop a value off of the end of an array, resizing if needed
-void nl_array_pop(nl_val *a);
-
-//insert a value into an array, resizing if needed
-void nl_array_ins(nl_val *a, nl_val *v, nl_val *index);
-
-//remove a value from an array, resizing if needed
-void nl_array_rm(nl_val *a, nl_val *index);
-
 //return the size of the first argument
 //NOTE: subsequent arguments are IGNORED
 nl_val *nl_array_size(nl_val *array_list);
 
 //concatenate all the given arrays (a list) into one new larger array
 nl_val *nl_array_cat(nl_val *array_list);
+
+//returns a new array with the given value substituted for value at given index in the given array
+//arguments array, index, new-value
+nl_val *nl_array_replace(nl_val *arg_list);
 
 //output the given list of strings in sequence
 //returns NULL (a void function)
@@ -344,6 +342,13 @@ nl_val *nl_outexp(nl_val *v_list);
 
 //reads input from stdin and returns the resulting expression
 nl_val *nl_inexp(nl_val *arg_list);
+
+//TODO: write this
+//reads a line from stdin and returns the result as a string
+nl_val *nl_inline(nl_val *arg_list);
+
+//reads a single keystroke from stdin and returns the result as a num
+nl_val *nl_inchar(nl_val *arg_list);
 
 //returns the length (size) of a singly-linked list
 //note that cyclic lists are infinite and this will never terminate on them

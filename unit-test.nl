@@ -428,6 +428,29 @@ after
 //0
 (assert (= $n 0))
 
+(assert (= 12 (while (< $n 640)
+	(outs "this is a while loop and n is ")
+	(outexp $n)
+	(outs $newl)
+	
+	//an early return acts as a break statement
+	(if (= $n 600)
+		(if TRUE
+			(return 12)
+		)
+	)
+	
+	(if (> $n 600)
+		(outs "early return is broken" $newl)
+	)
+	
+	(let n (+ $n 1))
+after
+	13
+)))
+
+(assert (= $n 0))
+
 //this is a test of a loop within a sub
 (let a-sub (sub ()
 	(let n 0)
@@ -555,6 +578,10 @@ else
 	(assert (= (ar-idx $num-array $n) $n))
 )
 
+(let a-string "abcd")
+(assert (ar= "abce" (ar-replace $a-string 3 (num->byte 101))))
+(assert (ar= "abcd" $a-string))
+
 //END standard library array testing ----------------------------------------------------------------------
 
 
@@ -563,6 +590,8 @@ else
 (assert (list= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
 
 //END standard library list testing -----------------------------------------------------------------------
+
+//BEGIN closure-as-struct testing -------------------------------------------------------------------------
 
 //this is a type that differs from what's within the struct; I'm just trying to ensure that this isn't ever used by struct calls
 (let struct 'a')
@@ -577,9 +606,9 @@ else
 	//return a function with an environment (a closure) with a bound structure that can be accessed via arguments
 	(return (sub (request value)
 		//note that this could be extended to set individual array elements, rather than just the entire array as shown
-		(if (ar= $request "set")
+		(if (sym= $request set)
 			(let struct $value)
-		else (if (ar= $request "get")
+		else (if (sym= $request get)
 			(return $struct)
 		))
 		//in case we got to the end and didn't return (we have to return something)
@@ -588,13 +617,65 @@ else
 ))
 
 (let a-struct ($new-struct))
-(assert (ar= ($a-struct "get" NULL) (array 0)))
-($a-struct "set" (array 0 1 2 3 4))
-(assert (ar= ($a-struct "get" NULL) (array 0 1 2 3 4)))
-(outexp ($a-struct "get" NULL))
+(assert (ar= ($a-struct get NULL) (array 0)))
+($a-struct set (array 0 1 2 3 4))
+(assert (ar= ($a-struct get NULL) (array 0 1 2 3 4)))
+(outexp ($a-struct get NULL))
 (outs $newl)
 //ensure that the global value for "struct" is unaffected
 (assert (b= $struct 'a'))
+
+
+//a structure for lines (taken straight from the line editor at one point)
+
+//consists of members ret (character return), num (line number), and content (string)
+(let line-struct (sub ()
+	//constructor (initial data)
+	//consists of character return (e.g. up-ret), line number, and line content
+	(let struct-data (array 0 1 ""))
+	
+	(return (sub (rqst-type var new-val)
+		//get operations return the existing value
+		(if (sym= $rqst-type get)
+			(if (sym= $var ret)
+				(return (ar-idx $struct-data 0))
+			else (if (sym= $var num)
+				(return (ar-idx $struct-data 1))
+			else (if (sym= $var content)
+				(return (ar-idx $struct-data 2))
+			else
+				(outs "Err: symbol ")
+				(outexp $var)
+				(outs " is not a member of line-struct" $newl)
+			)))
+		//set operations replace the existing value with the new value
+		else (if (sym= $rqst-type set)
+			(if (sym= $var ret)
+				(let struct-data (ar-replace $struct-data 0 $new-val))
+			else (if (sym= $var num)
+				(let struct-data (ar-replace $struct-data 1 $new-val))
+			else (if (sym= $var content)
+				(let struct-data (ar-replace $struct-data 2 $new-val))
+			else
+				(outs "Err: symbol ")
+				(outexp $var)
+				(outs " is not a member of line-struct" $newl)
+			)))
+		else
+			(outs "Err: not a valid operation for line-struct ")
+			(outexp $rqst-type)
+			(outs $newl)
+		))
+	))
+))
+
+(let a-line ($line-struct))
+($a-line set content "asdf")
+(assert (ar= ($a-line get content NULL) "asdf"))
+(assert (= ($a-line get ret NULL) 0))
+(assert (= ($a-line get num NULL) 1))
+
+//END closure-as-struct testing ---------------------------------------------------------------------------
 
 //END standard library testing ----------------------------------------------------------------------------
 

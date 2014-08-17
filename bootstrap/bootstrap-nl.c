@@ -530,10 +530,10 @@ char nl_is_true(nl_val *v){
 }
 
 //replace all instances of old with new in the given list (new CANNOT be a list itself, and old_val cannot be NULL)
-//note that this is recursive and will also descend into lists within the list
+//note that this is recursive and will also descend into lists within the list (except if that list starts with sub, while, or for)
 //note also that this manages memory, and will remove references when needed
 //returns TRUE if replacements were made, else FALSE
-char nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val){
+char nl_substitute_elements_skipsub(nl_val *list, nl_val *old_val, nl_val *new_val){
 	if(old_val==NULL){
 		ERR(list,"cannot substitute NULLs in a list; that would just be silly",TRUE);
 		return FALSE;
@@ -544,9 +544,15 @@ char nl_substitute_elements(nl_val *list, nl_val *old_val, nl_val *new_val){
 	while((list!=NULL) && (list->t==PAIR)){
 		//if we hit a nested list
 		if((list!=NULL) && (list->t==PAIR) && (list->d.pair.f!=NULL) && (list->d.pair.f->t==PAIR)){
-			//recurse! recurse!
-			if(nl_substitute_elements(list->d.pair.f,old_val,new_val)){
-				ret=TRUE;
+			//if this is not a sub, while, or for statement then recurse
+			nl_val *list_start=list->d.pair.f->d.pair.f;
+			if((list_start!=NULL) && (list_start->t==SYMBOL) && ((nl_val_cmp(list_start,sub_keyword)==0) || (nl_val_cmp(list_start,while_keyword)==0) || (nl_val_cmp(list_start,for_keyword)==0))){
+				//skip sub, while, and for statements
+			}else{
+				//recurse! recurse!
+				if(nl_substitute_elements_skipsub(list->d.pair.f,old_val,new_val)){
+					ret=TRUE;
+				}
 			}
 		//if we found the thing to replace
 		}else if((list->d.pair.f!=NULL) && (list->d.pair.f->t==old_val->t) && (nl_val_cmp(old_val,list->d.pair.f)==0)){
@@ -728,8 +734,9 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 			//NOTE: C's TCO is broken if you pass a local var's reference as the early_ret argument to eval functions!
 			
 			//NOTE: this depends on C's own TCO behavior and so requires compilation with -O3 or -O2
-//			return nl_eval(to_eval,env,on_last_exp,early_ret);
-			return nl_eval(to_eval,env,on_last_exp,NULL);
+			//early_ret MUST be passed through here because we get called within other statements and those need to know they returned early
+			//(for example, an if within an if where the first statement in the if body is a return)
+			return nl_eval(to_eval,env,on_last_exp,early_ret);
 		}
 		
 		//go to the next body statement and eval again!
@@ -823,8 +830,8 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 
 		//now evaluate the body in the application env
 		nl_val *body=sub->d.sub.body;
-//		ret=nl_eval_sequence(nl_val_cp(body),apply_env,early_ret);
-		ret=nl_eval_sequence(nl_val_cp(body),apply_env,NULL);
+		ret=nl_eval_sequence(nl_val_cp(body),apply_env,early_ret);
+//		ret=nl_eval_sequence(nl_val_cp(body),apply_env,NULL);
 		
 		//now clean up the apply environment (call stack); again, tailcalls are handled in eval, this is never called on a tailcall
 		nl_env_frame_free(apply_env);
@@ -899,7 +906,6 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *ea
 		tmp_args=nl_val_cp(arguments);
 		nl_val_free(argument_start);
 		return nl_eval_sequence(tmp_args,env,early_ret);
-//		return nl_eval_sequence(tmp_args,env,NULL);
 	}else if(cond!=NULL){
 		//skip over true case
 		while((arguments!=NULL) && (arguments->t==PAIR)){
@@ -917,10 +923,9 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *ea
 		if((arguments!=NULL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
 			//this MUST call out to eval_sequence to handle returns properly
 			//call into eval_sequence
-			nl_val *tmp_args=nl_val_cp(arguments);
+			nl_val *tmp_args=nl_val_cp(arguments->d.pair.r);
 			nl_val_free(argument_start);
 			return nl_eval_sequence(tmp_args,env,early_ret);
-//			return nl_eval_sequence(tmp_args,env,NULL);
 		}
 	}else{
 		ERR_EXIT(argument_start,"if statement condition evaluated to NULL",TRUE);
@@ -965,7 +970,7 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 		//they'll never know!
 		
 		//if replacements were made
-		if(nl_substitute_elements(ret->d.sub.body,recur_keyword,ret)){
+		if(nl_substitute_elements_skipsub(ret->d.sub.body,recur_keyword,ret)){
 		}
 	}
 	
@@ -2212,6 +2217,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-sz"),nl_primitive_wrap(nl_array_size),env);
 	nl_bind_new(nl_sym_from_c_str("ar-len"),nl_primitive_wrap(nl_array_size),env);
 	nl_bind_new(nl_sym_from_c_str("ar-idx"),nl_primitive_wrap(nl_array_idx),env);
+	nl_bind_new(nl_sym_from_c_str("ar-replace"),nl_primitive_wrap(nl_array_replace),env);
 	//TODO: make and bind additional array subroutines
 	
 	//TODO: list concatenation
@@ -2224,7 +2230,11 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	nl_bind_new(nl_sym_from_c_str("outs"),nl_primitive_wrap(nl_outstr),env);
 	nl_bind_new(nl_sym_from_c_str("outexp"),nl_primitive_wrap(nl_outexp),env);
+	
 	nl_bind_new(nl_sym_from_c_str("inexp"),nl_primitive_wrap(nl_inexp),env);
+//	nl_bind_new(nl_sym_from_c_str("inline"),nl_primitive_wrap(nl_inline),env);
+	nl_bind_new(nl_sym_from_c_str("inchar"),nl_primitive_wrap(nl_inchar),env);
+	
 	
 	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
 	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);

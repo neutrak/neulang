@@ -6,26 +6,179 @@
 
 //TODO: write like, all of this
 
+//global constants
 (let VERSION "0.1.0")
+
+(let up-ret 0)
+(let down-ret 1)
+(let pgup-ret 2)
+(let pgdn-ret 3)
+(let save-ret 4)
+(let exit-ret 5)
+
+//I realize that this struct thing is sort of round-about and nasty; I'm seriously considering adding some syntactic sugar for struct definitions
+
+//a structure for lines
+//consists of members ret (character return), num (line number), and content (string)
+(let line-struct (sub ()
+	//constructor (initial data)
+	//consists of character return (e.g. up-ret), line number, line content, and current index (the current location we are at within the line)
+	(let struct-data (array 0 1 "" 0))
+	
+	(return (sub (rqst-type var new-val)
+		//get operations return the existing value
+		(if (sym= $rqst-type get)
+			(if (sym= $var ret)
+				(return (ar-idx $struct-data 0))
+			else (if (sym= $var num)
+				(return (ar-idx $struct-data 1))
+			else (if (sym= $var content)
+				(return (ar-idx $struct-data 2))
+			else (if (sym= $var idx)
+				(return (ar-idx $struct-data 3))
+			else
+				(outs "Err: symbol ")
+				(outexp $var)
+				(outs " is not a member of line-struct" $newl)
+			))))
+		//set operations replace the existing value with the new value
+		else (if (sym= $rqst-type set)
+			(if (sym= $var ret)
+				(let struct-data (ar-replace $struct-data 0 $new-val))
+			else (if (sym= $var num)
+				(let struct-data (ar-replace $struct-data 1 $new-val))
+			else (if (sym= $var content)
+				(let struct-data (ar-replace $struct-data 2 $new-val))
+			else (if (sym= $var idx)
+				(let struct-data (ar-replace $struct-data 3 $new-val))
+			else
+				(outs "Err: symbol ")
+				(outexp $var)
+				(outs " is not a member of line-struct" $newl)
+			))))
+		else
+			(outs "Err: not a valid operation for line-struct ")
+			(outexp $rqst-type)
+			(outs $newl)
+		))
+	))
+))
+
+(let output-line (sub (line-info)
+	(outs "[line ")
+	(outexp ($line-info get num NULL))
+	(outs "] [idx ")
+	(outexp ($line-info get idx NULL))
+	(outs "] " ($line-info get content NULL) $newl)
+))
 
 //edit a single line, line-info also contains the line number (it's a pair)
 (let edit-line (sub (line-info)
-	//TODO: write this
-	return -1
+	//constants
+	(let up-char (list 65))
+	(let down-char (list 66))
+	(let pgup-char (list 53 126))
+	(let pgdn-char (list 54 126))
+	//TODO: figure out real values for these constants, they are NOT all 128
+	(let save-char (list 128))
+	(let exit-char (list 128))
+	
+	(let left-char (list 68))
+	(let right-char (list 67))
+	(let home-char (list 49 126))
+	(let end-char (list 52 126))
+	
+	//read a character
+	(let c (inchar))
+	
+	//while the user hasn't hit enter (a newline character)
+	(let line-return (while (not (or (= $c 10) (= $c 13)))
+		(let escaped FALSE)
+		//if we got an escape sequence then note that and read the next character
+		(if (= $c 91)
+			(let escaped TRUE)
+			(let c (inchar))
+		)
+		
+		(if (b= $escaped TRUE)
+			//check for special escapes (movement that can't be handled in one line)
+			(if (= $c (f $up-char))
+				(outs "edit-line debug 0, returning $up-ret..." $newl)
+				(return $up-ret)
+			else (if (= $c (f $down-char))
+				(outs "edit-line debug 0, returning $down-ret..." $newl)
+				(return $down-ret)
+			else (if (= $c (f $pgup-char))
+				(let c (inchar))
+				(if (= $c (f (r $pgup-char)))
+					(return $pgup-ret)
+				)
+			else (if (= $c (f $pgdn-char))
+				(let c (inchar))
+				(if (= $c (f (r $pgdn-char)))
+					(return $pgdn-ret)
+				)
+			else (if (= $c (f $save-char))
+				(return $save-ret)
+			else (if (= $c (f $exit-char))
+				(return $exit-ret)
+			))))))
+			
+			//check for local escapes (movement that CAN be handled on one line)
+			(if (= $c (f $left-char))
+				(let line-idx ($line-info get idx NULL))
+				(if (> $line-idx 0)
+					($line-info set idx (- $line-idx 1))
+				)
+			else (if (= $c (f $right-char))
+				(let line-idx ($line-info get idx NULL))
+				(if (< $line-idx (- (ar-sz ($line-info get content NULL)) 1))
+					($line-info set idx (+ $line-idx 1))
+				)
+			))
+			
+			(outs "edit-line debug 1, got an escape but didn't yet return; skipping to the next char" $newl)
+			
+			//skip over unknown escape sequences, (return (recur)) acts as continue within a while loop
+//			(return (recur))
+		)
+		
+		(outs "edit-line debug 2..." $newl)
+		
+		//TODO: default case, add the char to the line and output the line
+		($line-info set content (, ($line-info get content NULL) (array (num->byte $c))))
+		($output-line $line-info)
+		
+		//debug, just output the damn thing
+		(outexp $c)
+		(outs " (" (array (num->byte $c)) ")" $newl $newl)
+		
+		//read in another character
+		(let c (inchar))
+	))
+	
+	(if (not (null? $line-return))
+		(return $line-return)
+	else
+		(return -1)
+	)
 ))
 
 //edit a file (null for new file)
 (let edit (sub (file)
+	//the whole file
+	(let edit-buffer "")
 	(if (null? $file)
 		(outs "Info: no file given, opening new buffer" $newl)
 	else
 		(outs "Info: got filename " $file "; opening now..." $newl)
+//		(let edit-buffer (infile $file))
 	)
 	
-	//the whole file
-	(let edit-buffer "")
-	//the currently active line, a pair of line number (0-based) and the text for that line
-	(let current-line (pair 0 ""))
+	//the currently active line
+	(let current-line ($line-struct))
+	//TODO: set the current line content correctly
+	($current-line set content "")
 	
 	(let finished FALSE)
 	(while (not $finished)
@@ -33,17 +186,19 @@
 		(let line-return ($edit-line $current-line))
 		
 		//check for special return values (which indicate moving a line)
-		(if (= $line-return 0)
+		(if (= $line-return $up-ret)
 			//up
-		else (if (= $line-return 1)
+			($current-line set num (- ($current-line get num NULL) 1))
+		else (if (= $line-return $down-ret)
 			//down
-		else (if (= $line-return 2)
+			($current-line set num (+ ($current-line get num NULL) 1))
+		else (if (= $line-return $pgup-ret)
 			//pgup
-		else (if (= $line-return 3)
+		else (if (= $line-return $pgdn-ret)
 			//pgdn
-		else (if (= $line-return 4)
+		else (if (= $line-return $save-ret)
 			//save
-		else (if (= $line-return 5)
+		else (if (= $line-return $exit-ret)
 			//exit
 			(let finished TRUE)
 		))))))
@@ -51,6 +206,9 @@
 		//TODO: remove this, it's just for debugging
 		(let finished TRUE)
 	)
+	
+	//TODO: remove this, it's just for debugging
+	(outs ($current-line get content NULL) $newl)
 ))
 
 //handle cli switches
