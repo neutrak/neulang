@@ -1394,5 +1394,33 @@ nl_val *nl_assert(nl_val *cond_list){
 	return ret;
 }
 
+//sleep a given number of seconds (if multiple arguments are given they are added)
+nl_val *nl_sleep(nl_val *time_list){
+	if(nl_c_list_size(time_list)==0){
+		ERR_EXIT(time_list,"too few arguments given to sleep operation",FALSE);
+		return NULL;
+	}
+	
+	while((time_list!=NULL) && (time_list->t==PAIR)){
+		if((time_list->d.pair.f==NULL) || (time_list->d.pair.f->t!=NUM)){
+			ERR_EXIT(time_list,"non-number argument given to sleep operation",TRUE);
+			return NULL;
+		}
+		//perform the division (from the rational number) then mul by 1000000 for a precision of 1 microsecond
+		useconds_t time_to_sleep=(useconds_t)((1000000*(((double)(time_list->d.pair.f->d.num.n))/((double)(time_list->d.pair.f->d.num.d)))));
+/*
+#ifdef _DEBUG
+		printf("nl_sleep debug 0, sleeping for %u microseconds\n",time_to_sleep);
+#endif
+*/
+		usleep(time_to_sleep);
+		
+		time_list=time_list->d.pair.r;
+	}
+	
+	return NULL;
+}
+
+
 //END C-NL-STDLIB SUBROUTINES  ------------------------------------------------------------------------------------
 

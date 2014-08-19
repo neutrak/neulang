@@ -492,14 +492,17 @@ nl_val *nl_sym_le(nl_val *val_list);
 //returns TRUE iff all elements given in the list are NULL
 nl_val *nl_is_null(nl_val *val_list);
 
-//assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
-nl_val *nl_assert(nl_val *cond_list);
-
 //bitwise OR operation on the byte type
 nl_val *nl_byte_or(nl_val *byte_list);
 
 //bitwise AND operation on the byte type
 nl_val *nl_byte_and(nl_val *byte_list);
+
+//assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
+nl_val *nl_assert(nl_val *cond_list);
+
+//sleep a given number of seconds (if multiple arguments are given they are added)
+nl_val *nl_sleep(nl_val *time_list);
 
 //END NL DECLARATIONS ---------------------------------------------------------------------------------------------
 

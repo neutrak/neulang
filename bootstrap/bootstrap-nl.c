@@ -2185,7 +2185,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
 	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);
-	nl_bind_new(nl_sym_from_c_str("x->str"),nl_primitive_wrap(nl_val_list_to_str),env);
+	nl_bind_new(nl_sym_from_c_str("val->str"),nl_primitive_wrap(nl_val_list_to_str),env);
 	//TODO: all other sensical type conversions
 	
 	//TODO: any other bitwise operations that make sense
@@ -2195,6 +2195,9 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	//for testing purposes, an assert function
 	nl_bind_new(nl_sym_from_c_str("assert"),nl_primitive_wrap(nl_assert),env);
+	
+	//timing functions
+	nl_bind_new(nl_sym_from_c_str("sleep"),nl_primitive_wrap(nl_sleep),env);
 	
 	//pre-defined variables for convenience
 	nl_val *newline=nl_val_malloc(ARRAY);
