@@ -7,6 +7,7 @@
 #define VERSION "0.1.0"
 #define TRUE 1
 #define FALSE 0
+#define BUFFER_SIZE 1024
 
 //END GLOBAL CONSTANTS --------------------------------------------------------------------------------------------
 
@@ -151,6 +152,7 @@ struct nl_env_frame {
 
 //bookkeeping
 char end_program;
+int exit_status;
 unsigned int line_number;
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
@@ -164,7 +166,7 @@ unsigned int line_number;
 //BEGIN NL DECLARATIONS -------------------------------------------------------------------------------------------
 
 //error message function
-void nl_err(nl_val *v, const char *msg, char output);
+void nl_err(const nl_val *v, const char *msg, char output);
 
 //returns a C string consisting of the name of the given type
 const char *nl_type_name(nl_type t);
@@ -288,7 +290,7 @@ void nl_bind_stdlib(nl_env_frame *env);
 //the repl for neulang; this is separated from main for embedding purposes
 //the only thing you have to do outside this is give us an open file and close it when we're done
 //arguments given are interpreted as command-line arguments and are bound to argv in the interpreter (NULL works)
-void nl_repl(FILE *fp, nl_val *argv);
+int nl_repl(FILE *fp, nl_val *argv);
 
 //runtime!
 int main(int argc, char *argv[]);
@@ -309,11 +311,23 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b);
 //return whether or not this list contains null (this does NOT recurse to sub-lists)
 char nl_contains_nulls(nl_val *val_list);
 
+//push a c string onto a neulang string (note that this is side-effect based, it's an array push)
+void nl_str_push_cstr(nl_val *nl_str, const char *cstr);
+
+//push a neulang string onto another neulang string (only the first one is changed, the second is not, and data is copied in element by element)
+void nl_str_push_nlstr(nl_val *nl_str, const nl_val *str_to_push);
+
 //return a byte version of the given number constant, if possible
 nl_val *nl_num_to_byte(nl_val *num_list);
 
 //return an integer version of the given byte
 nl_val *nl_byte_to_num(nl_val *byte_list);
+
+//returns the string-encoded version of any given expression
+nl_val *nl_val_to_str(nl_val *exp);
+
+//returns the string-encoded version of any given list of expressions
+nl_val *nl_val_list_to_str(nl_val *val_list);
 
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v);
@@ -343,8 +357,8 @@ nl_val *nl_outexp(nl_val *v_list);
 //reads input from stdin and returns the resulting expression
 nl_val *nl_inexp(nl_val *arg_list);
 
-//TODO: write this
-//reads a line from stdin and returns the result as a string
+//TODO: add an argument for line-editing here!
+//reads a line from stdin and returns the result as a [neulang] string
 nl_val *nl_inline(nl_val *arg_list);
 
 //reads a single keystroke from stdin and returns the result as a num

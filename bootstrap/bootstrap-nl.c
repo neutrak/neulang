@@ -47,7 +47,7 @@ nl_val *list_keyword;
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
 
 //error message function
-void nl_err(nl_val *v, const char *msg, char output){
+void nl_err(const nl_val *v, const char *msg, char output){
 	if(v!=NULL){
 		if(output){
 			fprintf(stderr,"Err [line %u]: %s ",v->line,msg);
@@ -706,6 +706,11 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 			
 			//if the inner expression returned early then break the loop and return ret
 			if((*got_early_ret)){
+				//set the early_ret here to return upwards if we're within another eval_sequence call
+				if(early_ret!=NULL){
+					(*early_ret)=TRUE;
+				}
+				
 				free(got_early_ret);
 //				body=NULL; //this fails hard because we try a body=body->d.pair.r right after this
 				break;
@@ -728,7 +733,9 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 			
 /*
 #ifdef _DEBUG
-			printf("nl_eval_sequence debug 1, tailcalling into nl_eval...\n");
+			printf("nl_eval_sequence debug 1, tailcalling into nl_eval with expression ");
+			nl_out(stdout,to_eval);
+			printf("\n");
 #endif
 */
 			//NOTE: C's TCO is broken if you pass a local var's reference as the early_ret argument to eval functions!
@@ -1019,6 +1026,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 	}else if(nl_val_cmp(keyword,let_keyword)==0){
 		//if we got a symbol followed by something else, eval that thing and bind
 		if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==SYMBOL) && (arguments->d.pair.r!=NULL) && (arguments->d.pair.r->t==PAIR)){
+			//let should never cause an early return to be passed up; (let a (return b)) will NOT return early
 //			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,early_ret);
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,NULL);
 			if(!nl_bind(arguments->d.pair.f,bound_value,env)){
@@ -1441,6 +1449,27 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		end_program=TRUE;
 		ret=NULL;
 		
+		//if an integer numeric argument was given, then pass that through to the system exit
+		exit_status=0;
+		if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f->t==NUM)){
+			if(arguments->d.pair.f->d.num.d==1){
+				exit_status=(int)(arguments->d.pair.f->d.num.n);
+			}
+		}
+		
+		//if we're within a sub-expression then halt HARD (if not we'll clean up the environment a little after this)
+		if(env->up_scope!=NULL){
+			printf("caught an (exit) call; exiting interpreter...\n");
+			
+			//de-allocate the environment
+			nl_env_frame_free(env);
+			
+			//free (de-allocate) keywords
+			nl_keyword_free();
+			
+			//an explicit exit call is needed so we don't keep evaluating anything after this
+			exit(exit_status);
+		}
 	//TODO: check for all other keywords
 	}else{
 		//in the default case check for subroutines bound to this symbol
@@ -1529,8 +1558,8 @@ tailcall:
 			}else if(exp->d.pair.f!=NULL){
 				//evaluate the first element, the thing we're going to apply to the arguments
 				exp->d.pair.f->ref++;
-//				nl_val *sub=nl_eval(exp->d.pair.f,env,last_exp,early_ret);
-				nl_val *sub=nl_eval(exp->d.pair.f,env,last_exp,NULL);
+				nl_val *sub=nl_eval(exp->d.pair.f,env,last_exp,early_ret);
+//				nl_val *sub=nl_eval(exp->d.pair.f,env,last_exp,NULL);
 				
 				//do eager evaluation on arguments
 				nl_eval_elements(exp->d.pair.r,env);
@@ -2008,98 +2037,16 @@ nl_val *nl_read_exp(FILE *fp){
 	return ret;
 }
 
+//this now outputs a [neulang] string; NOT a c string, so we don't need a length (from a user perspective there's no change, just done in a different function)
 //output a neulang value
 void nl_out(FILE *fp, const nl_val *exp){
-	if(exp==NULL){
-		fprintf(fp,"NULL");
-		return;
+	//TODO: make this less nasty; type casting from a const really shouldn't happen
+	nl_val *nl_str=nl_val_to_str((nl_val*)exp);
+	int n;
+	for(n=0;n<(nl_str->d.array.size);n++){
+		fprintf(fp,"%c",nl_str->d.array.v[n]->d.byte.v);
 	}
-	
-	switch(exp->t){
-		case BYTE:
-			if(exp->d.byte.v<2){
-				fprintf(fp,"%i",exp->d.byte.v);
-			}else{
-				fprintf(fp,"%c",exp->d.byte.v);
-			}
-			break;
-		case NUM:
-			fprintf(fp,"%lli/%llu",exp->d.num.n,exp->d.num.d);
-			break;
-		case PAIR:
-			//this is also linked list output; it's a little more complex to make it pretty because this is good for debugging and just generally
-			fprintf(fp,"(");
-			nl_out(fp,exp->d.pair.f);
-			{
-				exp=exp->d.pair.r;
-				
-				//linked-list output
-				int len=0;
-				while((exp!=NULL) && (exp->t==PAIR)){
-					fprintf(fp," ");
-					nl_out(fp,exp->d.pair.f);
-					
-					len++;
-					exp=exp->d.pair.r;
-				}
-				
-				//normal pair output (a cons cell, in lisp terminology)
-				if(len==0){
-					fprintf(fp," . ");
-					nl_out(fp,exp);
-				}
-			}
-			fprintf(fp,")");
-			break;
-		case ARRAY:
-			fprintf(fp,"[ ");
-			{
-				unsigned int n;
-				for(n=0;n<(exp->d.array.size);n++){
-//					nl_out(fp,&(exp->d.array.v[n]));
-					nl_out(fp,exp->d.array.v[n]);
-					fprintf(fp," ");
-				}
-			}
-			fprintf(fp,"]");
-			break;
-		case PRI:
-			fprintf(fp,"<primitive procedure>");
-			break;
-		case SUB:
-			fprintf(fp,"<closure/subroutine>");
-			break;
-		case SYMBOL:
-			fprintf(fp,"<symbol ");
-			if(exp->d.sym.name!=NULL){
-				unsigned int n;
-				for(n=0;n<(exp->d.sym.name->d.array.size);n++){
-//					nl_out(fp,&(exp->d.sym.name->d.array.v[n]));
-					nl_out(fp,exp->d.sym.name->d.array.v[n]);
-				}
-			}
-			fprintf(fp,">");
-			break;
-		case EVALUATION:
-			fprintf(fp,"<evaluation ");
-			if((exp->d.eval.sym!=NULL) && (exp->d.eval.sym->d.sym.name!=NULL)){
-				unsigned int n;
-				for(n=0;n<(exp->d.eval.sym->d.sym.name->d.array.size);n++){
-//					nl_out(fp,&(exp->d.eval.sym->d.sym.name->d.array.v[n]));
-					nl_out(fp,exp->d.eval.sym->d.sym.name->d.array.v[n]);
-				}
-			}
-			fprintf(fp,">");
-			break;
-		default:
-			ERR(NULL,"unknown type",FALSE);
-			break;
-	}
-/*
-#ifdef _DEBUG
-	fprintf(fp," (allocated on line %u) ",exp->line);
-#endif
-*/
+	nl_val_free(nl_str);
 }
 
 //END I/O SUBROUTINES ---------------------------------------------------------------------------------------------
@@ -2232,12 +2179,13 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("outexp"),nl_primitive_wrap(nl_outexp),env);
 	
 	nl_bind_new(nl_sym_from_c_str("inexp"),nl_primitive_wrap(nl_inexp),env);
-//	nl_bind_new(nl_sym_from_c_str("inline"),nl_primitive_wrap(nl_inline),env);
+	nl_bind_new(nl_sym_from_c_str("inline"),nl_primitive_wrap(nl_inline),env);
 	nl_bind_new(nl_sym_from_c_str("inchar"),nl_primitive_wrap(nl_inchar),env);
 	
 	
 	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
 	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);
+	nl_bind_new(nl_sym_from_c_str("x->str"),nl_primitive_wrap(nl_val_list_to_str),env);
 	//TODO: all other sensical type conversions
 	
 	//TODO: any other bitwise operations that make sense
@@ -2272,10 +2220,11 @@ void nl_bind_stdlib(nl_env_frame *env){
 //the repl for neulang; this is separated from main for embedding purposes
 //the only thing you have to do outside this is give us an open file and close it when we're done
 //arguments given are interpreted as command-line arguments and are bound to argv in the interpreter (NULL works)
-void nl_repl(FILE *fp, nl_val *argv){
+int nl_repl(FILE *fp, nl_val *argv){
 #ifdef _DEBUG
 	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
 #endif
+	exit_status=0;
 	
 	//allocate keywords
 	nl_keyword_malloc();
@@ -2366,6 +2315,9 @@ void nl_repl(FILE *fp, nl_val *argv){
 	
 	//free (de-allocate) keywords
 	nl_keyword_free();
+	
+	//return back to main with interpreter exit status
+	return exit_status;
 }
 
 //runtime!
@@ -2411,14 +2363,14 @@ int main(int argc, char *argv[]){
 	}
 	
 	//go into the read eval print loop!
-	nl_repl(fp,nl_argv);
+	int ret=nl_repl(fp,nl_argv);
 	
 	//if we were reading from a file then close that file
 	if((fp!=NULL) && (fp!=stdin)){
 		fclose(fp);
 	}
 	
-	//play nicely on *nix
-	return 0;
+	//pass return up from repl
+	return ret;
 }
 

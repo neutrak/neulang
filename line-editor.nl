@@ -75,8 +75,8 @@
 //edit a single line, line-info also contains the line number (it's a pair)
 (let edit-line (sub (line-info)
 	//constants
-	(let up-char (list 65))
-	(let down-char (list 66))
+	(let up-char (list 65 27))
+	(let down-char (list 66 27))
 	(let pgup-char (list 53 126))
 	(let pgdn-char (list 54 126))
 	//TODO: figure out real values for these constants, they are NOT all 128
@@ -91,6 +91,7 @@
 	//read a character
 	(let c (inchar))
 	
+	(outs "edit-line debug -1, going into while loop..." $newl)
 	//while the user hasn't hit enter (a newline character)
 	(let line-return (while (not (or (= $c 10) (= $c 13)))
 		(let escaped FALSE)
@@ -106,7 +107,7 @@
 				(outs "edit-line debug 0, returning $up-ret..." $newl)
 				(return $up-ret)
 			else (if (= $c (f $down-char))
-				(outs "edit-line debug 0, returning $down-ret..." $newl)
+				(outs "edit-line debug 0.5, returning $down-ret..." $newl)
 				(return $down-ret)
 			else (if (= $c (f $pgup-char))
 				(let c (inchar))
@@ -124,6 +125,8 @@
 				(return $exit-ret)
 			))))))
 			
+			(outs "edit-line debug 0.75..." $newl)
+			
 			//check for local escapes (movement that CAN be handled on one line)
 			(if (= $c (f $left-char))
 				(let line-idx ($line-info get idx NULL))
@@ -140,10 +143,12 @@
 			(outs "edit-line debug 1, got an escape but didn't yet return; skipping to the next char" $newl)
 			
 			//skip over unknown escape sequences, (return (recur)) acts as continue within a while loop
-//			(return (recur))
+			(return (recur))
 		)
 		
-		(outs "edit-line debug 2..." $newl)
+		(if (= $c 127)
+			(outs "edit-line debug, got a backspace..." $newl)
+		)
 		
 		//TODO: default case, add the char to the line and output the line
 		($line-info set content (, ($line-info get content NULL) (array (num->byte $c))))
@@ -151,17 +156,19 @@
 		
 		//debug, just output the damn thing
 		(outexp $c)
-		(outs " (" (array (num->byte $c)) ")" $newl $newl)
+		(outs " (" (array (num->byte $c)) ")" $newl)
+		
+		(outs "edit-line debug 3..." $newl)
+		
+		(outs $newl)
 		
 		//read in another character
 		(let c (inchar))
+	after
+		(return -1)
 	))
 	
-	(if (not (null? $line-return))
-		(return $line-return)
-	else
-		(return -1)
-	)
+	(return $line-return)
 ))
 
 //edit a file (null for new file)

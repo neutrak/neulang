@@ -582,8 +582,9 @@ else
 (assert (ar= "abce" (ar-replace $a-string 3 (num->byte 101))))
 (assert (ar= "abcd" $a-string))
 
-//END standard library array testing ----------------------------------------------------------------------
+(assert (ar= "(a b c)" (x->str (lit ('a' 'b' 'c')))))
 
+//END standard library array testing ----------------------------------------------------------------------
 
 
 //BEGIN standard library list testing ---------------------------------------------------------------------

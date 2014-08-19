@@ -204,6 +204,44 @@ char nl_contains_nulls(nl_val *val_list){
 	return FALSE;
 }
 
+//push a c string onto a neulang string (note that this is side-effect based, it's an array push)
+void nl_str_push_cstr(nl_val *nl_str, const char *cstr){
+	if((nl_str==NULL) || (nl_str->t!=ARRAY)){
+		ERR_EXIT(nl_str,"non-array type given to string push operation",TRUE);
+		return;
+	}
+	
+	int n=0;
+	while(cstr[n]!='\0'){
+		nl_val *char_to_push=nl_val_malloc(BYTE);
+		char_to_push->d.byte.v=cstr[n];
+		
+		nl_array_push(nl_str,char_to_push);
+		
+		n++;
+	}
+}
+
+//push a neulang string onto another neulang string (only the first one is changed, the second is not, and data is copied in element by element)
+void nl_str_push_nlstr(nl_val *nl_str, const nl_val *str_to_push){
+	if((nl_str==NULL) || (nl_str->t!=ARRAY)){
+		ERR_EXIT(nl_str,"non-array type given to string push operation",TRUE);
+		return;
+	}
+	
+	if((str_to_push==NULL) || (str_to_push->t!=ARRAY)){
+		ERR_EXIT(str_to_push,"non-array type given as argument/addition in string push operation",TRUE);
+		return;
+	}
+	
+	int n;
+	for(n=0;n<(str_to_push->d.array.size);n++){
+		nl_val *char_to_push=nl_val_cp(str_to_push->d.array.v[n]);
+		
+		nl_array_push(nl_str,char_to_push);
+	}
+}
+
 //return a byte version of the given number constant, if possible
 nl_val *nl_num_to_byte(nl_val *num_list){
 	nl_val *ret=NULL;
@@ -256,6 +294,157 @@ nl_val *nl_byte_to_num(nl_val *byte_list){
 	
 	return ret;
 }
+
+//returns the string-encoded version of any given expression
+nl_val *nl_val_to_str(nl_val *exp){
+	nl_val *ret=nl_val_malloc(ARRAY);
+	//output for sprintf operations
+	char buffer[BUFFER_SIZE];
+	//temporary string for sub-expressions
+	nl_val *tmp_str;
+	
+/*
+#ifdef _DEBUG
+	printf("nl_val_to_str debug 0, converting ");
+	nl_out(stdout,exp);
+	printf(" into a string...\n");
+#endif
+*/
+	
+	if(exp==NULL){
+		nl_str_push_cstr(ret,"NULL"); //should this be a null string instead?
+		return ret;
+	}
+	
+	switch(exp->t){
+		case BYTE:
+			if(exp->d.byte.v<2){
+				sprintf(buffer,"%i",exp->d.byte.v);
+				nl_str_push_cstr(ret,buffer);
+			}else{
+				sprintf(buffer,"%c",exp->d.byte.v);
+				nl_str_push_cstr(ret,buffer);
+			}
+			break;
+		case NUM:
+			sprintf(buffer,"%lli/%llu",exp->d.num.n,exp->d.num.d);
+			nl_str_push_cstr(ret,buffer);
+			break;
+		case PAIR:
+			//this is also linked list conversion; it's a little more complex to make it pretty because this is good for debugging and just generally
+			nl_str_push_cstr(ret,"(");
+			
+			tmp_str=nl_val_to_str(exp->d.pair.f);
+			nl_str_push_nlstr(ret,tmp_str);
+			nl_val_free(tmp_str);
+			{
+				exp=exp->d.pair.r;
+				
+				//linked-list conversion
+				int len=0;
+				while((exp!=NULL) && (exp->t==PAIR)){
+					nl_str_push_cstr(ret," ");
+					
+					tmp_str=nl_val_to_str(exp->d.pair.f);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+					
+					len++;
+					exp=exp->d.pair.r;
+				}
+				
+				//normal pair conversion (a cons cell, in lisp terminology)
+				if(len==0){
+					nl_str_push_cstr(ret," . ");
+					
+					tmp_str=nl_val_to_str(exp);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+				}
+			}
+			nl_str_push_cstr(ret,")");
+			break;
+		case ARRAY:
+			nl_str_push_cstr(ret,"[ ");
+			{
+				unsigned int n;
+				for(n=0;n<(exp->d.array.size);n++){
+//					tmp_str=nl_val_to_str(&(exp->d.array.v[n]));
+					tmp_str=nl_val_to_str(exp->d.array.v[n]);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+					
+					nl_str_push_cstr(ret," ");
+				}
+			}
+			nl_str_push_cstr(ret,"]");
+			break;
+		case PRI:
+			nl_str_push_cstr(ret,"<primitive procedure>");
+			break;
+		case SUB:
+			nl_str_push_cstr(ret,"<closure/subroutine>");
+			break;
+		case SYMBOL:
+			nl_str_push_cstr(ret,"<symbol ");
+			if(exp->d.sym.name!=NULL){
+				unsigned int n;
+				for(n=0;n<(exp->d.sym.name->d.array.size);n++){
+//					tmp_str=nl_val_to_str(&(exp->d.sym.name->d.array.v[n]));
+					tmp_str=nl_val_to_str(exp->d.sym.name->d.array.v[n]);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+				}
+			}
+			nl_str_push_cstr(ret,">");
+			break;
+		case EVALUATION:
+			nl_str_push_cstr(ret,"<evaluation ");
+			if((exp->d.eval.sym!=NULL) && (exp->d.eval.sym->d.sym.name!=NULL)){
+				unsigned int n;
+				for(n=0;n<(exp->d.eval.sym->d.sym.name->d.array.size);n++){
+//						tmp_str=nl_val_to_str(&(exp->d.eval.sym->d.sym.name->d.array.v[n]));
+					tmp_str=nl_val_to_str(exp->d.eval.sym->d.sym.name->d.array.v[n]);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+				}
+			}
+			nl_str_push_cstr(ret,">");
+			break;
+		default:
+			ERR(NULL,"cannot convert unknown type to string",FALSE);
+			
+			break;
+	}
+	
+	return ret;
+}
+
+//returns the string-encoded version of any given list of expressions
+nl_val *nl_val_list_to_str(nl_val *val_list){
+	nl_val *ret=nl_val_malloc(ARRAY);
+	//temporary string for sub-expressions
+	nl_val *tmp_str;
+	
+	while(val_list!=NULL && val_list->t==PAIR){
+		nl_val *exp=val_list->d.pair.f;
+		
+		tmp_str=nl_val_to_str(exp);
+		nl_str_push_nlstr(ret,tmp_str);
+		nl_val_free(tmp_str);
+		
+		val_list=val_list->d.pair.r;
+		
+		//put a space between successive elements
+		if(val_list!=NULL){
+			nl_str_push_cstr(ret," ");
+		}
+	}
+	
+	//okay, now return the string we just got!
+	return ret;
+}
+
 
 //BEGIN C-NL-STDLIB-ARRAY SUBROUTINES  ----------------------------------------------------------------------------
 
@@ -471,10 +660,26 @@ nl_val *nl_inexp(nl_val *arg_list){
 	return nl_read_exp(stdin);
 }
 
-//TODO: write this
-//reads a line from stdin and returns the result as a string
+//TODO: add an argument for line-editing here!
+//reads a line from stdin and returns the result as a [neulang] string
 nl_val *nl_inline(nl_val *arg_list){
-	return NULL;
+	nl_val *ret=nl_val_malloc(ARRAY);
+	
+	int c=fgetc(stdin);
+	while((c!='\n') && (c!='\r')){
+		if(feof(stdin)){
+			break;
+		}
+		
+		nl_val *next_char=nl_val_malloc(BYTE);
+		next_char->d.byte.v=(unsigned char)(c);
+		
+		nl_array_push(ret,next_char);
+		
+		c=fgetc(stdin);
+	}
+	
+	return ret;
 }
 
 //reads a single keystroke from stdin and returns the result as a num
