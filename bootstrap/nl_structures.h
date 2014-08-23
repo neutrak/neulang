@@ -33,6 +33,7 @@ typedef enum {
 	ARRAY, //contiguous memory section
 	PRI, //primitive procedure (C code)
 	SUB, //closure (subroutine)
+	STRUCT, //structure (named array)
 	
 	//internal types (might still be user visible, but mostly an implementation detail)
 	SYMBOL, //variable names, for the symbol table, internally this is a [byte]array
@@ -114,6 +115,12 @@ struct nl_val {
 			//environment (since this is a closure)
 			nl_env_frame *env;
 		} sub;
+		
+		struct {
+			//environment (what to bind the various symbols in so we can look them up)
+			//this should always link to NULL and isn't related to the evaluation environment, it's local-only
+			nl_env_frame *env;
+		} nl_struct;
 		
 		//symbol (variable name) value
 		struct {
@@ -381,6 +388,12 @@ nl_val *nl_list_idx(nl_val *arg_list);
 
 //concatenates all the given lists
 nl_val *nl_list_cat(nl_val *list_list);
+
+//get the given symbols from the struct
+nl_val *nl_struct_get(nl_val *sym_list);
+
+//set the given symbol to the given value in the struct
+nl_val *nl_struct_set(nl_val *rqst_list);
 
 //add a list of (rational) numbers
 nl_val *nl_add(nl_val *num_list);

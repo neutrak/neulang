@@ -22,8 +22,8 @@
 //consists of members ret (character return), num (line number), and content (string)
 (let line-struct (sub ()
 	//constructor (initial data)
-	//consists of character return (e.g. up-ret), line number, line content, and current index (the current location we are at within the line)
-	(let struct-data (array 0 1 "" 0))
+	//consists of character return (e.g. up-ret), line number, current index (the current location we are at within the line), and line content
+	(let struct-data (array 0 1 0 ""))
 	
 	(return (sub (rqst-type var new-val)
 		//get operations return the existing value
@@ -32,9 +32,9 @@
 				(return (ar-idx $struct-data 0))
 			else (if (sym= $var num)
 				(return (ar-idx $struct-data 1))
-			else (if (sym= $var content)
-				(return (ar-idx $struct-data 2))
 			else (if (sym= $var idx)
+				(return (ar-idx $struct-data 2))
+			else (if (sym= $var content)
 				(return (ar-idx $struct-data 3))
 			else
 				(outs "Err: symbol ")
@@ -43,26 +43,44 @@
 			))))
 		//set operations replace the existing value with the new value
 		else (if (sym= $rqst-type set)
+			(outs "line-struct debug 0, trying to re-set structure " (val->str $struct-data) $newl)
+			(outs "$new-val is " (val->str $new-val) $newl)
+			
 			(if (sym= $var ret)
 				(let struct-data (ar-replace $struct-data 0 $new-val))
 			else (if (sym= $var num)
 				(let struct-data (ar-replace $struct-data 1 $new-val))
-			else (if (sym= $var content)
-				(let struct-data (ar-replace $struct-data 2 $new-val))
 			else (if (sym= $var idx)
+				(let struct-data (ar-replace $struct-data 2 $new-val))
+			else (if (sym= $var content)
 				(let struct-data (ar-replace $struct-data 3 $new-val))
 			else
 				(outs "Err: symbol ")
 				(outexp $var)
 				(outs " is not a member of line-struct" $newl)
 			))))
+			
+			(outs "line-struct debug 1, struct-data is now " (val->str $struct-data) $newl)
+		//return the array version of this data structure as it exists in memory
+		else (if (sym= $rqst-type ret)
+			$struct-data
 		else
 			(outs "Err: not a valid operation for line-struct ")
 			(outexp $rqst-type)
 			(outs $newl)
-		))
+		)))
 	))
 ))
+
+/*
+//this is the syntax I'm hoping to implement to replace the above structure definition (functionally the same though)
+(let line-struct (struct ()
+	(ret 0)
+	(num 1)
+	(idx 0)
+	(content "")
+))
+*/
 
 (let output-line (sub (line-info)
 	(outs "[line ")
@@ -104,9 +122,13 @@
 		(if (b= $escaped TRUE)
 			//check for special escapes (movement that can't be handled in one line)
 			(if (= $c (f $up-char))
+//				(inchar)
+//				($line-info set num (- ($line-info get num NULL) 1))
 				(outs "edit-line debug 0, returning $up-ret..." $newl)
 				(return $up-ret)
 			else (if (= $c (f $down-char))
+//				(inchar)
+//				($line-info set num (+ ($line-info get num NULL) 1))
 				(outs "edit-line debug 0.5, returning $down-ret..." $newl)
 				(return $down-ret)
 			else (if (= $c (f $pgup-char))
@@ -150,8 +172,16 @@
 			(outs "edit-line debug, got a backspace..." $newl)
 		)
 		
+/*
+		//if we got a newline, then skip the rest of the function
+		(if (or (= $c 10) (= $c 13))
+			(return (recur))
+		)
+*/
+		
 		//TODO: default case, add the char to the line and output the line
 		($line-info set content (, ($line-info get content NULL) (array (num->byte $c))))
+		($line-info set idx (+ ($line-info get idx NULL) 1))
 		($output-line $line-info)
 		
 		//debug, just output the damn thing
@@ -191,14 +221,17 @@
 	(while (not $finished)
 		//TODO: get input from the user here, and adjust the edit buffer appropriately
 		(let line-return ($edit-line $current-line))
+		(outs "edit debug 0; returned from edit-line with value " (val->str $line-return) $newl)
+		(outs "current line data is " (val->str ($current-line ret NULL NULL)) $newl)
+//		(exit)
 		
 		//check for special return values (which indicate moving a line)
 		(if (= $line-return $up-ret)
 			//up
-			($current-line set num (- ($current-line get num NULL) 1))
+//			($current-line set num (- ($current-line get num NULL) 1))
 		else (if (= $line-return $down-ret)
 			//down
-			($current-line set num (+ ($current-line get num NULL) 1))
+//			($current-line set num (+ ($current-line get num NULL) 1))
 		else (if (= $line-return $pgup-ret)
 			//pgup
 		else (if (= $line-return $pgdn-ret)

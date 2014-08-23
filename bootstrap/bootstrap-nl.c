@@ -42,6 +42,7 @@ nl_val *for_keyword;
 nl_val *after_keyword;
 nl_val *array_keyword;
 nl_val *list_keyword;
+nl_val *struct_keyword;
 
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
@@ -91,6 +92,9 @@ const char *nl_type_name(nl_type t){
 			break;
 		case SUB:
 			return "SUB";
+			break;
+		case STRUCT:
+			return "STRUCT";
 			break;
 		case SYMBOL:
 			return "SYMBOL";
@@ -145,6 +149,9 @@ nl_val *nl_val_malloc(nl_type t){
 			ret->d.sub.args=NULL;
 			ret->d.sub.body=NULL;
 			ret->d.sub.env=NULL;
+			break;
+		case STRUCT:
+			ret->d.nl_struct.env=nl_env_frame_malloc(NULL);
 			break;
 		case SYMBOL:
 			ret->d.sym.t=SYMBOL;
@@ -224,6 +231,9 @@ char nl_val_free(nl_val *exp){
 //			}
 			nl_env_frame_free(exp->d.sub.env);
 			break;
+		case STRUCT:
+			nl_env_frame_free(exp->d.nl_struct.env);
+			break;
 		//symbols need a recursive call for the string that's their name
 		case SYMBOL:
 			nl_val_free(exp->d.sym.name);
@@ -287,6 +297,21 @@ nl_val *nl_val_cp(nl_val *v){
 			//this is a direct pointer copy; we increment the references just to keep track of everything
 			v->ref++;
 			ret=v;
+			break;
+		//in a struct copy all the bindings
+		case STRUCT:
+			{
+				int n;
+				for(n=0;n<(v->d.nl_struct.env->symbol_array->d.array.size);n++){
+					nl_val *symbol=nl_val_cp(v->d.nl_struct.env->symbol_array->d.array.v[n]);
+					nl_val *value=nl_val_cp(v->d.nl_struct.env->value_array->d.array.v[n]);
+					nl_bind(symbol,value,ret->d.nl_struct.env);
+					
+					//bind adds a reference so clean that up here
+					nl_val_free(symbol);
+					nl_val_free(value);
+				}
+			}
 			break;
 		//recurse to copy name elements
 		case SYMBOL:
@@ -1444,6 +1469,37 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			ret->d.pair.r=arguments->d.pair.r->d.pair.f;
 			ret->d.pair.r->ref++;
 		}
+	//check for structs
+	}else if(nl_val_cmp(keyword,struct_keyword)==0){
+		//a struct is just a named array, so we re-use the environment frame system to make that simple and painless
+		ret=nl_val_malloc(STRUCT);
+		while(arguments!=NULL && arguments->t==PAIR){
+			nl_val *struct_elements=arguments->d.pair.f;
+			
+			if((struct_elements==NULL) || (struct_elements->t!=PAIR) || (nl_c_list_size(struct_elements)!=2)){
+				ERR_EXIT(struct_elements,"invalid syntax for struct declaration",TRUE);
+				nl_val_free(ret);
+				ret=NULL;
+			}
+#ifdef _DEBUG
+			printf("calling off to eval_sequence with ");
+			nl_out(stdout,struct_elements->d.pair.r);
+			printf("\n");
+#endif
+			//evaluate what to initially bind to (constructor values if you will)
+			nl_eval_elements(struct_elements->d.pair.r,env);
+#ifdef _DEBUG
+			printf("binding ");
+			nl_out(stdout,struct_elements->d.pair.f);
+			printf(" to value ");
+			nl_out(stdout,struct_elements->d.pair.r->d.pair.f);
+			printf("\n");
+#endif
+			//bind this in the struct
+			nl_bind(struct_elements->d.pair.f,struct_elements->d.pair.r->d.pair.f,ret->d.nl_struct.env);
+			
+			arguments=arguments->d.pair.r;
+		}
 	//check for exits
 	}else if(nl_val_cmp(keyword,exit_keyword)==0){
 		end_program=TRUE;
@@ -1514,6 +1570,16 @@ tailcall:
 		return exp;
 	}
 	
+/*
+#ifdef _DEBUG
+	if(exp->t==STRUCT){
+		printf("nl_eval debug 0.1, evaluating a struct... ");
+		nl_out(stdout,exp);
+		printf("\n");
+	}
+#endif
+*/
+	
 	switch(exp->t){
 		//self-evaluating expressions (all constant values)
 		case BYTE:
@@ -1521,6 +1587,7 @@ tailcall:
 		case ARRAY:
 		case PRI:
 		case SUB:
+		case STRUCT:
 			return exp;
 			break;
 		//symbols are generally self-evaluating
@@ -2078,6 +2145,7 @@ void nl_keyword_malloc(){
 	after_keyword=nl_sym_from_c_str("after");
 	array_keyword=nl_sym_from_c_str("array");
 	list_keyword=nl_sym_from_c_str("list");
+	struct_keyword=nl_sym_from_c_str("struct");
 }
 
 //free global symbol data for clean exit
@@ -2107,6 +2175,7 @@ void nl_keyword_free(){
 	nl_val_free(after_keyword);
 	nl_val_free(array_keyword);
 	nl_val_free(list_keyword);
+	nl_val_free(struct_keyword);
 }
 
 //bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
@@ -2174,6 +2243,10 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("list-len"),nl_primitive_wrap(nl_list_size),env);
 	nl_bind_new(nl_sym_from_c_str("list-idx"),nl_primitive_wrap(nl_list_idx),env);
 	nl_bind_new(nl_sym_from_c_str("list-cat"),nl_primitive_wrap(nl_list_cat),env);
+	
+	//struct stdlib subroutines
+	nl_bind_new(nl_sym_from_c_str("struct-get"),nl_primitive_wrap(nl_struct_get),env);
+	nl_bind_new(nl_sym_from_c_str("struct-set"),nl_primitive_wrap(nl_struct_set),env);
 	
 	nl_bind_new(nl_sym_from_c_str("outs"),nl_primitive_wrap(nl_outstr),env);
 	nl_bind_new(nl_sym_from_c_str("outexp"),nl_primitive_wrap(nl_outexp),env);

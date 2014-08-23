@@ -582,7 +582,7 @@ else
 (assert (ar= "abce" (ar-replace $a-string 3 (num->byte 101))))
 (assert (ar= "abcd" $a-string))
 
-(assert (ar= "(a b c)" (x->str (lit ('a' 'b' 'c')))))
+(assert (ar= "(a b c)" (val->str (lit ('a' 'b' 'c')))))
 
 //END standard library array testing ----------------------------------------------------------------------
 
@@ -591,6 +591,23 @@ else
 (assert (list= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
 
 //END standard library list testing -----------------------------------------------------------------------
+
+//BEGIN proper struct testing -----------------------------------------------------------------------------
+
+(let some-data (struct
+	(a-var 5)
+	(another-var "c")
+))
+
+(assert (= 5 (struct-get $some-data a-var)))
+(assert (ar= "c" (struct-get $some-data another-var)))
+
+(let some-data (struct-set $some-data a-var 20))
+(assert (= 20 (struct-get $some-data a-var)))
+
+(exit)
+
+//END proper struct testing -------------------------------------------------------------------------------
 
 //BEGIN closure-as-struct testing -------------------------------------------------------------------------
 

@@ -178,6 +178,24 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 				return 1;
 			}
 			break;
+		//structs are equal iff they bind all the same symbols to all the same values (i.e. all elements of env are equal)
+		case STRUCT:
+			{
+				nl_env_frame *env_a=v_a->d.nl_struct.env;
+				nl_env_frame *env_b=v_b->d.nl_struct.env;
+				
+				//first compare symbols (if this isn't 0 then they aren't even the same structure)
+				int env_eq=nl_val_cmp(env_a->symbol_array,env_b->symbol_array);
+				
+				//if the symbols were equal then compare values and return the result of that
+				if(env_eq==0){
+					env_eq=nl_val_cmp(env_a->value_array,env_b->value_array);
+				}
+				
+				//return the result
+				return env_eq;
+			}
+			break;
 		//symbols are equal if their names (byte arrays) are equal
 		case SYMBOL:
 			return nl_val_cmp(v_a->d.sym.name,v_b->d.sym.name);
@@ -383,7 +401,48 @@ nl_val *nl_val_to_str(nl_val *exp){
 			nl_str_push_cstr(ret,"<primitive procedure>");
 			break;
 		case SUB:
-			nl_str_push_cstr(ret,"<closure/subroutine>");
+			nl_str_push_cstr(ret,"<closure/subroutine with args (");
+			{
+				nl_val *sub_args=exp->d.sub.args;
+				while(sub_args!=NULL){
+					tmp_str=nl_val_to_str(sub_args->d.pair.f);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+					
+					if(sub_args->d.pair.r!=NULL){
+						nl_str_push_cstr(ret," ");
+					}
+					
+					sub_args=sub_args->d.pair.r;
+				}
+			}
+			nl_str_push_cstr(ret,")>");
+			break;
+		case STRUCT:
+			nl_str_push_cstr(ret,"<struct ");
+			{
+				unsigned int n;
+				for(n=0;n<(exp->d.nl_struct.env->symbol_array->d.array.size);n++){
+					nl_str_push_cstr(ret,"{");
+					
+					tmp_str=nl_val_to_str(exp->d.nl_struct.env->symbol_array->d.array.v[n]);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+					
+					nl_str_push_cstr(ret," ");
+					
+					tmp_str=nl_val_to_str(exp->d.nl_struct.env->value_array->d.array.v[n]);
+					nl_str_push_nlstr(ret,tmp_str);
+					nl_val_free(tmp_str);
+					
+					nl_str_push_cstr(ret,"}");
+					
+					if((n+1)<(exp->d.nl_struct.env->symbol_array->d.array.size)){
+						nl_str_push_cstr(ret," ");
+					}
+				}
+			}
+			nl_str_push_cstr(ret,">");
 			break;
 		case SYMBOL:
 			nl_str_push_cstr(ret,"<symbol ");
@@ -821,6 +880,68 @@ nl_val *nl_list_cat(nl_val *list_list){
 }
 
 //END C-NL-STDLIB-LIST SUBROUTINES  -------------------------------------------------------------------------------
+
+//BEGIN C-NL-STRUCT-LIST SUBROUTINES  -----------------------------------------------------------------------------
+
+//get the given symbols from the struct
+nl_val *nl_struct_get(nl_val *sym_list){
+	//note that this returns a copy of the given value but to the outside world that shouldn't be a problem
+	
+	int arg_count=nl_c_list_size(sym_list);
+	if((arg_count<2) || (sym_list->d.pair.f->t!=STRUCT)){
+		ERR_EXIT(sym_list,"incorrect argument count or type given to struct get operation",TRUE);
+		return NULL;
+	}
+	
+	if(arg_count==2){
+		return nl_val_cp(nl_lookup(sym_list->d.pair.r->d.pair.f,sym_list->d.pair.f->d.nl_struct.env));
+	}
+	
+	//if we were given >1 symbol, then return a list of all the requested values
+	nl_val *ret=nl_val_malloc(PAIR);
+	nl_val *current_node=ret;
+	
+	nl_val *current_struct=sym_list->d.pair.f;
+	sym_list=sym_list->d.pair.r;
+	while((sym_list!=NULL) && (sym_list->t==PAIR)){
+		current_node->d.pair.f=nl_val_cp(nl_lookup(sym_list->d.pair.f,current_struct->d.nl_struct.env));
+		
+		if(sym_list->d.pair.r!=NULL){
+			current_node->d.pair.r=nl_val_malloc(PAIR);
+			current_node=current_node->d.pair.r;
+		}else{
+			current_node->d.pair.r=NULL;
+		}
+		
+		sym_list=sym_list->d.pair.r;
+	}
+	
+	return ret;
+}
+
+//set the given symbol to the given value in the struct
+nl_val *nl_struct_set(nl_val *rqst_list){
+	if((nl_c_list_size(rqst_list)!=3) || (rqst_list->t!=PAIR) || (rqst_list->d.pair.f==NULL) || (rqst_list->d.pair.f->t!=STRUCT)){
+		ERR_EXIT(rqst_list,"incorrect use of struct set operation",TRUE);
+		return NULL;
+	}
+	
+	nl_val *current_struct=rqst_list->d.pair.f;
+	nl_val *symbol=rqst_list->d.pair.r->d.pair.f;
+	nl_val *new_value=rqst_list->d.pair.r->d.pair.r->d.pair.f;
+	
+	if(!nl_bind(symbol,new_value,current_struct->d.nl_struct.env)){
+		ERR_EXIT(rqst_list,"could not bind symbol in struct",TRUE);
+		return NULL;
+	}
+	
+	//return this so it can be used (remember we don't do side-effects, referential transparency and whatnot)
+	//note that what was passed in was a copy (from evaluating an evaluation type) so it's okay to modify it here and return it
+	current_struct->ref++;
+	return current_struct;
+}
+
+//END C-NL-STRUCT-LIST SUBROUTINES  -------------------------------------------------------------------------------
 
 //BEGIN C-NL-STDLIB-MATH SUBROUTINES  -----------------------------------------------------------------------------
 
