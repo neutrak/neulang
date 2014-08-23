@@ -392,8 +392,8 @@ nl_val *nl_list_cat(nl_val *list_list);
 //get the given symbols from the struct
 nl_val *nl_struct_get(nl_val *sym_list);
 
-//set the given symbol to the given value in the struct
-nl_val *nl_struct_set(nl_val *rqst_list);
+//return the result of replacing the given symbol with the given value in the struct
+nl_val *nl_struct_replace(nl_val *rqst_list);
 
 //add a list of (rational) numbers
 nl_val *nl_add(nl_val *num_list);

@@ -602,10 +602,10 @@ else
 (assert (= 5 (struct-get $some-data a-var)))
 (assert (ar= "c" (struct-get $some-data another-var)))
 
-(let some-data (struct-set $some-data a-var 20))
+(let some-data (struct-replace $some-data a-var 20))
 (assert (= 20 (struct-get $some-data a-var)))
 
-(exit)
+//(exit)
 
 //END proper struct testing -------------------------------------------------------------------------------
 
@@ -614,7 +614,6 @@ else
 //this is a type that differs from what's within the struct; I'm just trying to ensure that this isn't ever used by struct calls
 (let struct 'a')
 
-//TODO: add some syntactic sugar to make structs super simple? it would be nice
 //this is how you make a structure
 (let new-struct (sub ()
 	//an initial value is in the enclosing scope

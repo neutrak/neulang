@@ -919,8 +919,8 @@ nl_val *nl_struct_get(nl_val *sym_list){
 	return ret;
 }
 
-//set the given symbol to the given value in the struct
-nl_val *nl_struct_set(nl_val *rqst_list){
+//return the result of replacing the given symbol with the given value in the struct
+nl_val *nl_struct_replace(nl_val *rqst_list){
 	if((nl_c_list_size(rqst_list)!=3) || (rqst_list->t!=PAIR) || (rqst_list->d.pair.f==NULL) || (rqst_list->d.pair.f->t!=STRUCT)){
 		ERR_EXIT(rqst_list,"incorrect use of struct set operation",TRUE);
 		return NULL;

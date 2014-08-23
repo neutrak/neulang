@@ -16,78 +16,23 @@
 (let save-ret 4)
 (let exit-ret 5)
 
-//I realize that this struct thing is sort of round-about and nasty; I'm seriously considering adding some syntactic sugar for struct definitions
-
 //a structure for lines
-//consists of members ret (character return), num (line number), and content (string)
+//consists of members ret (character return), num (line number), idx (column within line), and content (string)
 (let line-struct (sub ()
-	//constructor (initial data)
-	//consists of character return (e.g. up-ret), line number, current index (the current location we are at within the line), and line content
-	(let struct-data (array 0 1 0 ""))
-	
-	(return (sub (rqst-type var new-val)
-		//get operations return the existing value
-		(if (sym= $rqst-type get)
-			(if (sym= $var ret)
-				(return (ar-idx $struct-data 0))
-			else (if (sym= $var num)
-				(return (ar-idx $struct-data 1))
-			else (if (sym= $var idx)
-				(return (ar-idx $struct-data 2))
-			else (if (sym= $var content)
-				(return (ar-idx $struct-data 3))
-			else
-				(outs "Err: symbol ")
-				(outexp $var)
-				(outs " is not a member of line-struct" $newl)
-			))))
-		//set operations replace the existing value with the new value
-		else (if (sym= $rqst-type set)
-			(outs "line-struct debug 0, trying to re-set structure " (val->str $struct-data) $newl)
-			(outs "$new-val is " (val->str $new-val) $newl)
-			
-			(if (sym= $var ret)
-				(let struct-data (ar-replace $struct-data 0 $new-val))
-			else (if (sym= $var num)
-				(let struct-data (ar-replace $struct-data 1 $new-val))
-			else (if (sym= $var idx)
-				(let struct-data (ar-replace $struct-data 2 $new-val))
-			else (if (sym= $var content)
-				(let struct-data (ar-replace $struct-data 3 $new-val))
-			else
-				(outs "Err: symbol ")
-				(outexp $var)
-				(outs " is not a member of line-struct" $newl)
-			))))
-			
-			(outs "line-struct debug 1, struct-data is now " (val->str $struct-data) $newl)
-		//return the array version of this data structure as it exists in memory
-		else (if (sym= $rqst-type ret)
-			$struct-data
-		else
-			(outs "Err: not a valid operation for line-struct ")
-			(outexp $rqst-type)
-			(outs $newl)
-		)))
-	))
+	(struct
+		(ret -1)
+		(num 1)
+		(idx 0)
+		(content "")
+	)
 ))
-
-/*
-//this is the syntax I'm hoping to implement to replace the above structure definition (functionally the same though)
-(let line-struct (struct ()
-	(ret 0)
-	(num 1)
-	(idx 0)
-	(content "")
-))
-*/
 
 (let output-line (sub (line-info)
 	(outs "[line ")
-	(outexp ($line-info get num NULL))
+	(outexp (struct-get $line-info num))
 	(outs "] [idx ")
-	(outexp ($line-info get idx NULL))
-	(outs "] " ($line-info get content NULL) $newl)
+	(outexp (struct-get $line-info idx))
+	(outs "] " (struct-get $line-info content) $newl)
 ))
 
 //edit a single line, line-info also contains the line number (it's a pair)
@@ -111,7 +56,7 @@
 	
 	(outs "edit-line debug -1, going into while loop..." $newl)
 	//while the user hasn't hit enter (a newline character)
-	(let line-return (while (not (or (= $c 10) (= $c 13)))
+	(let line-info (while (not (or (= $c 10) (= $c 13)))
 		(let escaped FALSE)
 		//if we got an escape sequence then note that and read the next character
 		(if (= $c 91)
@@ -119,46 +64,57 @@
 			(let c (inchar))
 		)
 		
+		(outs "edit-line debug -0.5, escaped is " (val->str $escaped) $newl)
+		
 		(if (b= $escaped TRUE)
 			//check for special escapes (movement that can't be handled in one line)
 			(if (= $c (f $up-char))
 //				(inchar)
-//				($line-info set num (- ($line-info get num NULL) 1))
+//				(let line-info (struct-replace $line-info num (- (struct-get $line-info num) 1)))
 				(outs "edit-line debug 0, returning $up-ret..." $newl)
-				(return $up-ret)
+				(let line-info (struct-replace $line-info ret $up-ret))
+				(return $line-info)
 			else (if (= $c (f $down-char))
 //				(inchar)
-//				($line-info set num (+ ($line-info get num NULL) 1))
+//				(let line-info (struct-replace $line-info num (+ (struct-get $line-info num) 1)))
 				(outs "edit-line debug 0.5, returning $down-ret..." $newl)
-				(return $down-ret)
+				(let line-info (struct-replace $line-info ret $down-ret))
+				(return $line-info)
 			else (if (= $c (f $pgup-char))
 				(let c (inchar))
 				(if (= $c (f (r $pgup-char)))
-					(return $pgup-ret)
+					(let line-info (struct-replace $line-info ret $pgup-ret))
+					(return $line-info)
 				)
 			else (if (= $c (f $pgdn-char))
 				(let c (inchar))
 				(if (= $c (f (r $pgdn-char)))
-					(return $pgdn-ret)
+					(let line-info (struct-replace $line-info ret $pgdn-ret))
+					(return $line-info)
 				)
 			else (if (= $c (f $save-char))
-				(return $save-ret)
+				(let line-info (struct-replace $line-info ret $save-ret))
+				(return $line-info)
 			else (if (= $c (f $exit-char))
-				(return $exit-ret)
+				(let line-info (struct-replace $line-info ret $exit-ret))
+				(return $line-info)
 			))))))
 			
 			(outs "edit-line debug 0.75..." $newl)
 			
 			//check for local escapes (movement that CAN be handled on one line)
+			(let line-idx (struct-get $line-info idx))
 			(if (= $c (f $left-char))
-				(let line-idx ($line-info get idx NULL))
+//				(inchar) //skip a control character
 				(if (> $line-idx 0)
-					($line-info set idx (- $line-idx 1))
+					(outs "edit-line debug 0.85, line-idx is " (val->str $line-idx) $newl)
+					(let line-info (struct-replace $line-info idx (- $line-idx 1)))
+					(outs "edit-line debug 0.85, line info idx is " (val->str (struct-get $line-info idx)) $newl)
 				)
 			else (if (= $c (f $right-char))
-				(let line-idx ($line-info get idx NULL))
-				(if (< $line-idx (- (ar-sz ($line-info get content NULL)) 1))
-					($line-info set idx (+ $line-idx 1))
+//				(inchar) //skip a control character
+				(if (< $line-idx (- (ar-sz (struct-get $line-info content)) 1))
+					(let line-info (struct-replace $line-info idx (+ $line-idx 1)))
 				)
 			))
 			
@@ -167,6 +123,8 @@
 			//skip over unknown escape sequences, (return (recur)) acts as continue within a while loop
 			(return (recur))
 		)
+		
+		(outs "edit-line debug 2" $newl)
 		
 		(if (= $c 127)
 			(outs "edit-line debug, got a backspace..." $newl)
@@ -180,8 +138,8 @@
 */
 		
 		//TODO: default case, add the char to the line and output the line
-		($line-info set content (, ($line-info get content NULL) (array (num->byte $c))))
-		($line-info set idx (+ ($line-info get idx NULL) 1))
+		(let line-info (struct-replace $line-info content (, (struct-get $line-info content) (array (num->byte $c)))))
+		(let line-info (struct-replace $line-info idx (+ (struct-get $line-info idx) 1)))
 		($output-line $line-info)
 		
 		//debug, just output the damn thing
@@ -195,10 +153,11 @@
 		//read in another character
 		(let c (inchar))
 	after
-		(return -1)
+		(let line-info (struct-replace $line-info ret -1))
+		(return $line-info)
 	))
 	
-	(return $line-return)
+	(return $line-info)
 ))
 
 //edit a file (null for new file)
@@ -215,23 +174,24 @@
 	//the currently active line
 	(let current-line ($line-struct))
 	//TODO: set the current line content correctly
-	($current-line set content "")
+	(let current-line (struct-replace $current-line content ""))
 	
 	(let finished FALSE)
 	(while (not $finished)
 		//TODO: get input from the user here, and adjust the edit buffer appropriately
-		(let line-return ($edit-line $current-line))
+		(let current-line ($edit-line $current-line))
+		(let line-return (struct-get $current-line ret))
+		
 		(outs "edit debug 0; returned from edit-line with value " (val->str $line-return) $newl)
-		(outs "current line data is " (val->str ($current-line ret NULL NULL)) $newl)
-//		(exit)
+		(outs "current line data is " (val->str $current-line) $newl)
 		
 		//check for special return values (which indicate moving a line)
 		(if (= $line-return $up-ret)
 			//up
-//			($current-line set num (- ($current-line get num NULL) 1))
+//			(let current-line (struct-replace $current-line num (- (struct-get $current-line num) 1)))
 		else (if (= $line-return $down-ret)
 			//down
-//			($current-line set num (+ ($current-line get num NULL) 1))
+//			(let current-line (struct-replace $current-line num (+ (struct-get $current-line num) 1)))
 		else (if (= $line-return $pgup-ret)
 			//pgup
 		else (if (= $line-return $pgdn-ret)
@@ -248,7 +208,7 @@
 	)
 	
 	//TODO: remove this, it's just for debugging
-	(outs ($current-line get content NULL) $newl)
+	(outs (struct-get $current-line content) $newl)
 ))
 
 //handle cli switches

@@ -2246,7 +2246,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	//struct stdlib subroutines
 	nl_bind_new(nl_sym_from_c_str("struct-get"),nl_primitive_wrap(nl_struct_get),env);
-	nl_bind_new(nl_sym_from_c_str("struct-set"),nl_primitive_wrap(nl_struct_set),env);
+	nl_bind_new(nl_sym_from_c_str("struct-replace"),nl_primitive_wrap(nl_struct_replace),env);
 	
 	nl_bind_new(nl_sym_from_c_str("outs"),nl_primitive_wrap(nl_outstr),env);
 	nl_bind_new(nl_sym_from_c_str("outexp"),nl_primitive_wrap(nl_outexp),env);
