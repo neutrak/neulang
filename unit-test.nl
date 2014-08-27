@@ -81,7 +81,7 @@ k I think it works
 
 //nested if as condition
 //EXPECT: "asdf"
-(assert (ar= "asdf"
+(assert (= "asdf"
 	(if (if 0 0 else 1)
 		"asdf"
 	)
@@ -89,7 +89,7 @@ k I think it works
 
 //nested if as result
 //EXPECT: "yo"
-(assert (ar= "yo"
+(assert (= "yo"
 	(if 0
 		"hey"
 	else (if 1
@@ -121,7 +121,7 @@ weird test */ 5)
 //assign a string
 (let b "asdf")
 //EXPECT: "asdf"
-(assert (ar= $b "asdf"))
+(assert (= $b "asdf"))
 
 //copy a value
 (let c $a)
@@ -150,9 +150,9 @@ weird test */ 5)
 //some special symbols evaluate to byte values, for boolean and char expressions
 //so test those
 (let bool TRUE)
-(assert (b= $bool TRUE))
+(assert (= $bool TRUE))
 (let bool FALSE)
-(assert (b= $bool FALSE))
+(assert (= $bool FALSE))
 //NULLs are generic and are always allowed
 (let bool NULL)
 (assert (null? $bool))
@@ -193,7 +193,7 @@ weird test */ 5)
 $a-test-sub
 
 //now apply a sub
-(assert (ar= "b" ((sub () "b"))))
+(assert (= "b" ((sub () "b"))))
 
 //((sub () 5 -1) 6 7 8)
 
@@ -214,7 +214,7 @@ $return-value
 ((sub (x) $x) -3)
 ((sub (x y z) "asdf" (+ 4 5) -2) -4 -5 -6)
 
-(assert (b= FALSE ((sub () FALSE))))
+(assert (= FALSE ((sub () FALSE))))
 
 (assert (= 1 ((sub () FALSE 1))))
 
@@ -238,7 +238,7 @@ $return-value
 	(return FALSE)
 ))
 
-(assert (b= FALSE ($sub-a)))
+(assert (= FALSE ($sub-a)))
 
 
 //just something I'm trying to see; don't mind this
@@ -564,13 +564,13 @@ else
 (let byte-6 (num->byte 6))
 
 //bitwise OR test
-(assert (b= (num->byte 7) (b| $byte-5 $byte-6)))
+(assert (= (num->byte 7) (b| $byte-5 $byte-6)))
 //bitwise AND test
-(assert (b= (num->byte 4) (b& $byte-5 $byte-6)))
+(assert (= (num->byte 4) (b& $byte-5 $byte-6)))
 
 
 //BEGIN standard library array testing --------------------------------------------------------------------
-(assert (ar= "abcd" (, "a" "bc" "d")))
+(assert (= "abcd" (, "a" "bc" "d")))
 
 (let num-array (array 0 1 2 3 4 5))
 (assert (= (ar-sz $num-array) 6))
@@ -579,16 +579,18 @@ else
 )
 
 (let a-string "abcd")
-(assert (ar= "abce" (ar-replace $a-string 3 (num->byte 101))))
-(assert (ar= "abcd" $a-string))
+(assert (= "abce" (ar-replace $a-string 3 (num->byte 101))))
+(assert (= "abcd" $a-string))
+(assert (= "abcde" (ar-extend $a-string 'e')))
+(assert (= (array 'a' 'b' 'c' 'd' 1 2 3) (ar-extend $a-string 1 2 3)))
 
-(assert (ar= "(a b c)" (val->str (lit ('a' 'b' 'c')))))
+(assert (= "(a b c)" (val->memstr (lit ('a' 'b' 'c')))))
 
 //END standard library array testing ----------------------------------------------------------------------
 
 
 //BEGIN standard library list testing ---------------------------------------------------------------------
-(assert (list= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
+(assert (= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
 
 //END standard library list testing -----------------------------------------------------------------------
 
@@ -600,7 +602,7 @@ else
 ))
 
 (assert (= 5 (struct-get $some-data a-var)))
-(assert (ar= "c" (struct-get $some-data another-var)))
+(assert (= "c" (struct-get $some-data another-var)))
 
 (let some-data (struct-replace $some-data a-var 20))
 (assert (= 20 (struct-get $some-data a-var)))
@@ -623,9 +625,9 @@ else
 	//return a function with an environment (a closure) with a bound structure that can be accessed via arguments
 	(return (sub (request value)
 		//note that this could be extended to set individual array elements, rather than just the entire array as shown
-		(if (sym= $request set)
+		(if (= $request set)
 			(let struct $value)
-		else (if (sym= $request get)
+		else (if (= $request get)
 			(return $struct)
 		))
 		//in case we got to the end and didn't return (we have to return something)
@@ -634,13 +636,13 @@ else
 ))
 
 (let a-struct ($new-struct))
-(assert (ar= ($a-struct get NULL) (array 0)))
+(assert (= ($a-struct get NULL) (array 0)))
 ($a-struct set (array 0 1 2 3 4))
-(assert (ar= ($a-struct get NULL) (array 0 1 2 3 4)))
+(assert (= ($a-struct get NULL) (array 0 1 2 3 4)))
 (outexp ($a-struct get NULL))
 (outs $newl)
 //ensure that the global value for "struct" is unaffected
-(assert (b= $struct 'a'))
+(assert (= $struct 'a'))
 
 
 //a structure for lines (taken straight from the line editor at one point)
@@ -653,12 +655,12 @@ else
 	
 	(return (sub (rqst-type var new-val)
 		//get operations return the existing value
-		(if (sym= $rqst-type get)
-			(if (sym= $var ret)
+		(if (= $rqst-type get)
+			(if (= $var ret)
 				(return (ar-idx $struct-data 0))
-			else (if (sym= $var num)
+			else (if (= $var num)
 				(return (ar-idx $struct-data 1))
-			else (if (sym= $var content)
+			else (if (= $var content)
 				(return (ar-idx $struct-data 2))
 			else
 				(outs "Err: symbol ")
@@ -666,12 +668,12 @@ else
 				(outs " is not a member of line-struct" $newl)
 			)))
 		//set operations replace the existing value with the new value
-		else (if (sym= $rqst-type set)
-			(if (sym= $var ret)
+		else (if (= $rqst-type set)
+			(if (= $var ret)
 				(let struct-data (ar-replace $struct-data 0 $new-val))
-			else (if (sym= $var num)
+			else (if (= $var num)
 				(let struct-data (ar-replace $struct-data 1 $new-val))
-			else (if (sym= $var content)
+			else (if (= $var content)
 				(let struct-data (ar-replace $struct-data 2 $new-val))
 			else
 				(outs "Err: symbol ")
@@ -688,7 +690,7 @@ else
 
 (let a-line ($line-struct))
 ($a-line set content "asdf")
-(assert (ar= ($a-line get content NULL) "asdf"))
+(assert (= ($a-line get content NULL) "asdf"))
 (assert (= ($a-line get ret NULL) 0))
 (assert (= ($a-line get num NULL) 1))
 

@@ -157,6 +157,9 @@ The primitive types are listed below.
 	<b>SUB</b> - a closure; this is a first-class function/subroutine/procedure and consists of arguments, a body, and its own local environment frame
 	</li>
 	<li>
+	<b>STRUCT</b> - an independent environment bound to a variable; using this you can bind names to values, get them, and return new structs with their values changed (must still set a symbol equal to that result, no side-effects)
+	</li>
+	<li>
 	<b>SYMBOL</b> - a literal symbol, the only time this is evaluated is when it is in the first position of a list, where it is checked against keywords and then primitives; otherwise these are self-evaluating
 	</li>
 	<li>
@@ -203,7 +206,7 @@ Firstly, the numeric primitives.
 </ul>
 
 <p>
-Nextly, the numeric comparision primitives.
+Nextly, generic comparision primitives.  These can operate on any type but all elements just have the SAME type, or a failure will result (hard exit if _STRICT, otherwise a NULL return).
 </p>
 
 <ul>
@@ -221,28 +224,6 @@ Nextly, the numeric comparision primitives.
 	</li>
 	<li>
 	<b>&gt;=</b> - the greater than or equal to operator, equivalent to (or (&gt; ...) (= ...))
-	</li>
-</ul>
-
-<p>
-And the byte comparision primitives (used for single character and boolean comparisons).
-</p>
-
-<ul>
-	<li>
-	<b>b=</b> - the equality operator, taking any number of arguments &gt;=2 (= a b c ...) and returning a==b==c==...
-	</li>
-	<li>
-	<b>b&lt;</b> - the less than operator, taking any number of arguments &gt;=2 (&lt; a b c ...) and returning a&lt;b&lt;c&lt;...
-	</li>
-	<li>
-	<b>b&gt;</b> - the greater than operator, taking any number of arguments &gt;=2 (&gt; a b c ...) and returning a&gt;b&gt;c&gt;...
-	</li>
-	<li>
-	<b>b&lt;=</b> - the less than or equal to operator, equivalent to (or (&lt; ...) (= ...))
-	</li>
-	<li>
-	<b>b&gt;=</b> - the greater than or equal to operator, equivalent to (or (&gt; ...) (= ...))
 	</li>
 </ul>
 
@@ -529,25 +510,16 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 	<b>,</b> - , (comma) is the array (and therefore string) concatenation operator in neulang; this makes much more sense than something like + for string data, and is less ambiguous; it takes any number of arguments (all arrays!) and returns one array composed of all the elements of the argument arrays in order; to make a 2D array rather than flattening data, call <b>array</b> instead.  <b>,</b> is a very useful operator because you cannot escape characters in neulang (strings are from one " to the next " with no ifs, ands, or buts) and therefore must concatenate to output generated data, non-printable characters, and characters like <b>$newl</b> which might hurt your code formatting.  
 	</li>
 	<li>
-	<b>ar=</b> - array equality operator
-	</li>
-	<li>
-	<b>ar&lt;</b> - array less than operator
-	</li>
-	<li>
-	<b>ar&gt;</b> - array greater than operator
-	</li>
-	<li>
-	<b>ar&lt;=</b> - array less than or equal to operator
-	</li>
-	<li>
-	<b>ar&gt;=</b> - array greater than or equal to operator
-	</li>
-	<li>
 	<b>ar-sz</b> - returns size of an array (number of elements)
 	</li>
 	<li>
 	<b>ar-idx</b> - returns a copy of the element of the array at the given index (let element (ar-idx $array $index))
+	</li>
+	<li>
+	<b>ar-replace</b> - returns a new array with given element replaced with new value (let array (ar-replace $array $index $new-value))
+	</li>
+	<li>
+	<b>ar-extend</b> - returns a new array with all elements of new array, as well as extra elements given (at end) (let array (ar-extend $array $new-value))
 	</li>
 <!-- TODO: implement these in the interpreter -->
 	<li>
@@ -592,21 +564,6 @@ Lists are used for interal parsing and are useful for data that you plan to iter
 	</li>
 	<li>
 	<b>list-sz</b> - returns the number of elements in a list (has to iterate through to get this)
-	</li>
-	<li>
-	<b>list=</b> - list equality operator
-	</li>
-	<li>
-	<b>list&lt;</b> - list less than operator
-	</li>
-	<li>
-	<b>list&gt;</b> - list greater than operator
-	</li>
-	<li>
-	<b>list&lt;=</b> - list less than or equal to operator
-	</li>
-	<li>
-	<b>list&gt;=</b> - list greater than or equal to operator
 	</li>
 </ul>
 

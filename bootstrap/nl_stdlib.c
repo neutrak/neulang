@@ -314,7 +314,7 @@ nl_val *nl_byte_to_num(nl_val *byte_list){
 }
 
 //returns the string-encoded version of any given expression
-nl_val *nl_val_to_str(nl_val *exp){
+nl_val *nl_val_to_memstr(const nl_val *exp){
 	nl_val *ret=nl_val_malloc(ARRAY);
 	//output for sprintf operations
 	char buffer[BUFFER_SIZE];
@@ -323,7 +323,7 @@ nl_val *nl_val_to_str(nl_val *exp){
 	
 /*
 #ifdef _DEBUG
-	printf("nl_val_to_str debug 0, converting ");
+	printf("nl_val_to_memstr debug 0, converting ");
 	nl_out(stdout,exp);
 	printf(" into a string...\n");
 #endif
@@ -352,7 +352,7 @@ nl_val *nl_val_to_str(nl_val *exp){
 			//this is also linked list conversion; it's a little more complex to make it pretty because this is good for debugging and just generally
 			nl_str_push_cstr(ret,"(");
 			
-			tmp_str=nl_val_to_str(exp->d.pair.f);
+			tmp_str=nl_val_to_memstr(exp->d.pair.f);
 			nl_str_push_nlstr(ret,tmp_str);
 			nl_val_free(tmp_str);
 			{
@@ -363,7 +363,7 @@ nl_val *nl_val_to_str(nl_val *exp){
 				while((exp!=NULL) && (exp->t==PAIR)){
 					nl_str_push_cstr(ret," ");
 					
-					tmp_str=nl_val_to_str(exp->d.pair.f);
+					tmp_str=nl_val_to_memstr(exp->d.pair.f);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 					
@@ -375,7 +375,7 @@ nl_val *nl_val_to_str(nl_val *exp){
 				if(len==0){
 					nl_str_push_cstr(ret," . ");
 					
-					tmp_str=nl_val_to_str(exp);
+					tmp_str=nl_val_to_memstr(exp);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 				}
@@ -387,8 +387,8 @@ nl_val *nl_val_to_str(nl_val *exp){
 			{
 				unsigned int n;
 				for(n=0;n<(exp->d.array.size);n++){
-//					tmp_str=nl_val_to_str(&(exp->d.array.v[n]));
-					tmp_str=nl_val_to_str(exp->d.array.v[n]);
+//					tmp_str=nl_val_to_memstr(&(exp->d.array.v[n]));
+					tmp_str=nl_val_to_memstr(exp->d.array.v[n]);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 					
@@ -405,7 +405,7 @@ nl_val *nl_val_to_str(nl_val *exp){
 			{
 				nl_val *sub_args=exp->d.sub.args;
 				while(sub_args!=NULL){
-					tmp_str=nl_val_to_str(sub_args->d.pair.f);
+					tmp_str=nl_val_to_memstr(sub_args->d.pair.f);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 					
@@ -425,13 +425,13 @@ nl_val *nl_val_to_str(nl_val *exp){
 				for(n=0;n<(exp->d.nl_struct.env->symbol_array->d.array.size);n++){
 					nl_str_push_cstr(ret,"{");
 					
-					tmp_str=nl_val_to_str(exp->d.nl_struct.env->symbol_array->d.array.v[n]);
+					tmp_str=nl_val_to_memstr(exp->d.nl_struct.env->symbol_array->d.array.v[n]);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 					
 					nl_str_push_cstr(ret," ");
 					
-					tmp_str=nl_val_to_str(exp->d.nl_struct.env->value_array->d.array.v[n]);
+					tmp_str=nl_val_to_memstr(exp->d.nl_struct.env->value_array->d.array.v[n]);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 					
@@ -449,8 +449,8 @@ nl_val *nl_val_to_str(nl_val *exp){
 			if(exp->d.sym.name!=NULL){
 				unsigned int n;
 				for(n=0;n<(exp->d.sym.name->d.array.size);n++){
-//					tmp_str=nl_val_to_str(&(exp->d.sym.name->d.array.v[n]));
-					tmp_str=nl_val_to_str(exp->d.sym.name->d.array.v[n]);
+//					tmp_str=nl_val_to_memstr(&(exp->d.sym.name->d.array.v[n]));
+					tmp_str=nl_val_to_memstr(exp->d.sym.name->d.array.v[n]);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 				}
@@ -462,8 +462,8 @@ nl_val *nl_val_to_str(nl_val *exp){
 			if((exp->d.eval.sym!=NULL) && (exp->d.eval.sym->d.sym.name!=NULL)){
 				unsigned int n;
 				for(n=0;n<(exp->d.eval.sym->d.sym.name->d.array.size);n++){
-//						tmp_str=nl_val_to_str(&(exp->d.eval.sym->d.sym.name->d.array.v[n]));
-					tmp_str=nl_val_to_str(exp->d.eval.sym->d.sym.name->d.array.v[n]);
+//					tmp_str=nl_val_to_memstr(&(exp->d.eval.sym->d.sym.name->d.array.v[n]));
+					tmp_str=nl_val_to_memstr(exp->d.eval.sym->d.sym.name->d.array.v[n]);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 				}
@@ -480,7 +480,7 @@ nl_val *nl_val_to_str(nl_val *exp){
 }
 
 //returns the string-encoded version of any given list of expressions
-nl_val *nl_val_list_to_str(nl_val *val_list){
+nl_val *nl_val_list_to_memstr(nl_val *val_list){
 	nl_val *ret=nl_val_malloc(ARRAY);
 	//temporary string for sub-expressions
 	nl_val *tmp_str;
@@ -488,7 +488,7 @@ nl_val *nl_val_list_to_str(nl_val *val_list){
 	while(val_list!=NULL && val_list->t==PAIR){
 		nl_val *exp=val_list->d.pair.f;
 		
-		tmp_str=nl_val_to_str(exp);
+		tmp_str=nl_val_to_memstr(exp);
 		nl_str_push_nlstr(ret,tmp_str);
 		nl_val_free(tmp_str);
 		
@@ -679,6 +679,30 @@ nl_val *nl_array_replace(nl_val *arg_list){
 		}else{
 			nl_array_push(ret,nl_val_cp(ar->d.array.v[n]));
 		}
+	}
+	
+	return ret;
+}
+
+//returns an array consisting of all elements of the starting array
+//plus any elements given as arguments after that
+nl_val *nl_array_extend(nl_val *arg_list){
+	if(nl_c_list_size(arg_list)<1){
+		ERR_EXIT(arg_list,"no arguments given to array extend operation",TRUE);
+		return NULL;
+	}
+	
+	if((arg_list->d.pair.f==NULL) || (arg_list->d.pair.f->t!=ARRAY)){
+		ERR_EXIT(arg_list,"non-array given as first argument to array extend operation",TRUE);
+		return NULL;
+	}
+	
+	nl_val *ret=nl_val_cp(arg_list->d.pair.f);
+	arg_list=arg_list->d.pair.r;
+	
+	while(arg_list!=NULL){
+		nl_array_push(ret,nl_val_cp(arg_list->d.pair.f));
+		arg_list=arg_list->d.pair.r;
 	}
 	
 	return ret;
@@ -1120,8 +1144,10 @@ nl_val *nl_div(nl_val *num_list){
 
 //BEGIN C-NL-STDLIB-CMP SUBROUTINES  ------------------------------------------------------------------------------
 
-//checks if the values of given type t within val_list are equal
-nl_val *nl_generic_eq(nl_val *val_list, nl_type t){
+//equality operator =
+//if more than two arguments are given then this will only return true if a==b==c==... for (= a b c ...)
+//checks if the values of the same type within val_list are equal
+nl_val *nl_generic_eq(nl_val *val_list){
 	nl_val *ret=NULL;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
@@ -1129,8 +1155,8 @@ nl_val *nl_generic_eq(nl_val *val_list, nl_type t){
 		ERR_EXIT(val_list,"a NULL argument was given to equality operator, returning NULL",TRUE);
 		return NULL;
 	}
-	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
-		ERR_EXIT(val_list,"incorrect use of eq operator =; arg count < 2 or incorrect type",TRUE);
+	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
+		ERR_EXIT(val_list,"incorrect use of eq operator =; arg count < 2 or inconsistent type",TRUE);
 		return NULL;
 	}
 	
@@ -1141,6 +1167,12 @@ nl_val *nl_generic_eq(nl_val *val_list, nl_type t){
 	val_list=val_list->d.pair.r;
 	
 	while((val_list!=NULL) && (val_list->t==PAIR)){
+		if(last_value->t!=val_list->d.pair.f->t){
+			ERR_EXIT(val_list,"inconsistent types given to eq operator =",TRUE);
+			nl_val_free(ret);
+			return NULL;
+		}
+		
 		//if we got a==b, then set the return to true and keep going
 		if(nl_val_cmp(last_value,val_list->d.pair.f)==0){
 			ret->d.byte.v=TRUE;
@@ -1155,8 +1187,10 @@ nl_val *nl_generic_eq(nl_val *val_list, nl_type t){
 	return ret;
 }
 
-//checks if the values of a given type t within val_list are in descending order
-nl_val *nl_generic_gt(nl_val *val_list, nl_type t){
+//gt operator >
+//if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
+//checks if the values of the same type within val_list are in descending order
+nl_val *nl_generic_gt(nl_val *val_list){
 	nl_val *ret=NULL;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
@@ -1164,8 +1198,8 @@ nl_val *nl_generic_gt(nl_val *val_list, nl_type t){
 		ERR_EXIT(val_list,"a NULL argument was given to greater than operator, returning NULL",TRUE);
 		return NULL;
 	}
-	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
-		ERR_EXIT(val_list,"incorrect use of gt operator >; arg count < 2 or incorrect type",TRUE);
+	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
+		ERR_EXIT(val_list,"incorrect use of gt operator >; arg count < 2 or inconsistent type",TRUE);
 		return NULL;
 	}
 	
@@ -1176,6 +1210,12 @@ nl_val *nl_generic_gt(nl_val *val_list, nl_type t){
 	val_list=val_list->d.pair.r;
 	
 	while((val_list!=NULL) && (val_list->t==PAIR)){
+		if(last_value->t!=val_list->d.pair.f->t){
+			ERR_EXIT(val_list,"inconsistent types given to gt operator >",TRUE);
+			nl_val_free(ret);
+			return NULL;
+		}
+		
 		//if we got a>b, then set the return to true and keep going
 		if(nl_val_cmp(last_value,val_list->d.pair.f)>0){
 			ret->d.byte.v=TRUE;
@@ -1190,8 +1230,10 @@ nl_val *nl_generic_gt(nl_val *val_list, nl_type t){
 	return ret;
 }
 
-//checks if the values of a given type t within val_list are in ascending order
-nl_val *nl_generic_lt(nl_val *val_list, nl_type t){
+//lt operator <
+//if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
+//checks if the values of the same type within val_list are in ascending order
+nl_val *nl_generic_lt(nl_val *val_list){
 	nl_val *ret=NULL;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
@@ -1199,8 +1241,8 @@ nl_val *nl_generic_lt(nl_val *val_list, nl_type t){
 		ERR_EXIT(val_list,"a NULL argument was given to less than operator, returning NULL",TRUE);
 		return NULL;
 	}
-	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==t) && (val_list->d.pair.r->d.pair.f->t==t))){
-		ERR_EXIT(val_list,"incorrect use of lt operator <; arg count < 2 or incorrect type",TRUE);
+	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
+		ERR_EXIT(val_list,"incorrect use of lt operator <; arg count < 2 or inconsistent type",TRUE);
 		return NULL;
 	}
 	
@@ -1211,6 +1253,12 @@ nl_val *nl_generic_lt(nl_val *val_list, nl_type t){
 	val_list=val_list->d.pair.r;
 	
 	while((val_list!=NULL) && (val_list->t==PAIR)){
+		if(last_value->t!=val_list->d.pair.f->t){
+			ERR_EXIT(val_list,"inconsistent types given to lt operator <",TRUE);
+			nl_val_free(ret);
+			return NULL;
+		}
+		
 		//if we got a<b, then set the return to true and keep going
 		if(nl_val_cmp(last_value,val_list->d.pair.f)<0){
 			ret->d.byte.v=TRUE;
@@ -1226,155 +1274,28 @@ nl_val *nl_generic_lt(nl_val *val_list, nl_type t){
 
 }
 
+//ge operator >=
 //checks if list is descending or equal, >=
-nl_val *nl_generic_ge(nl_val *val_list, nl_type t){
-	nl_val *gt_result=nl_generic_gt(val_list,t);
+nl_val *nl_generic_ge(nl_val *val_list){
+	nl_val *gt_result=nl_generic_gt(val_list);
 	if(nl_is_true(gt_result)){
 		return gt_result;
 	}else{
 		nl_val_free(gt_result);
-		return nl_generic_eq(val_list,t);
+		return nl_generic_eq(val_list);
 	}
 }
 
+//le operator <=
 //checks if list is ascending or equal, <=
-nl_val *nl_generic_le(nl_val *val_list, nl_type t){
-	nl_val *gt_result=nl_generic_lt(val_list,t);
+nl_val *nl_generic_le(nl_val *val_list){
+	nl_val *gt_result=nl_generic_lt(val_list);
 	if(nl_is_true(gt_result)){
 		return gt_result;
 	}else{
 		nl_val_free(gt_result);
-		return nl_generic_eq(val_list,t);
+		return nl_generic_eq(val_list);
 	}
-}
-
-//numeric equality operator =
-//if more than two arguments are given then this will only return true if a==b==c==... for (= a b c ...)
-nl_val *nl_eq(nl_val *val_list){
-	return nl_generic_eq(val_list,NUM);
-}
-
-//numeric gt operator >
-//if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
-nl_val *nl_gt(nl_val *val_list){
-	return nl_generic_gt(val_list,NUM);
-}
-
-//numeric lt operator <
-//if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
-nl_val *nl_lt(nl_val *val_list){
-	return nl_generic_lt(val_list,NUM);
-}
-
-//numeric ge operator >=
-nl_val *nl_ge(nl_val *val_list){
-	return nl_generic_ge(val_list,NUM);
-}
-
-//numeric le operator <=
-nl_val *nl_le(nl_val *val_list){
-	return nl_generic_le(val_list,NUM);
-}
-
-//array equality operator ar=
-nl_val *nl_ar_eq(nl_val *val_list){
-	return nl_generic_eq(val_list,ARRAY);
-}
-
-//array greater than operator ar>
-nl_val *nl_ar_gt(nl_val *val_list){
-	return nl_generic_gt(val_list,ARRAY);
-}
-
-//array less than operator ar<
-nl_val *nl_ar_lt(nl_val *val_list){
-	return nl_generic_lt(val_list,ARRAY);
-}
-
-//array greater than or equal to operator ar>=
-nl_val *nl_ar_ge(nl_val *val_list){
-	return nl_generic_ge(val_list,ARRAY);
-}
-
-//array less than or equal to operator ar<=
-nl_val *nl_ar_le(nl_val *val_list){
-	return nl_generic_le(val_list,ARRAY);
-}
-
-//list equality operator list=
-nl_val *nl_list_eq(nl_val *val_list){
-	return nl_generic_eq(val_list,PAIR);
-}
-
-//list greater than operator list>
-nl_val *nl_list_gt(nl_val *val_list){
-	return nl_generic_gt(val_list,PAIR);
-}
-
-//list less than operator list<
-nl_val *nl_list_lt(nl_val *val_list){
-	return nl_generic_lt(val_list,PAIR);
-}
-
-//list greater than or equal to operator list>=
-nl_val *nl_list_ge(nl_val *val_list){
-	return nl_generic_ge(val_list,PAIR);
-}
-
-//list less than or equal to operator list<=
-nl_val *nl_list_le(nl_val *val_list){
-	return nl_generic_le(val_list,PAIR);
-}
-
-//byte equality operator b=
-//if more than two arguments are given then this will only return true if a==b==c==... for (b= a b c ...)
-nl_val *nl_byte_eq(nl_val *val_list){
-	return nl_generic_eq(val_list,BYTE);
-}
-
-//byte greater than operator b>
-nl_val *nl_byte_gt(nl_val *val_list){
-	return nl_generic_gt(val_list,BYTE);
-}
-
-//byte less than operator b<
-nl_val *nl_byte_lt(nl_val *val_list){
-	return nl_generic_lt(val_list,BYTE);
-}
-
-//byte greater than or equal to operator b>=
-nl_val *nl_byte_ge(nl_val *val_list){
-	return nl_generic_ge(val_list,BYTE);
-}
-
-//byte less than or equal to operator b<=
-nl_val *nl_byte_le(nl_val *val_list){
-	return nl_generic_le(val_list,BYTE);
-}
-
-//symbol equality operator sym=
-nl_val *nl_sym_eq(nl_val *val_list){
-	return nl_generic_eq(val_list,SYMBOL);
-}
-
-//symbol greater than operator sym>
-nl_val *nl_sym_gt(nl_val *val_list){
-	return nl_generic_gt(val_list,SYMBOL);
-}
-
-//symbol less than operator sym<
-nl_val *nl_sym_lt(nl_val *val_list){
-	return nl_generic_lt(val_list,SYMBOL);
-}
-
-//symbol greater than or equal to operator sym>=
-nl_val *nl_sym_ge(nl_val *val_list){
-	return nl_generic_ge(val_list,SYMBOL);
-}
-
-//symbol less than or equal to operator sym<=
-nl_val *nl_sym_le(nl_val *val_list){
-	return nl_generic_le(val_list,SYMBOL);
 }
 
 //null check null?

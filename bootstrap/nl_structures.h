@@ -331,10 +331,10 @@ nl_val *nl_num_to_byte(nl_val *num_list);
 nl_val *nl_byte_to_num(nl_val *byte_list);
 
 //returns the string-encoded version of any given expression
-nl_val *nl_val_to_str(nl_val *exp);
+nl_val *nl_val_to_memstr(const nl_val *exp);
 
 //returns the string-encoded version of any given list of expressions
-nl_val *nl_val_list_to_str(nl_val *val_list);
+nl_val *nl_val_list_to_memstr(nl_val *val_list);
 
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v);
@@ -352,6 +352,10 @@ nl_val *nl_array_cat(nl_val *array_list);
 //returns a new array with the given value substituted for value at given index in the given array
 //arguments array, index, new-value
 nl_val *nl_array_replace(nl_val *arg_list);
+
+//returns an array consisting of all elements of the starting array
+//plus any elements given as arguments after that
+nl_val *nl_array_extend(nl_val *arg_list);
 
 //output the given list of strings in sequence
 //returns NULL (a void function)
@@ -407,99 +411,28 @@ nl_val *nl_mul(nl_val *num_list);
 //divide a list of (rational) numbers
 nl_val *nl_div(nl_val *num_list);
 
-//checks if the values of given type t within val_list are equal
-nl_val *nl_generic_eq(nl_val *val_list, nl_type t);
-
-//checks if the values of a given type t within val_list are in descending order
-nl_val *nl_generic_gt(nl_val *val_list, nl_type t);
-
-//checks if the values of a given type t within val_list are in ascending order
-nl_val *nl_generic_lt(nl_val *val_list, nl_type t);
-
-//checks if list is descending or equal, >=
-nl_val *nl_generic_ge(nl_val *val_list, nl_type t);
-
-//checks if list is ascending or equal, <=
-nl_val *nl_generic_le(nl_val *val_list, nl_type t);
-
-//numeric equality operator =
+//equality operator =
 //if more than two arguments are given then this will only return true if a==b==c==... for (= a b c ...)
-nl_val *nl_eq(nl_val *val_list);
+//checks if the values of the same type within val_list are equal
+nl_val *nl_generic_eq(nl_val *val_list);
 
-//numeric gt operator >
+//gt operator >
 //if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
-nl_val *nl_gt(nl_val *val_list);
+//checks if the values of the same type within val_list are in descending order
+nl_val *nl_generic_gt(nl_val *val_list);
 
-//numeric lt operator <
+//lt operator <
 //if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
-nl_val *nl_lt(nl_val *val_list);
+//checks if the values of the same type within val_list are in ascending order
+nl_val *nl_generic_lt(nl_val *val_list);
 
-//numeric ge operator >=
-nl_val *nl_ge(nl_val *val_list);
+//ge operator >=
+//checks if list is descending or equal, >=
+nl_val *nl_generic_ge(nl_val *val_list);
 
-//numeric le operator <=
-nl_val *nl_le(nl_val *val_list);
-
-//array equality operator ar=
-nl_val *nl_ar_eq(nl_val *val_list);
-
-//array greater than operator ar>
-nl_val *nl_ar_gt(nl_val *val_list);
-
-//array less than operator ar<
-nl_val *nl_ar_lt(nl_val *val_list);
-
-//array greater than or equal to operator ar>=
-nl_val *nl_ar_ge(nl_val *val_list);
-
-//array less than or equal to operator ar<=
-nl_val *nl_ar_le(nl_val *val_list);
-
-//list equality operator list=
-nl_val *nl_list_eq(nl_val *val_list);
-
-//list greater than operator list>
-nl_val *nl_list_gt(nl_val *val_list);
-
-//list less than operator list<
-nl_val *nl_list_lt(nl_val *val_list);
-
-//list greater than or equal to operator list>=
-nl_val *nl_list_ge(nl_val *val_list);
-
-//list less than or equal to operator list<=
-nl_val *nl_list_le(nl_val *val_list);
-
-//byte equality operator b=
-//if more than two arguments are given then this will only return true if a==b==c==... for (b= a b c ...)
-nl_val *nl_byte_eq(nl_val *val_list);
-
-//byte greater than operator b>
-nl_val *nl_byte_gt(nl_val *val_list);
-
-//byte less than operator b<
-nl_val *nl_byte_lt(nl_val *val_list);
-
-//byte greater than or equal to operator b>=
-nl_val *nl_byte_ge(nl_val *val_list);
-
-//byte less than or equal to operator b<=
-nl_val *nl_byte_le(nl_val *val_list);
-
-//symbol equality operator sym=
-nl_val *nl_sym_eq(nl_val *val_list);
-
-//symbol greater than operator sym>
-nl_val *nl_sym_gt(nl_val *val_list);
-
-//symbol less than operator sym<
-nl_val *nl_sym_lt(nl_val *val_list);
-
-//symbol greater than or equal to operator sym>=
-nl_val *nl_sym_ge(nl_val *val_list);
-
-//symbol less than or equal to operator sym<=
-nl_val *nl_sym_le(nl_val *val_list);
+//le operator <=
+//checks if list is ascending or equal, <=
+nl_val *nl_generic_le(nl_val *val_list);
 
 //null check null?
 //returns TRUE iff all elements given in the list are NULL

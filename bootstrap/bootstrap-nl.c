@@ -1481,13 +1481,16 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 				nl_val_free(ret);
 				ret=NULL;
 			}
+/*
 #ifdef _DEBUG
 			printf("calling off to eval_sequence with ");
 			nl_out(stdout,struct_elements->d.pair.r);
 			printf("\n");
 #endif
+*/
 			//evaluate what to initially bind to (constructor values if you will)
 			nl_eval_elements(struct_elements->d.pair.r,env);
+/*
 #ifdef _DEBUG
 			printf("binding ");
 			nl_out(stdout,struct_elements->d.pair.f);
@@ -1495,6 +1498,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			nl_out(stdout,struct_elements->d.pair.r->d.pair.f);
 			printf("\n");
 #endif
+*/
 			//bind this in the struct
 			nl_bind(struct_elements->d.pair.f,struct_elements->d.pair.r->d.pair.f,ret->d.nl_struct.env);
 			
@@ -2107,8 +2111,7 @@ nl_val *nl_read_exp(FILE *fp){
 //this now outputs a [neulang] string; NOT a c string, so we don't need a length (from a user perspective there's no change, just done in a different function)
 //output a neulang value
 void nl_out(FILE *fp, const nl_val *exp){
-	//TODO: make this less nasty; type casting from a const really shouldn't happen
-	nl_val *nl_str=nl_val_to_str((nl_val*)exp);
+	nl_val *nl_str=nl_val_to_memstr(exp);
 	int n;
 	for(n=0;n<(nl_str->d.array.size);n++){
 		fprintf(fp,"%c",nl_str->d.array.v[n]->d.byte.v);
@@ -2199,41 +2202,23 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	
 	//ALL the comparison operators (for each type)
-	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_eq),env);
-	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_gt),env);
-	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_lt),env);
-	nl_bind_new(nl_sym_from_c_str(">="),nl_primitive_wrap(nl_ge),env);
-	nl_bind_new(nl_sym_from_c_str("<="),nl_primitive_wrap(nl_le),env);
-	nl_bind_new(nl_sym_from_c_str("ar="),nl_primitive_wrap(nl_ar_eq),env);
-	nl_bind_new(nl_sym_from_c_str("ar>"),nl_primitive_wrap(nl_ar_gt),env);
-	nl_bind_new(nl_sym_from_c_str("ar<"),nl_primitive_wrap(nl_ar_lt),env);
-	nl_bind_new(nl_sym_from_c_str("ar>="),nl_primitive_wrap(nl_ar_ge),env);
-	nl_bind_new(nl_sym_from_c_str("ar<="),nl_primitive_wrap(nl_ar_le),env);
-	nl_bind_new(nl_sym_from_c_str("list="),nl_primitive_wrap(nl_list_eq),env);
-	nl_bind_new(nl_sym_from_c_str("list>"),nl_primitive_wrap(nl_list_gt),env);
-	nl_bind_new(nl_sym_from_c_str("list<"),nl_primitive_wrap(nl_list_lt),env);
-	nl_bind_new(nl_sym_from_c_str("list>="),nl_primitive_wrap(nl_list_ge),env);
-	nl_bind_new(nl_sym_from_c_str("list<="),nl_primitive_wrap(nl_list_le),env);
-	nl_bind_new(nl_sym_from_c_str("b="),nl_primitive_wrap(nl_byte_eq),env);
-	nl_bind_new(nl_sym_from_c_str("b>"),nl_primitive_wrap(nl_byte_gt),env);
-	nl_bind_new(nl_sym_from_c_str("b<"),nl_primitive_wrap(nl_byte_lt),env);
-	nl_bind_new(nl_sym_from_c_str("b>="),nl_primitive_wrap(nl_byte_ge),env);
-	nl_bind_new(nl_sym_from_c_str("b<="),nl_primitive_wrap(nl_byte_le),env);
-	nl_bind_new(nl_sym_from_c_str("sym="),nl_primitive_wrap(nl_sym_eq),env);
-	nl_bind_new(nl_sym_from_c_str("sym>"),nl_primitive_wrap(nl_sym_gt),env);
-	nl_bind_new(nl_sym_from_c_str("sym<"),nl_primitive_wrap(nl_sym_lt),env);
-	nl_bind_new(nl_sym_from_c_str("sym>="),nl_primitive_wrap(nl_sym_ge),env);
-	nl_bind_new(nl_sym_from_c_str("sym<="),nl_primitive_wrap(nl_sym_le),env);
+	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_generic_eq),env);
+	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_generic_gt),env);
+	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_generic_lt),env);
+	nl_bind_new(nl_sym_from_c_str(">="),nl_primitive_wrap(nl_generic_ge),env);
+	nl_bind_new(nl_sym_from_c_str("<="),nl_primitive_wrap(nl_generic_le),env);
 	nl_bind_new(nl_sym_from_c_str("null?"),nl_primitive_wrap(nl_is_null),env);
 	
 	//array concatenation!
 	nl_bind_new(nl_sym_from_c_str(","),nl_primitive_wrap(nl_array_cat),env);
+	nl_bind_new(nl_sym_from_c_str("ar-cat"),nl_primitive_wrap(nl_array_cat),env);
 	
 	//size and length are bound to the same primitive function, just to make life easier (only ar-sz is "official")
 	nl_bind_new(nl_sym_from_c_str("ar-sz"),nl_primitive_wrap(nl_array_size),env);
 	nl_bind_new(nl_sym_from_c_str("ar-len"),nl_primitive_wrap(nl_array_size),env);
 	nl_bind_new(nl_sym_from_c_str("ar-idx"),nl_primitive_wrap(nl_array_idx),env);
 	nl_bind_new(nl_sym_from_c_str("ar-replace"),nl_primitive_wrap(nl_array_replace),env);
+	nl_bind_new(nl_sym_from_c_str("ar-extend"),nl_primitive_wrap(nl_array_extend),env);
 	//TODO: make and bind additional array subroutines
 	
 	//TODO: list concatenation
@@ -2258,7 +2243,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
 	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);
-	nl_bind_new(nl_sym_from_c_str("val->str"),nl_primitive_wrap(nl_val_list_to_str),env);
+	nl_bind_new(nl_sym_from_c_str("val->memstr"),nl_primitive_wrap(nl_val_list_to_memstr),env);
 	//TODO: all other sensical type conversions
 	
 	//TODO: any other bitwise operations that make sense

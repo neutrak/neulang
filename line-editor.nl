@@ -64,9 +64,9 @@
 			(let c (inchar))
 		)
 		
-		(outs "edit-line debug -0.5, escaped is " (val->str $escaped) $newl)
+		(outs "edit-line debug -0.5, escaped is " (val->memstr $escaped) $newl)
 		
-		(if (b= $escaped TRUE)
+		(if (= $escaped TRUE)
 			//check for special escapes (movement that can't be handled in one line)
 			(if (= $c (f $up-char))
 //				(inchar)
@@ -107,9 +107,9 @@
 			(if (= $c (f $left-char))
 //				(inchar) //skip a control character
 				(if (> $line-idx 0)
-					(outs "edit-line debug 0.85, line-idx is " (val->str $line-idx) $newl)
+					(outs "edit-line debug 0.85, line-idx is " (val->memstr $line-idx) $newl)
 					(let line-info (struct-replace $line-info idx (- $line-idx 1)))
-					(outs "edit-line debug 0.85, line info idx is " (val->str (struct-get $line-info idx)) $newl)
+					(outs "edit-line debug 0.85, line info idx is " (val->memstr (struct-get $line-info idx)) $newl)
 				)
 			else (if (= $c (f $right-char))
 //				(inchar) //skip a control character
@@ -182,8 +182,8 @@
 		(let current-line ($edit-line $current-line))
 		(let line-return (struct-get $current-line ret))
 		
-		(outs "edit debug 0; returned from edit-line with value " (val->str $line-return) $newl)
-		(outs "current line data is " (val->str $current-line) $newl)
+		(outs "edit debug 0; returned from edit-line with value " (val->memstr $line-return) $newl)
+		(outs "current line data is " (val->memstr $current-line) $newl)
 		
 		//check for special return values (which indicate moving a line)
 		(if (= $line-return $up-ret)
@@ -223,10 +223,10 @@
 	)
 	
 	(return (while (not (null? $argv))
-		(if (ar= (f $argv) "--help")
+		(if (= (f $argv) "--help")
 			(outs "[help] please see the manual page for detailed help" $newl)
 			(return TRUE)
-		else (if (ar= (f $argv) "--version")
+		else (if (= (f $argv) "--version")
 			(outs (, "[version] line editor (in neulang) v" $VERSION $newl))
 			(return TRUE)
 		else
