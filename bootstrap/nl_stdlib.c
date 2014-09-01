@@ -3,8 +3,318 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include "nl_structures.h"
+
+//BEGIN STRING<->EXP I/O SUBROUTINES  -----------------------------------------------------------------------------
+
+//gets an entry out of the string at the given position or returns NULL if position is out of bounds
+//NOTE: this does NOT do type checking at the moment, use with care
+char nl_str_char_or_null(nl_val *string, unsigned int pos){
+	if(pos<(string->d.array.size)){
+		return string->d.array.v[pos]->d.byte.v;
+	}
+	return '\0';
+}
+
+//skip past any leading whitespaces in the string
+void nl_str_skip_whitespace(nl_val *input_string, unsigned int *persistent_pos){
+	unsigned int pos=(*persistent_pos);
+	
+	char c=input_string->d.array.v[pos]->d.byte.v;
+	while(nl_is_whitespace(c)){
+		if(c=='\n'){
+			line_number++;
+		}
+		pos++;
+		c=nl_str_char_or_null(input_string,pos);
+		if(c=='\0'){
+			break;
+		}
+	}
+	if(pos>0){
+		pos--;
+	}
+	
+	(*persistent_pos)=pos;
+}
+
+//read a number from a string
+nl_val *nl_str_read_num(nl_val *input_string, unsigned int *persistent_pos){
+	unsigned int pos=(*persistent_pos);
+	
+	//create a new number to return
+	nl_val *ret=nl_val_malloc(NUM);
+	//initialize to 0, this should get reset
+	ret->d.num.n=0;
+	ret->d.num.d=1;
+	
+	//whether or not this number is negative (starts with -)
+	char negative=FALSE;
+	
+	//whether we've hit a / and are now reading a denominator or (default) not
+	char reading_denom=FALSE;
+	//whether we've hit a . and are now reading a float as a rational
+	char reading_decimal=FALSE;
+	
+	char c=nl_str_char_or_null(input_string,pos);
+	pos++;
+	
+	//handle negative signs
+	if(c=='-'){
+		negative=TRUE;
+		c=nl_str_char_or_null(input_string,pos);
+		pos++;
+	}
+	
+	//handle numerical expressions starting with . (absolute value less than 1)
+	if(c=='.'){
+		reading_decimal=TRUE;
+		c=nl_str_char_or_null(input_string,pos);
+		pos++;
+	}
+	
+	//read a number
+	while(!nl_is_whitespace(c) && c!=')'){
+		//numerator
+		if(isdigit(c) && !(reading_denom) && !(reading_decimal)){
+			(ret->d.num.n)*=10;
+			(ret->d.num.n)+=(c-'0');
+		//denominator
+		}else if(isdigit(c) && (reading_denom) && !(reading_decimal)){
+			(ret->d.num.d)*=10;
+			(ret->d.num.d)+=(c-'0');
+		//delimeter to start reading the denominator
+		}else if(c=='/' && !(reading_denom) && !(reading_decimal)){
+			reading_denom=TRUE;
+			ret->d.num.d=0;
+		//a decimal point causes us to read into the numerator and keep the order of magnitude correct by the denominator
+		}else if(c=='.' && !(reading_denom) && !(reading_decimal)){
+			reading_decimal=TRUE;
+		//when reading in a decimal value just read into the numerator and keep correct order of magnitude in denominator
+		}else if(isdigit(c) && reading_decimal){
+			(ret->d.num.n)*=10;
+			(ret->d.num.n)+=(c-'0');
+			
+			(ret->d.num.d)*=10;
+		}else{
+			fprintf(stderr,"Err [line %u]: invalid character in numeric literal, \'%c\'\n",line_number,c);
+#ifdef _STRICT
+			exit(1);
+#endif
+		}
+		
+		c=nl_str_char_or_null(input_string,pos);
+		if(c=='\0'){
+			break;
+		}
+		pos++;
+	}
+	
+	if(c==')'){
+		if(pos>0){
+			pos--;
+		}
+	}else if(c=='\n'){
+		line_number++;
+	}
+	
+	//incorporate negative values if a negative sign preceded the expression
+	if(negative){
+		(ret->d.num.n)*=(-1);
+	}
+	
+	if(ret->d.num.d==0){
+		ERR_EXIT(ret,"divide-by-0 in rational number; did you forget a denominator?",TRUE);
+		nl_val_free(ret);
+		ret=NULL;
+	}else{
+		//gcd reduce the number for faster computation
+		nl_gcd_reduce(ret);
+	}
+	
+	(*persistent_pos)=pos;
+	return ret;
+}
+
+nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
+	unsigned int pos=(*persistent_pos);
+	
+	nl_val *ret=NULL;
+	
+	char c=input_string->d.array.v[pos]->d.byte.v;
+	if(c!='"'){
+		fprintf(stderr,"Err [line %u]: string literal didn't start with \"; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
+		return ret;
+	}
+	pos++;
+	
+	//allocate a byte array
+	ret=nl_val_malloc(ARRAY);
+	
+	if(pos<input_string->d.array.size){
+		c=input_string->d.array.v[pos]->d.byte.v;
+	}else{
+		nl_val_free(ret);
+		return NULL;
+	}
+	
+	//read until end quote, THERE IS NO ESCAPE
+	while(c!='"'){
+		nl_val *ar_entry=nl_val_malloc(BYTE);
+		ar_entry->d.byte.v=c;
+		nl_array_push(ret,ar_entry);
+		
+		if(c=='\n'){
+			line_number++;
+		}
+		
+		pos++;
+		if(pos<input_string->d.array.size){
+			c=input_string->d.array.v[pos]->d.byte.v;
+		}else{
+			nl_val_free(ret);
+			return NULL;
+		}
+	}
+	
+	(*persistent_pos)=pos;
+	return ret;
+}
+
+
+//read an expression from an existing neulang string
+//takes an input string, a position to start at (0 for whole string) and returns the new expression
+//start_pos is set to the end of the first expression read when a full expression is found
+nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
+	//position in string
+	unsigned int pos=(*persistent_pos);
+	
+	//first ensure the string is valid
+	if((input_string==NULL) || (input_string->t!=ARRAY)){
+		ERR_EXIT(input_string,"null or incorrect type given to str_read_exp",TRUE);
+		return NULL;
+	}
+	
+	unsigned int n;
+	for(n=0;n<input_string->d.array.size;n++){
+		if((input_string->d.array.v[n]==NULL) || (input_string->d.array.v[n]->t!=BYTE)){
+			ERR_EXIT(input_string->d.array.v[n],"invalid string entry (null or non-byte) given to str_read_exp",TRUE);
+			return NULL;
+		}
+	}
+	
+/*
+#ifdef _DEBUG
+	printf("nl_str_read_exp debug 0, reading an expression from ");
+	nl_out(stdout,input_string);
+	printf("\n");
+#endif
+*/
+	
+	//initialize the return to null
+	nl_val *ret=NULL;
+	
+	//skip past any whitespace any time we go to read an expression
+	nl_str_skip_whitespace(input_string,&pos);
+	
+	//if we hit the end of the string then exit
+	if(input_string->d.array.size<=pos){
+		return NULL;
+	}
+	
+	//read a character from the given string
+	char c=input_string->d.array.v[pos]->d.byte.v;
+	
+	//peek a character after that, for two-char tokens
+	char next_c;
+	if(input_string->d.array.size>(pos+1)){
+		next_c=input_string->d.array.v[pos+1]->d.byte.v;
+	}else{
+		next_c='\0';
+	}
+	
+	//if it starts with a digit or '.' then it's a number, or if it starts with '-' followed by a digit
+	if(isdigit(c) || (c=='.') || ((c=='-') && isdigit(next_c))){
+		ret=nl_str_read_num(input_string,&pos);
+	//if it starts with a quote read a string (byte array)
+	}else if(c=='"'){
+		ret=nl_str_read_string(input_string,&pos);
+	//if it starts with a single quote, read a character (byte)
+	}else if(c=='\''){
+//		ret=nl_str_read_char(input_string,&pos);
+	//if it starts with a ( read a compound expression (a list of expressions)
+	}else if(c=='('){
+//		ret=nl_str_read_exp_list(input_string,&pos);
+	//an empty list is just a NULL value, so leave ret as NULL
+	}else if(c==')'){
+		
+	//the double-slash denotes a comment, as in gnu89 C
+	}else if(c=='/' && next_c=='/'){
+		//ignore everything until the next newline, then try to read again
+		while(c!='\n'){
+			if((pos+1)<(input_string->d.array.size)){
+				c=input_string->d.array.v[pos+1]->d.byte.v;
+				pos++;
+			}else{
+				c='\n';
+			}
+		}
+		line_number++;
+		ret=nl_str_read_exp(input_string,&pos);
+	//the /* ... */ multi-line comment style, as in gnu89 C
+/*
+	}else if(c=='/' && next_c=='*'){
+		next_c=getc(fp);
+		next_c=getc(fp);
+		if(next_c=='\n'){
+			line_number++;
+		}
+		
+		while(!((c=='*') && (next_c=='/'))){
+			c=next_c;
+			next_c=getc(fp);
+			if(next_c=='\n'){
+				line_number++;
+			}
+		}
+		ret=nl_read_exp(fp);
+	//if it starts with a $ read an evaluation (a symbol to be looked up)
+	}else if(c=='$'){
+		//read an evaluation
+		ret=nl_val_malloc(EVALUATION);
+		nl_val *symbol=nl_read_symbol(fp);
+		
+		if(symbol->t==SYMBOL){
+			ret->d.eval.sym=symbol;
+		//read symbol can also return a list, for alternate syntax calls with parens AFTER the symbol, so handle that
+		}else if(symbol->t==PAIR){
+			ret->d.eval.sym=symbol->d.pair.f;
+			symbol->d.pair.f=ret;
+			ret=symbol;
+		}else{
+			nl_val_free(ret);
+			ret=NULL;
+			ERR_EXIT(NULL,"could not read evaluation (internal parsing error)",FALSE);
+		}
+*/
+	//if it starts with anything not already handled read a symbol
+	}else{
+//		ret=nl_str_read_symbol(input_string,&pos);
+	}
+	
+	//NOTE: whitespace is discarded before we try to read the next expression
+	
+	(*persistent_pos)=pos;
+	return ret;
+}
+
+//END STRING<->EXP I/O SUBROUTINES  -------------------------------------------------------------------------------
+
 
 //BEGIN C-NL-STDLIB SUBROUTINES  ----------------------------------------------------------------------------------
 
@@ -708,6 +1018,49 @@ nl_val *nl_array_extend(nl_val *arg_list){
 	return ret;
 }
 
+//returns an array consisting of all the elements of the starting array
+//EXCEPT the element at the given position
+nl_val *nl_array_omit(nl_val *arg_list){
+	int argc=nl_c_list_size(arg_list);
+	if(argc!=2){
+		ERR_EXIT(arg_list,"incorrect number of arguments given to array omit operation",TRUE);
+		return NULL;
+	}
+	nl_val *ar=arg_list->d.pair.f;
+	nl_val *idx=arg_list->d.pair.r->d.pair.f;
+	
+	if((ar==NULL) || (ar->t!=ARRAY) || (idx==NULL) || (idx->t!=NUM)){
+		ERR_EXIT(arg_list,"invalid type given to array omit operation",TRUE);
+		return NULL;
+	}
+	
+	if(idx->d.num.d!=NUM){
+		ERR_EXIT(idx,"non-integer index given to array omit operation",TRUE);
+		return NULL;
+	}
+	
+	if(idx->d.num.n>=(ar->d.array.size)){
+		ERR_EXIT(idx,"index given to array omit operation is larger than array size",TRUE);
+		return NULL;
+	}
+	
+	//okay now we're past the error handling and we can actually do something
+	//make a new array
+	nl_val *ret=nl_val_malloc(ARRAY);
+	
+	//push in copies of all the old values, substituting the new value where appropriate
+	int n;
+	for(n=0;n<(ar->d.array.size);n++){
+		if(n==(idx->d.num.n)){
+			//skip this one
+		}else{
+			nl_array_push(ret,nl_val_cp(ar->d.array.v[n]));
+		}
+	}
+	
+	return ret;
+}
+
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list){
@@ -743,15 +1096,33 @@ nl_val *nl_inexp(nl_val *arg_list){
 	return nl_read_exp(stdin);
 }
 
-//TODO: add an argument for line-editing here!
+//TODO: add an argument for line-editing here! and one for file to read from
 //reads a line from stdin and returns the result as a [neulang] string
 nl_val *nl_inline(nl_val *arg_list){
+	char line_edit=FALSE;
+	//line edit keyword
+	nl_val *ledit_keyword=nl_sym_from_c_str("ledit");
+	
+	int argc=nl_c_list_size(arg_list);
+	if((argc>=1) && (arg_list->d.pair.f!=NULL) && (arg_list->d.pair.f->t==SYMBOL) && (nl_val_cmp(arg_list->d.pair.f,ledit_keyword)==0)){
+		line_edit=TRUE;
+	}
+	
 	nl_val *ret=nl_val_malloc(ARRAY);
 	
 	int c=fgetc(stdin);
 	while((c!='\n') && (c!='\r')){
 		if(feof(stdin)){
 			break;
+		}
+		
+		//TODO: add line editing functions here (continue loop when done)
+		if(line_edit){
+			if(c & 0x80){
+				printf("\ngot an escape char %c (%i)\n",c,c);
+			}else{
+				printf("\ngot a normal char %c (%i)\n",c,c);
+			}
 		}
 		
 		nl_val *next_char=nl_val_malloc(BYTE);
@@ -762,6 +1133,7 @@ nl_val *nl_inline(nl_val *arg_list){
 		c=fgetc(stdin);
 	}
 	
+	nl_val_free(ledit_keyword);
 	return ret;
 }
 

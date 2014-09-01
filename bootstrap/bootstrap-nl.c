@@ -1534,6 +1534,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 	}else{
 		//in the default case check for subroutines bound to this symbol
 		nl_val *prim_sub=nl_lookup(keyword,env);
+//		if((prim_sub!=NULL) && ((prim_sub->t==PRI) || (prim_sub->t==SUB))){ //this allows user-defined subs without $
 		if((prim_sub!=NULL) && (prim_sub->t==PRI)){
 			//do eager evaluation on arguments
 			nl_eval_elements(arguments,env);
@@ -2219,6 +2220,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-idx"),nl_primitive_wrap(nl_array_idx),env);
 	nl_bind_new(nl_sym_from_c_str("ar-replace"),nl_primitive_wrap(nl_array_replace),env);
 	nl_bind_new(nl_sym_from_c_str("ar-extend"),nl_primitive_wrap(nl_array_extend),env);
+	nl_bind_new(nl_sym_from_c_str("ar-omit"),nl_primitive_wrap(nl_array_omit),env);
 	//TODO: make and bind additional array subroutines
 	
 	//TODO: list concatenation
@@ -2305,6 +2307,19 @@ int nl_repl(FILE *fp, nl_val *argv){
 		nl_val_free(argv);
 		nl_val_free(argv_symbol);
 	}
+
+	//TODO: remove this, it's just for debugging
+/*
+	end_program=TRUE;
+	nl_val *str_to_read=nl_str_from_c_str("-5.3");
+	nl_val *str_to_read=nl_str_from_c_str("\"a string\"");
+	unsigned int pos=0;
+	nl_val *expression=nl_str_read_exp(str_to_read,&pos);
+	nl_out(stdout,expression);
+	nl_val_free(str_to_read);
+	nl_val_free(expression);
+	goto cleanup;
+*/
 	
 	//read in a little bit in case there's a shebang line
 	//read a character from the given file
@@ -2370,6 +2385,7 @@ int nl_repl(FILE *fp, nl_val *argv){
 #ifdef _DEBUG
 	printf("Info [line %i]: exited program\n",line_number);
 #endif
+//cleanup:
 	
 	//de-allocate the global environment
 	nl_env_frame_free(global_env);

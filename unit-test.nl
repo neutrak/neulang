@@ -586,6 +586,8 @@ else
 
 (assert (= "(a b c)" (val->memstr (lit ('a' 'b' 'c')))))
 
+(assert (= (array 1 2 4) (ar-omit (array 1 2 3 4) 2)))
+
 //END standard library array testing ----------------------------------------------------------------------
 
 
@@ -595,6 +597,8 @@ else
 //END standard library list testing -----------------------------------------------------------------------
 
 //BEGIN proper struct testing -----------------------------------------------------------------------------
+
+//these native structs are implemented as environment frames and will hopefully be hash tables later
 
 (let some-data (struct
 	(a-var 5)
@@ -606,8 +610,6 @@ else
 
 (let some-data (struct-replace $some-data a-var 20))
 (assert (= 20 (struct-get $some-data a-var)))
-
-//(exit)
 
 //END proper struct testing -------------------------------------------------------------------------------
 
@@ -645,7 +647,7 @@ else
 (assert (= $struct 'a'))
 
 
-//a structure for lines (taken straight from the line editor at one point)
+//a closure-based structure for lines
 
 //consists of members ret (character return), num (line number), and content (string)
 (let line-struct (sub ()

@@ -302,8 +302,26 @@ int nl_repl(FILE *fp, nl_val *argv);
 //runtime!
 int main(int argc, char *argv[]);
 
+// forward declarations for string<->expression functions -------------
 
-// Forward declarations for standard library functions ----------------
+//gets an entry out of the string at the given position or returns NULL if position is out of bounds
+//NOTE: this does NOT do type checking at the moment, use with care
+char nl_str_char_or_null(nl_val *string, unsigned int pos);
+
+//skip past any leading whitespaces in the string
+void nl_str_skip_whitespace(nl_val *input_string, unsigned int *persistent_pos);
+
+//read a number from a string
+nl_val *nl_str_read_num(nl_val *input_string, unsigned int *persistent_pos);
+
+nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos);
+
+//read an expression from an existing neulang string
+//takes an input string, a position to start at (0 for whole string) and returns the new expression
+//start_pos is set to the end of the first expression read when a full expression is found
+nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos);
+
+// forward declarations for standard library functions ----------------
 
 //emulate getch() behavior on *nix /without/ ncurses
 int nix_getch();
@@ -356,6 +374,10 @@ nl_val *nl_array_replace(nl_val *arg_list);
 //returns an array consisting of all elements of the starting array
 //plus any elements given as arguments after that
 nl_val *nl_array_extend(nl_val *arg_list);
+
+//returns an array consisting of all the elements of the starting array
+//EXCEPT the element at the given position
+nl_val *nl_array_omit(nl_val *arg_list);
 
 //output the given list of strings in sequence
 //returns NULL (a void function)
