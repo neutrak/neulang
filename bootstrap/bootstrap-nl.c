@@ -535,6 +535,32 @@ nl_val *nl_sym_from_c_str(const char *c_str){
 	return ret;
 }
 
+//make a c string from a neulang string (you must free this yourself!)
+//returns NULL if not given a valid nl string
+char *c_str_from_nl_str(nl_val *nl_str){
+	if((nl_str==NULL) || (nl_str->t!=ARRAY)){
+		return NULL;
+	}
+	
+	//the +1 stores the C string null termination character
+	int buf_size=sizeof(char)*((nl_str->d.array.size)+1);
+	char *c_str=malloc(buf_size);
+	bzero(c_str,buf_size);
+	
+	//copy in the neulang string
+	int n;
+	for(n=0;n<(nl_str->d.array.size);n++){
+		if((nl_str->d.array.v[n]!=NULL) && (nl_str->d.array.v[n]->t==BYTE)){
+			c_str[n]=nl_str->d.array.v[n]->d.byte.v;
+		}
+	}
+	//always null-terminate just in case
+	c_str[buf_size-1]='\0';
+	
+	//return the dynamically allocated memory
+	return c_str;
+}
+
 //make a neulang value out of a primitve function so we can bind it
 nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist)){
 	nl_val *ret=nl_val_malloc(PRI);
@@ -2242,6 +2268,9 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("inline"),nl_primitive_wrap(nl_inline),env);
 	nl_bind_new(nl_sym_from_c_str("inchar"),nl_primitive_wrap(nl_inchar),env);
 	
+	//read in a file as a byte array (aka a string)
+	nl_bind_new(nl_sym_from_c_str("file->ar"),nl_primitive_wrap(nl_str_from_file),env);
+	
 	
 	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
 	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);
@@ -2311,13 +2340,19 @@ int nl_repl(FILE *fp, nl_val *argv){
 	//TODO: remove this, it's just for debugging
 /*
 	end_program=TRUE;
-	nl_val *str_to_read=nl_str_from_c_str("-5.3");
-	nl_val *str_to_read=nl_str_from_c_str("\"a string\"");
+//	nl_val *str_to_read=nl_str_from_c_str("-5.3");
+//	nl_val *str_to_read=nl_str_from_c_str("\"a string\"");
+	nl_val *str_to_read=nl_str_from_c_str("(\"a list\" \"of expressions\" 1.3 -2.1 (3 -42)) \"a string\" ()");
+//	nl_val *str_to_read=nl_str_from_c_str("()");
 	unsigned int pos=0;
-	nl_val *expression=nl_str_read_exp(str_to_read,&pos);
-	nl_out(stdout,expression);
+	nl_val *expression;
+	do{
+		expression=nl_str_read_exp(str_to_read,&pos);
+		nl_out(stdout,expression);
+		nl_val_free(expression);
+		printf("\npos=%u, str_to_read->d.array.size=%u\n",pos,str_to_read->d.array.size);
+	}while(expression!=NULL);
 	nl_val_free(str_to_read);
-	nl_val_free(expression);
 	goto cleanup;
 */
 	

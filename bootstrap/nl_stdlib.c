@@ -33,9 +33,6 @@ void nl_str_skip_whitespace(nl_val *input_string, unsigned int *persistent_pos){
 			break;
 		}
 	}
-	if(pos>0){
-		pos--;
-	}
 	
 	(*persistent_pos)=pos;
 }
@@ -138,12 +135,13 @@ nl_val *nl_str_read_num(nl_val *input_string, unsigned int *persistent_pos){
 	return ret;
 }
 
+//read a string (byte array) from a string (trust me it makes sense)
 nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
 	unsigned int pos=(*persistent_pos);
 	
 	nl_val *ret=NULL;
 	
-	char c=input_string->d.array.v[pos]->d.byte.v;
+	char c=nl_str_char_or_null(input_string,pos);
 	if(c!='"'){
 		fprintf(stderr,"Err [line %u]: string literal didn't start with \"; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
 #ifdef _STRICT
@@ -181,7 +179,55 @@ nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
 			return NULL;
 		}
 	}
+	if(c=='"'){
+		pos++;
+	}
 	
+	(*persistent_pos)=pos;
+	return ret;
+}
+
+//read an expression list from a string
+nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos){
+	unsigned int pos=(*persistent_pos);
+	
+	nl_val *ret=NULL;
+	
+	char c=nl_str_char_or_null(input_string,pos);
+	if(c!='('){
+		fprintf(stderr,"Err [line %u]: expression list didn't start with (; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
+		return ret;
+	}
+	pos++;
+	
+	//allocate a pair (the first element of a linked list)
+	ret=nl_val_malloc(PAIR);
+	
+	nl_val *list_cell=ret;
+	
+	//read the first expression
+	nl_val *next_exp=nl_str_read_exp(input_string,&pos);
+	
+	//continue reading expressions until we hit a NULL
+	while(next_exp!=NULL){
+		list_cell->d.pair.f=next_exp;
+		list_cell->d.pair.r=NULL;
+		
+		next_exp=nl_str_read_exp(input_string,&pos);
+		if(next_exp!=NULL){
+			list_cell->d.pair.r=nl_val_malloc(PAIR);
+			list_cell=list_cell->d.pair.r;
+		}
+	}
+	//increment position to past the list termination character
+	if((pos+1)<(input_string->d.array.size)){
+		pos++;
+	}
+	
+	//return a reference to the first list element
 	(*persistent_pos)=pos;
 	return ret;
 }
@@ -212,7 +258,7 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 #ifdef _DEBUG
 	printf("nl_str_read_exp debug 0, reading an expression from ");
 	nl_out(stdout,input_string);
-	printf("\n");
+	printf(" with starting position %u\n",pos);
 #endif
 */
 	
@@ -228,15 +274,10 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 	}
 	
 	//read a character from the given string
-	char c=input_string->d.array.v[pos]->d.byte.v;
+	char c=nl_str_char_or_null(input_string,pos);
 	
 	//peek a character after that, for two-char tokens
-	char next_c;
-	if(input_string->d.array.size>(pos+1)){
-		next_c=input_string->d.array.v[pos+1]->d.byte.v;
-	}else{
-		next_c='\0';
-	}
+	char next_c=nl_str_char_or_null(input_string,pos+1);
 	
 	//if it starts with a digit or '.' then it's a number, or if it starts with '-' followed by a digit
 	if(isdigit(c) || (c=='.') || ((c=='-') && isdigit(next_c))){
@@ -249,7 +290,7 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 //		ret=nl_str_read_char(input_string,&pos);
 	//if it starts with a ( read a compound expression (a list of expressions)
 	}else if(c=='('){
-//		ret=nl_str_read_exp_list(input_string,&pos);
+		ret=nl_str_read_exp_list(input_string,&pos);
 	//an empty list is just a NULL value, so leave ret as NULL
 	}else if(c==')'){
 		
@@ -1782,6 +1823,52 @@ nl_val *nl_byte_and(nl_val *byte_list){
 }
 
 //END C-NL-STDLIB-BITOP SUBROUTINES  ------------------------------------------------------------------------------
+
+//BEGIN C-NL-STDLIB-FILE SUBROUTINES  -----------------------------------------------------------------------------
+
+//reads the given file and returns its contents as a byte array (aka a string)
+//returns NULL if file wasn't found or couldn't be opened
+nl_val *nl_str_from_file(nl_val *fname_list){
+	if(nl_c_list_size(fname_list)!=1){
+		ERR_EXIT(fname_list,"file->str operation takes exactly one argument",TRUE);
+		return NULL;
+	}
+	
+	if((fname_list->d.pair.f==NULL) || (fname_list->d.pair.f->t!=ARRAY)){
+		ERR_EXIT(fname_list->d.pair.f,"wrong type argument given to file->str, expecting byte array",TRUE);
+		return NULL;
+	}
+	
+	char *fname=c_str_from_nl_str(fname_list->d.pair.f);
+	
+	FILE *fp=fopen(fname,"r");
+	if(fp==NULL){
+		free(fname);
+		ERR_EXIT(fname_list->d.pair.f,"could not open file",TRUE);
+		return NULL;
+	}
+	
+	nl_val *ret=nl_val_malloc(ARRAY);
+	
+	while(!feof(fp)){
+		char c=fgetc(fp);
+		if(feof(fp)){
+			break;
+		}
+		
+		nl_val *current_byte=nl_val_malloc(BYTE);
+		current_byte->d.byte.v=c;
+		nl_array_push(ret,current_byte);
+	}
+	
+	fclose(fp);
+	
+	free(fname);
+	return ret;
+}
+
+//END C-NL-STDLIB-FILE SUBROUTINES  -------------------------------------------------------------------------------
+
 
 //assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
 nl_val *nl_assert(nl_val *cond_list){

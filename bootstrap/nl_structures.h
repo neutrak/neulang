@@ -211,6 +211,10 @@ nl_val *nl_str_from_c_str(const char *c_str);
 //make a neulang symbol from a c string
 nl_val *nl_sym_from_c_str(const char *c_str);
 
+//make a c string from a neulang string (you must free this yourself!)
+//returns NULL if not given a valid nl string
+char *c_str_from_nl_str(nl_val *nl_str);
+
 //make a neulang value out of a primitve function so we can bind it
 nl_val *nl_primitive_wrap(nl_val *(*function)(nl_val *arglist));
 
@@ -314,7 +318,11 @@ void nl_str_skip_whitespace(nl_val *input_string, unsigned int *persistent_pos);
 //read a number from a string
 nl_val *nl_str_read_num(nl_val *input_string, unsigned int *persistent_pos);
 
+//read a string (byte array) from a string (trust me it makes sense)
 nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos);
+
+//read an expression list from a string
+nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos);
 
 //read an expression from an existing neulang string
 //takes an input string, a position to start at (0 for whole string) and returns the new expression
@@ -465,6 +473,10 @@ nl_val *nl_byte_or(nl_val *byte_list);
 
 //bitwise AND operation on the byte type
 nl_val *nl_byte_and(nl_val *byte_list);
+
+//reads the given file and returns its contents as a byte array (aka a string)
+//returns NULL if file wasn't found or couldn't be opened
+nl_val *nl_str_from_file(nl_val *fname_list);
 
 //assert that all conditions in the given list are true; if not, exit (if compiled _STRICT) or return false (not strict)
 nl_val *nl_assert(nl_val *cond_list);
