@@ -986,7 +986,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *ea
 			return nl_eval_sequence(tmp_args,env,early_ret);
 		}
 	}else{
-		ERR_EXIT(argument_start,"if statement condition evaluated to NULL",TRUE);
+		ERR_EXIT(argument_start,"if statement condition evaluated to NULL (use null? if this is what you intended to check for)",TRUE);
 	}
 	
 	//the calling context didn't free the arguments so do it here if we got to here
@@ -2247,6 +2247,10 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-replace"),nl_primitive_wrap(nl_array_replace),env);
 	nl_bind_new(nl_sym_from_c_str("ar-extend"),nl_primitive_wrap(nl_array_extend),env);
 	nl_bind_new(nl_sym_from_c_str("ar-omit"),nl_primitive_wrap(nl_array_omit),env);
+	
+//	nl_bind_new(nl_sym_from_c_str("ar-ins"),nl_primitive_wrap(nl_array_insert),env);
+	nl_bind_new(nl_sym_from_c_str("ar-chop"),nl_primitive_wrap(nl_array_chop),env);
+//	nl_bind_new(nl_sym_from_c_str("ar-subar"),nl_primitive_wrap(nl_array_subarray),env);
 	//TODO: make and bind additional array subroutines
 	
 	//TODO: list concatenation
@@ -2342,7 +2346,7 @@ int nl_repl(FILE *fp, nl_val *argv){
 	end_program=TRUE;
 //	nl_val *str_to_read=nl_str_from_c_str("-5.3");
 //	nl_val *str_to_read=nl_str_from_c_str("\"a string\"");
-	nl_val *str_to_read=nl_str_from_c_str("(\"a list\" \"of expressions\" 1.3 -2.1 (3 -42)) \"a string\" ()");
+	nl_val *str_to_read=nl_str_from_c_str("(\"a list\" \"of expressions\" 1.3 -2.1 (3 -42)) \"a string\"(12)(34) ()");
 //	nl_val *str_to_read=nl_str_from_c_str("()");
 	unsigned int pos=0;
 	nl_val *expression;

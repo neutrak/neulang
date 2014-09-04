@@ -578,15 +578,25 @@ else
 	(assert (= (ar-idx $num-array $n) $n))
 )
 
+//array replace (no side-effects)
 (let a-string "abcd")
 (assert (= "abce" (ar-replace $a-string 3 (num->byte 101))))
 (assert (= "abcd" $a-string))
+
+//array extend (no side-effects)
 (assert (= "abcde" (ar-extend $a-string 'e')))
 (assert (= (array 'a' 'b' 'c' 'd' 1 2 3) (ar-extend $a-string 1 2 3)))
 
+//memory string (what this value looks in memory, as a string)
 (assert (= "(a b c)" (val->memstr (lit ('a' 'b' 'c')))))
 
+//array omit
 (assert (= (array 1 2 4) (ar-omit (array 1 2 3 4) 2)))
+
+//array chop (split, explode)
+(assert (= (array (array) "abcd") (ar-chop "gabcd" "g")))
+(assert (= (array "gab" "d") (ar-chop "gabcd" "c")))
+(assert (= (array "gabc" (array)) (ar-chop "gabcd" "d")))
 
 //END standard library array testing ----------------------------------------------------------------------
 

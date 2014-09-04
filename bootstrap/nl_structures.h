@@ -387,6 +387,18 @@ nl_val *nl_array_extend(nl_val *arg_list);
 //EXCEPT the element at the given position
 nl_val *nl_array_omit(nl_val *arg_list);
 
+//array insert
+//returns an array consisting of existing elements, plus given elements inserted at given 0-index-based position
+nl_val *nl_array_insert(nl_val *arg_list);
+
+//array chop; takes an array and a delimiter
+//returns a new array with elements of the original array in separate subarrays (i.e. explode, split)
+nl_val *nl_array_chop(nl_val *arg_list);
+
+//subarray
+//returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
+nl_val *nl_array_subarray(nl_val *arg_list);
+
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list);
@@ -483,6 +495,8 @@ nl_val *nl_assert(nl_val *cond_list);
 
 //sleep a given number of seconds (if multiple arguments are given they are added)
 nl_val *nl_sleep(nl_val *time_list);
+
+//TODO: write a "source" function that imports a different file and executes it (as our include/import/source equivalent)
 
 //END NL DECLARATIONS ---------------------------------------------------------------------------------------------
 

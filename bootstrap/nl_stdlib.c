@@ -1102,6 +1102,105 @@ nl_val *nl_array_omit(nl_val *arg_list){
 	return ret;
 }
 
+//TODO: write array insert
+//array insert
+//returns an array consisting of existing elements, plus given elements inserted at given 0-index-based position
+nl_val *nl_array_insert(nl_val *arg_list){
+	nl_val *ret=NULL;
+	return ret;
+}
+
+//array chop; takes an array and a delimiter
+//returns a new array with elements of the original array in separate subarrays (i.e. explode, split)
+nl_val *nl_array_chop(nl_val *arg_list){
+	//check number of arguments is 2
+	if(nl_c_list_size(arg_list)!=2){
+		ERR_EXIT(arg_list,"incorrect number of arguments given to array chop operation (takes array and delimiter)",TRUE);
+		return NULL;
+	}
+	
+	//check no nulls
+	if((arg_list->d.pair.f==NULL) || (arg_list->d.pair.r->d.pair.f==NULL)){
+		ERR_EXIT(arg_list,"NULL given to array chop operation",TRUE);
+		return NULL;
+	}
+	
+	//check both are arrays
+	if((arg_list->d.pair.f->t!=ARRAY) || (arg_list->d.pair.r->d.pair.f->t!=ARRAY)){
+		ERR_EXIT(arg_list,"incorrect type given to array chop operation",TRUE);
+		return NULL;
+	}
+	
+	//okay, now the fun part
+	//allocate a new array to store the result
+	nl_val *ret=nl_val_malloc(ARRAY);
+	unsigned int ret_idx=0;
+	//create one entry on the array no matter what (if needle isn't found this will be haystack, if needle at pos 0 this will be empty)
+	nl_array_push(ret,nl_val_malloc(ARRAY));
+	
+	nl_val *haystack=arg_list->d.pair.f;
+	nl_val *needle=arg_list->d.pair.r->d.pair.f;
+	
+	//look through the haystack
+	int n;
+	for(n=0;n<(haystack->d.array.size);n++){
+		//look through the needle to see if it corresponds to the haystack
+		int n2;
+		for(n2=0;n2<(needle->d.array.size);n2++){
+			//if we found a non-matching entry then the needle wasn't found
+			
+			//needle goes past end of haystack, break early
+			if((n+n2)>=(haystack->d.array.size)){
+				break;
+			//if they're both not null then check values
+			}else if((haystack->d.array.v[n+n2]!=NULL) && (needle->d.array.v[n2]!=NULL)){
+				//if the values are of different types they cannot be equal
+				if((haystack->d.array.v[n+n2]->t)!=(needle->d.array.v[n2]->t)){
+					break;
+				}
+				
+				//if they values aren't equal they aren't equal (tautologically :P)
+				if(nl_val_cmp(haystack->d.array.v[n+n2],needle->d.array.v[n2])!=0){
+					break;
+				}
+				
+			//if one, but not both, entries are null, then we DIDN'T find the needle
+			}else if((haystack->d.array.v[n+n2]==NULL) || (needle->d.array.v[n2]==NULL)){
+				break;
+			//two nulls are equal
+			}
+		}
+		//if we got through that whole above loop without breaking then we found the needle here
+		if(n2==(needle->d.array.size)){
+			//skip over the section with the needle
+			if(needle->d.array.size>0){
+				n+=((needle->d.array.size)-1);
+			}
+			
+			//update the return to include a new array entry
+			nl_array_push(ret,nl_val_malloc(ARRAY));
+			ret_idx++;
+			
+			//and start again
+			continue;
+		}
+		
+		//if we got here and didn't continue, then we didn't find the needle
+		//therefore shove the haystack element onto the return array
+		nl_array_push(ret->d.array.v[ret_idx],nl_val_cp(haystack->d.array.v[n]));
+	}
+	
+	return ret;
+}
+
+//TODO: write subarray
+//subarray
+//returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
+nl_val *nl_array_subarray(nl_val *arg_list){
+	nl_val *ret=NULL;
+	return ret;
+}
+
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list){
