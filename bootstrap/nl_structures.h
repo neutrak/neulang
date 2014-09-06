@@ -324,6 +324,9 @@ nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos);
 //read an expression list from a string
 nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos);
 
+//read a symbol (just a string with a wrapper) (with a rapper? drop them beats man) from a string
+nl_val *nl_str_read_symbol(nl_val *input_string, unsigned int *persistent_pos);
+
 //read an expression from an existing neulang string
 //takes an input string, a position to start at (0 for whole string) and returns the new expression
 //start_pos is set to the end of the first expression read when a full expression is found

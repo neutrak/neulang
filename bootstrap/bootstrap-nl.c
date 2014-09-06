@@ -2308,18 +2308,30 @@ void nl_bind_stdlib(nl_env_frame *env){
 	squote_char->d.byte.v=39;
 	nl_array_push(squote,squote_char);
 	
+	//TODO: make this \r\n on platforms for which that's the eol string
+	nl_val *end_of_line=nl_val_malloc(ARRAY);
+	nl_val *end_of_line_char=nl_val_malloc(BYTE);
+	end_of_line_char->d.byte.v=10;
+	nl_array_push(end_of_line,end_of_line_char);
+	
+	//newline (\n)
 	nl_bind_new(nl_sym_from_c_str("newl"),newline,env);
+	//double quote (")
 	nl_bind_new(nl_sym_from_c_str("dquo"),dquote,env);
+	//single quote (')
 	nl_bind_new(nl_sym_from_c_str("squo"),squote,env);
+	//end of line (\n on *nix)
+	nl_bind_new(nl_sym_from_c_str("eol"),end_of_line,env);
 }
 
 //the repl for neulang; this is separated from main for embedding purposes
 //the only thing you have to do outside this is give us an open file and close it when we're done
 //arguments given are interpreted as command-line arguments and are bound to argv in the interpreter (NULL works)
 int nl_repl(FILE *fp, nl_val *argv){
-#ifdef _DEBUG
-	printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
-#endif
+	if(fp==stdin){
+		printf("neulang version %s, compiled on %s %s\n",VERSION,__DATE__,__TIME__);
+	}
+	
 	exit_status=0;
 	
 	//allocate keywords
@@ -2346,8 +2358,15 @@ int nl_repl(FILE *fp, nl_val *argv){
 	end_program=TRUE;
 //	nl_val *str_to_read=nl_str_from_c_str("-5.3");
 //	nl_val *str_to_read=nl_str_from_c_str("\"a string\"");
-	nl_val *str_to_read=nl_str_from_c_str("(\"a list\" \"of expressions\" 1.3 -2.1 (3 -42)) \"a string\"(12)(34) ()");
+//	nl_val *str_to_read=nl_str_from_c_str("(\"a list\" \"of expressions\" 1.3 -2.1 (3 -42)) \"a string\"(12)(34) ()");
 //	nl_val *str_to_read=nl_str_from_c_str("()");
+	nl_val *str_to_read=nl_str_from_c_str(""
+		"(\"this is a string\" symbol //with commented parens )\n"
+		"\"end\" 2 3 45)\n"
+		"(array \"still a list\" sym)\n"
+		"+2 2.3\n"
+		"alt(3 4)\n");
+	
 	unsigned int pos=0;
 	nl_val *expression;
 	do{
@@ -2359,6 +2378,10 @@ int nl_repl(FILE *fp, nl_val *argv){
 	nl_val_free(str_to_read);
 	goto cleanup;
 */
+	
+	if(fp==stdin){
+		printf("[line %u] nl >> ",line_number);
+	}
 	
 	//read in a little bit in case there's a shebang line
 	//read a character from the given file

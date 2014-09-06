@@ -232,6 +232,62 @@ nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos)
 	return ret;
 }
 
+//read a symbol (just a string with a wrapper) (with a rapper? drop them beats man) from a string
+nl_val *nl_str_read_symbol(nl_val *input_string, unsigned int *persistent_pos){
+	unsigned int pos=(*persistent_pos);
+	
+	nl_val *ret=NULL;
+	
+	char c;
+	
+	//allocate a symbol for the return
+	ret=nl_val_malloc(SYMBOL);
+	
+	//allocate a byte array for the name
+	nl_val *name=nl_val_malloc(ARRAY);
+	
+	c=nl_str_char_or_null(input_string,pos);
+	pos++;
+	
+	//read until whitespace or list-termination character
+	while(!nl_is_whitespace(c) && c!=')'){
+		//an alternate list syntax has the symbol come first, followed by an open paren
+		if(c=='('){
+			ret->d.sym.name=name;
+			nl_val *symbol=ret;
+			
+			//read the rest of the list
+			pos--;
+			nl_val *list_remainder=nl_str_read_exp_list(input_string,&pos);
+			
+			//return by pointer (must be set before a return)
+			(*persistent_pos)=pos;
+			
+			ret=nl_val_malloc(PAIR);
+			ret->d.pair.f=symbol;
+			ret->d.pair.r=list_remainder;
+			return ret;
+		}
+		nl_val *ar_entry=nl_val_malloc(BYTE);
+		ar_entry->d.byte.v=c;
+		nl_array_push(name,ar_entry);
+		
+		c=nl_str_char_or_null(input_string,pos);
+		pos++;
+	}
+	
+	if(c==')'){
+		pos--;
+	}else if(c=='\n'){
+		line_number++;
+	}
+	
+	(*persistent_pos)=pos;
+	
+	//encapsulate the name string in a symbol and return
+	ret->d.sym.name=name;
+	return ret;
+}
 
 //read an expression from an existing neulang string
 //takes an input string, a position to start at (0 for whole string) and returns the new expression
@@ -254,6 +310,11 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 		}
 	}
 	
+	//a position past the end of the array is just a NULL value
+	if((input_string->d.array.size)<=pos){
+		return NULL;
+	}
+	
 /*
 #ifdef _DEBUG
 	printf("nl_str_read_exp debug 0, reading an expression from ");
@@ -269,7 +330,7 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 	nl_str_skip_whitespace(input_string,&pos);
 	
 	//if we hit the end of the string then exit
-	if(input_string->d.array.size<=pos){
+	if((input_string->d.array.size)<=pos){
 		return NULL;
 	}
 	
@@ -308,22 +369,32 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 		line_number++;
 		ret=nl_str_read_exp(input_string,&pos);
 	//the /* ... */ multi-line comment style, as in gnu89 C
-/*
 	}else if(c=='/' && next_c=='*'){
-		next_c=getc(fp);
-		next_c=getc(fp);
+		pos++;
+		next_c=nl_str_char_or_null(input_string,pos);
+		
 		if(next_c=='\n'){
 			line_number++;
 		}
 		
 		while(!((c=='*') && (next_c=='/'))){
 			c=next_c;
-			next_c=getc(fp);
+			next_c=nl_str_char_or_null(input_string,pos+1);
+			if(c=='\0' || next_c=='\0'){
+				break;
+			}
+			pos++;
+			
 			if(next_c=='\n'){
 				line_number++;
 			}
 		}
-		ret=nl_read_exp(fp);
+		//if we didn't hit the end of the string, skip past the / character that terminated the comment
+		if((pos+1)<input_string->d.array.size){
+			pos++;
+		}
+		ret=nl_str_read_exp(input_string,&pos);
+/*
 	//if it starts with a $ read an evaluation (a symbol to be looked up)
 	}else if(c=='$'){
 		//read an evaluation
@@ -345,7 +416,7 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 */
 	//if it starts with anything not already handled read a symbol
 	}else{
-//		ret=nl_str_read_symbol(input_string,&pos);
+		ret=nl_str_read_symbol(input_string,&pos);
 	}
 	
 	//NOTE: whitespace is discarded before we try to read the next expression

@@ -425,6 +425,11 @@ after
 	13
 )))
 
+//a for loop without an early return
+(for n 0 (< $n 3000) (+ $n 1)
+	(outs "n=" (val->memstr $n) $newl)
+)
+
 //0
 (assert (= $n 0))
 
