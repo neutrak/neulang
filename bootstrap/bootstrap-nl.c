@@ -1793,7 +1793,7 @@ char nl_is_whitespace(char c){
 //TODO: (cont) this interactive mode should also be user-accessable via an argument to inexp
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp){
-	unsigned int old_line_number=line_number;
+//	unsigned int old_line_number=line_number;
 	
 	//read in a string until non-whitespace followed by whitespace is found
 	//also if we're in a list, keep reading until the end of it (and care about comments insomuch as nest level doesn't change within comments)
@@ -1808,8 +1808,17 @@ nl_val *nl_read_exp(FILE *fp){
 	//stopping once a complete expression is found or end of file is hit
 	while(!feof(fp)){
 		char c=getc(fp);
-		char next_c=getc(fp);
-		ungetc(next_c,fp);
+		char next_c='\0';
+		
+		if((c!='\r') && (c!='\n')){
+			next_c=getc(fp);
+			ungetc(next_c,fp);
+		}
+/*
+#ifdef _DEBUG
+		printf("read a '%c'; next_c='%c'\n",c,next_c);
+#endif
+*/
 		
 		//if we hit end of file just give up man
 		if(feof(fp)){
@@ -1844,9 +1853,11 @@ nl_val *nl_read_exp(FILE *fp){
 */
 			in_singleline_comment=FALSE;
 			if(nest_level<=0){
+/*
 #ifdef _DEBUG
 				printf("nl_read_exp debug 1.5, returning due to newline termination and not being in parens, string,  or multiline comment\n");
 #endif
+*/
 				break;
 			}
 		//if we hit whitespace after finding an expression and not being in a list, then stop for now
@@ -1885,18 +1896,22 @@ nl_val *nl_read_exp(FILE *fp){
 		//lists end with ), providing we're not within a comment or string
 		}else if((c==')') && !(in_singleline_comment) && !(in_multiline_comment) && !(in_string)){
 			nest_level--;
+/*
 			if(nest_level<=0){
 				break;
 			}
+*/
 		//strings are double-quote delimited; there is NO ESCAPE
 		}else if((c=='"') && (!in_singleline_comment) && (!in_multiline_comment)){
 			in_string=(!in_string);
 			//strings count as expressions, even empty ones
 			if(!in_string){
 				found_exp=TRUE;
+/*
 				if(nest_level<=0){
 					break;
 				}
+*/
 			}
 		//normal character, just treat it as-is and remember we found something
 		//this was already added to the input string at the top of this loop so no need to here
@@ -1905,20 +1920,29 @@ nl_val *nl_read_exp(FILE *fp){
 			found_exp=TRUE;
 		}
 		
-		//if we've read in a parseable expression at this point then go ahead and return up
-/*
-		if((found_exp) && (nest_level<=0) && (!in_string) && (!in_multiline_comment) && (!in_singleline_comment)){
+		//if the user hit enter and we've read in a parseable expression at this point then go ahead and return up
+		if(((next_c=='\r') || (next_c=='\n')) && (found_exp) && (nest_level<=0) && (!in_string) && (!in_multiline_comment) && (!in_singleline_comment)){
+			//make sure next_c makes it into the end string, since we're skipping it here
+			string_char=nl_val_malloc(BYTE);
+			string_char->d.byte.v=next_c;
+			nl_array_push(input_string,string_char);
+			
+			//decrement the line number so this newline isn't counted twice
+			if(next_c=='\n'){
+				line_number--;
+			}
 			break;
 		}
-*/
 	}
 	unsigned int pos=0;
 	nl_val *exp=nl_str_read_exp(input_string,&pos);
 	
 #ifdef _DEBUG
+/*
 	printf("nl_read_exp debug 2, stopped reading (lines %u-%u) at input_string=",old_line_number,line_number);
 	nl_out(stdout,input_string);
 	printf("\n");
+*/
 /*
 	if(pos<input_string->d.array.size){
 		printf("nl_read_exp debug 3, didn't use whole string (pos=%u, string length=%u)\n",pos,input_string->d.array.size);
