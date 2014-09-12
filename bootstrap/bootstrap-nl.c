@@ -1789,350 +1789,145 @@ char nl_is_whitespace(char c){
 	return (c==' ') || (c=='\t') || (c=='\r') || (c=='\n');
 }
 
-//skip fp past any leading whitespaces
-void nl_skip_whitespace(FILE *fp){
-	char c=getc(fp);
-	while(nl_is_whitespace(c)){
-		if(c=='\n'){
-			line_number++;
-		}
-		c=getc(fp);
-	}
-	ungetc(c,fp);
-}
-
-//read a number
-nl_val *nl_read_num(FILE *fp){
-	//create a new number to return
-	nl_val *ret=nl_val_malloc(NUM);
-	//initialize to 0, this should get reset
-	ret->d.num.n=0;
-	ret->d.num.d=1;
-	
-	//whether or not this number is negative (starts with -)
-	char negative=FALSE;
-	
-	//whether we've hit a / and are now reading a denominator or (default) not
-	char reading_denom=FALSE;
-	//whether we've hit a . and are now reading a float as a rational
-	char reading_decimal=FALSE;
-	
-	char c=getc(fp);
-	
-	//handle negative signs
-	if(c=='-'){
-		negative=TRUE;
-		c=getc(fp);
-	}
-	
-	//handle numerical expressions starting with . (absolute value less than 1)
-	if(c=='.'){
-		reading_decimal=TRUE;
-		c=getc(fp);
-	}
-	
-	//read a number
-	while(!nl_is_whitespace(c) && c!=')'){
-		//numerator
-		if(isdigit(c) && !(reading_denom) && !(reading_decimal)){
-			(ret->d.num.n)*=10;
-			(ret->d.num.n)+=(c-'0');
-		//denominator
-		}else if(isdigit(c) && (reading_denom) && !(reading_decimal)){
-			(ret->d.num.d)*=10;
-			(ret->d.num.d)+=(c-'0');
-		//delimeter to start reading the denominator
-		}else if(c=='/' && !(reading_denom) && !(reading_decimal)){
-			reading_denom=TRUE;
-			ret->d.num.d=0;
-		//a decimal point causes us to read into the numerator and keep the order of magnitude correct by the denominator
-		}else if(c=='.' && !(reading_denom) && !(reading_decimal)){
-			reading_decimal=TRUE;
-		//when reading in a decimal value just read into the numerator and keep correct order of magnitude in denominator
-		}else if(isdigit(c) && reading_decimal){
-			(ret->d.num.n)*=10;
-			(ret->d.num.n)+=(c-'0');
-			
-			(ret->d.num.d)*=10;
-		}else{
-			fprintf(stderr,"Err [line %u]: invalid character in numeric literal, \'%c\'\n",line_number,c);
-#ifdef _STRICT
-			exit(1);
-#endif
-		}
-		
-		c=getc(fp);
-	}
-	
-	if(c==')'){
-		ungetc(c,fp);
-	}else if(c=='\n'){
-		line_number++;
-	}
-	
-	//incorporate negative values if a negative sign preceded the expression
-	if(negative){
-		(ret->d.num.n)*=(-1);
-	}
-	
-	if(ret->d.num.d==0){
-		ERR_EXIT(ret,"divide-by-0 in rational number; did you forget a denominator?",TRUE);
-		nl_val_free(ret);
-		ret=NULL;
-	}else{
-		//gcd reduce the number for faster computation
-		nl_gcd_reduce(ret);
-	}
-	
-	return ret;
-}
-
-//read a string (byte array)
-nl_val *nl_read_string(FILE *fp){
-	nl_val *ret=NULL;
-	
-	char c=getc(fp);
-	if(c!='"'){
-		fprintf(stderr,"Err [line %u]: string literal didn't start with \"; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
-#ifdef _STRICT
-		exit(1);
-#endif
-		return ret;
-	}
-	
-	//allocate a byte array
-	ret=nl_val_malloc(ARRAY);
-	
-	c=getc(fp);
-	
-	//read until end quote, THERE IS NO ESCAPE
-	while(c!='"'){
-		nl_val *ar_entry=nl_val_malloc(BYTE);
-		ar_entry->d.byte.v=c;
-		nl_array_push(ret,ar_entry);
-		
-		if(c=='\n'){
-			line_number++;
-		}
-		
-		c=getc(fp);
-	}
-	return ret;
-}
-
-//read a single character (byte)
-nl_val *nl_read_char(FILE *fp){
-	nl_val *ret=NULL;
-	
-	char c=getc(fp);
-	if(c!='\''){
-		fprintf(stderr,"Err [line %u]: character literal didn't start with \'; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
-#ifdef _STRICT
-		exit(1);
-#endif
-		return ret;
-	}
-	
-	//allocate a byte
-	ret=nl_val_malloc(BYTE);
-	
-	c=getc(fp);
-	ret->d.byte.v=c;
-	
-	c=getc(fp);
-	if(c!='\''){
-		fprintf(stderr,"Warn [line %u]: single-character literal didn't end with \'; (ended with \'%c\')\n",line_number,c);
-#ifdef _STRICT
-		exit(1);
-#endif
-		if(c=='\n'){
-			line_number++;
-		}
-	}
-	
-	return ret;
-}
-
-//read an expression list
-nl_val *nl_read_exp_list(FILE *fp){
-	nl_val *ret=NULL;
-	
-	char c=getc(fp);
-	if(c!='('){
-		fprintf(stderr,"Err [line %u]: expression list didn't start with (; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
-#ifdef _STRICT
-		exit(1);
-#endif
-		return ret;
-	}
-	
-	//allocate a pair (the first element of a linked list)
-	ret=nl_val_malloc(PAIR);
-	
-	nl_val *list_cell=ret;
-	
-	//read the first expression
-	nl_val *next_exp=nl_read_exp(fp);
-	
-	//continue reading expressions until we hit a NULL
-	while(next_exp!=NULL){
-		list_cell->d.pair.f=next_exp;
-		list_cell->d.pair.r=NULL;
-		
-		next_exp=nl_read_exp(fp);
-		if(next_exp!=NULL){
-			list_cell->d.pair.r=nl_val_malloc(PAIR);
-			list_cell=list_cell->d.pair.r;
-		}
-	}
-	
-	//return a reference to the first list element
-	return ret;
-}
-
-//read a symbol (just a string with a wrapper) (with a rapper? drop them beats man)
-nl_val *nl_read_symbol(FILE *fp){
-	nl_val *ret=NULL;
-	
-	char c;
-	
-	//allocate a symbol for the return
-	ret=nl_val_malloc(SYMBOL);
-	
-	//allocate a byte array for the name
-	nl_val *name=nl_val_malloc(ARRAY);
-	
-	c=getc(fp);
-	
-	//read until whitespace or list-termination character
-	while(!nl_is_whitespace(c) && c!=')'){
-		//an alternate list syntax has the symbol come first, followed by an open paren
-		if(c=='('){
-			ret->d.sym.name=name;
-			nl_val *symbol=ret;
-			
-			//read the rest of the list
-			ungetc(c,fp);
-			nl_val *list_remainder=nl_read_exp_list(fp);
-			
-			ret=nl_val_malloc(PAIR);
-			ret->d.pair.f=symbol;
-			ret->d.pair.r=list_remainder;
-			return ret;
-		}
-		nl_val *ar_entry=nl_val_malloc(BYTE);
-		ar_entry->d.byte.v=c;
-		nl_array_push(name,ar_entry);
-		
-		c=getc(fp);
-	}
-	
-	if(c==')'){
-		ungetc(c,fp);
-	}else if(c=='\n'){
-		line_number++;
-	}
-	
-	//encapsulate the name string in a symbol
-	ret->d.sym.name=name;
-	return ret;
-}
-
 //TODO: add another argument to read_exp for interactive mode, and in interactive mode use getch to handle arrow keys, etc.
 //TODO: (cont) this interactive mode should also be user-accessable via an argument to inexp
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp){
-	//initialize the return to null
-	nl_val *ret=NULL;
+	unsigned int old_line_number=line_number;
 	
-	//skip past any whitespace any time we go to read an expression
-	nl_skip_whitespace(fp);
+	//read in a string until non-whitespace followed by whitespace is found
+	//also if we're in a list, keep reading until the end of it (and care about comments insomuch as nest level doesn't change within comments)
+	nl_val *input_string=nl_val_malloc(ARRAY);
+	int nest_level=0;
+	char found_exp=FALSE;
+	char in_multiline_comment=FALSE;
+	char in_singleline_comment=FALSE;
+	char in_string=FALSE;
 	
-	//if we hit the end of the file then exit
-	if(feof(fp)){
-		end_program=TRUE;
-		return NULL;
-	}
-	
-	//read a character from the given file
-	char c=getc(fp);
-	
-	//peek a character after that, for two-char tokens
-	char next_c=getc(fp);
-	ungetc(next_c,fp);
-	
-	//if it starts with a digit or '.' then it's a number, or if it starts with '-' followed by a digit
-	if(isdigit(c) || (c=='.') || ((c=='-') && isdigit(next_c))){
-		ungetc(c,fp);
-		ret=nl_read_num(fp);
-	//if it starts with a quote read a string (byte array)
-	}else if(c=='"'){
-		ungetc(c,fp);
-		ret=nl_read_string(fp);
-	//if it starts with a single quote, read a character (byte)
-	}else if(c=='\''){
-		ungetc(c,fp);
-		ret=nl_read_char(fp);
-	//if it starts with a ( read a compound expression (a list of expressions)
-	}else if(c=='('){
-		ungetc(c,fp);
-		ret=nl_read_exp_list(fp);
-	//an empty list is just a NULL value, so leave ret as NULL
-	}else if(c==')'){
+	//read an input string from a file handle
+	//stopping once a complete expression is found or end of file is hit
+	while(!feof(fp)){
+		char c=getc(fp);
+		char next_c=getc(fp);
+		ungetc(next_c,fp);
 		
-	//the double-slash denotes a comment, as in gnu89 C
-	}else if(c=='/' && next_c=='/'){
-		//ignore everything until the next newline, then try to read again
-		while(c!='\n'){
-			c=getc(fp);
-		}
-		line_number++;
-		ret=nl_read_exp(fp);
-	//the /* ... */ multi-line comment style, as in gnu89 C
-	}else if(c=='/' && next_c=='*'){
-		next_c=getc(fp);
-		next_c=getc(fp);
-		if(next_c=='\n'){
-			line_number++;
+		//if we hit end of file just give up man
+		if(feof(fp)){
+/*
+#ifdef _DEBUG
+			printf("nl_read_exp debug -2, hit EOF\n");
+#endif
+*/
+			end_program=TRUE;
+			break;
 		}
 		
-		while(!((c=='*') && (next_c=='/'))){
-			c=next_c;
-			next_c=getc(fp);
-			if(next_c=='\n'){
-				line_number++;
+		nl_val *string_char=nl_val_malloc(BYTE);
+		string_char->d.byte.v=c;
+		nl_array_push(input_string,string_char);
+#ifdef _DEBUG
+/*
+		printf("nl_read_exp debug -1, input_string=");
+		nl_out(stdout,input_string);
+		printf("\n");
+*/
+#endif
+		
+		//newlines end single-line comments (since these are whitespace this check must go prior to the nl_is_whitespace() check)
+		if(((c=='\r') || (c=='\n')) && (!in_string) && (!in_multiline_comment)){
+/*
+#ifdef _DEBUG
+			printf("nl_read_exp debug 1, ending single-line comment, input_string=");
+			nl_out(stdout,input_string);
+			printf("\n");
+#endif
+*/
+			in_singleline_comment=FALSE;
+			if(nest_level<=0){
+#ifdef _DEBUG
+				printf("nl_read_exp debug 1.5, returning due to newline termination and not being in parens, string,  or multiline comment\n");
+#endif
+				break;
 			}
-		}
-		ret=nl_read_exp(fp);
-	//if it starts with a $ read an evaluation (a symbol to be looked up)
-	}else if(c=='$'){
-		//read an evaluation
-		ret=nl_val_malloc(EVALUATION);
-		nl_val *symbol=nl_read_symbol(fp);
-		
-		if(symbol->t==SYMBOL){
-			ret->d.eval.sym=symbol;
-		//read symbol can also return a list, for alternate syntax calls with parens AFTER the symbol, so handle that
-		}else if(symbol->t==PAIR){
-			ret->d.eval.sym=symbol->d.pair.f;
-			symbol->d.pair.f=ret;
-			ret=symbol;
+		//if we hit whitespace after finding an expression and not being in a list, then stop for now
+		}else if(nl_is_whitespace(c) && (!in_string) && (!in_multiline_comment) && (!in_singleline_comment)){
+			if((found_exp) && (nest_level<=0)){
+				break;
+			}
+		//comments are // for single-line or /*...*/ for multi-line
+		//note the extra getc so that /*/ is considered an unterminated multi-line comment
+		}else if((c=='/') && !(in_string)){
+			if(next_c=='*'){
+				//make sure next_c makes it into the end string, since we're skipping it here
+				string_char=nl_val_malloc(BYTE);
+				string_char->d.byte.v=next_c;
+				nl_array_push(input_string,string_char);
+				
+				//and don't skip a beat, but do skip the *
+				c=getc(fp);
+				in_multiline_comment=TRUE;
+			}else if(next_c=='/'){
+				in_singleline_comment=TRUE;
+/*
+#ifdef _DEBUG
+				printf("nl_read_exp debug 0, starting single-line comment, input_string=");
+				nl_out(stdout,input_string);
+				printf("\n");
+#endif
+*/
+			}
+		//look for end of /*...*/ multi-line comment
+		}else if((c=='*') && (next_c=='/') && !(in_string)){
+			in_multiline_comment=FALSE;
+		//lists start with (, providing we're not within a comment or string
+		}else if((c=='(') && !(in_singleline_comment) && !(in_multiline_comment) && !(in_string)){
+			nest_level++;
+		//lists end with ), providing we're not within a comment or string
+		}else if((c==')') && !(in_singleline_comment) && !(in_multiline_comment) && !(in_string)){
+			nest_level--;
+			if(nest_level<=0){
+				break;
+			}
+		//strings are double-quote delimited; there is NO ESCAPE
+		}else if((c=='"') && (!in_singleline_comment) && (!in_multiline_comment)){
+			in_string=(!in_string);
+			//strings count as expressions, even empty ones
+			if(!in_string){
+				found_exp=TRUE;
+				if(nest_level<=0){
+					break;
+				}
+			}
+		//normal character, just treat it as-is and remember we found something
+		//this was already added to the input string at the top of this loop so no need to here
+//		}else if((!in_multiline_comment) && (!in_singleline_comment)){
 		}else{
-			nl_val_free(ret);
-			ret=NULL;
-			ERR_EXIT(NULL,"could not read evaluation (internal parsing error)",FALSE);
+			found_exp=TRUE;
 		}
-	//if it starts with anything not already handled read a symbol
-	}else{
-		ungetc(c,fp);
-		ret=nl_read_symbol(fp);
-//	}else{
-//		fprintf(stderr,"Err: invalid symbol at start of expression, \'%c\' (will start reading next expression)\n",c);
+		
+		//if we've read in a parseable expression at this point then go ahead and return up
+/*
+		if((found_exp) && (nest_level<=0) && (!in_string) && (!in_multiline_comment) && (!in_singleline_comment)){
+			break;
+		}
+*/
 	}
+	unsigned int pos=0;
+	nl_val *exp=nl_str_read_exp(input_string,&pos);
 	
-	//NOTE: whitespace is discarded before we try to read the next expression
+#ifdef _DEBUG
+	printf("nl_read_exp debug 2, stopped reading (lines %u-%u) at input_string=",old_line_number,line_number);
+	nl_out(stdout,input_string);
+	printf("\n");
+/*
+	if(pos<input_string->d.array.size){
+		printf("nl_read_exp debug 3, didn't use whole string (pos=%u, string length=%u)\n",pos,input_string->d.array.size);
+	}
+*/
+#endif
 	
-	return ret;
+	nl_val_free(input_string);
+	return exp;
 }
 
 //this now outputs a [neulang] string; NOT a c string, so we don't need a length (from a user perspective there's no change, just done in a different function)
@@ -2353,32 +2148,6 @@ int nl_repl(FILE *fp, nl_val *argv){
 		nl_val_free(argv_symbol);
 	}
 
-	//TODO: remove this, it's just for debugging
-/*
-	end_program=TRUE;
-//	nl_val *str_to_read=nl_str_from_c_str("-5.3");
-//	nl_val *str_to_read=nl_str_from_c_str("\"a string\"");
-//	nl_val *str_to_read=nl_str_from_c_str("(\"a list\" \"of expressions\" 1.3 -2.1 (3 -42)) \"a string\"(12)(34) ()");
-//	nl_val *str_to_read=nl_str_from_c_str("()");
-	nl_val *str_to_read=nl_str_from_c_str(""
-		"(\"this is a string\" symbol //with commented parens )\n"
-		"\"end\" 2 3 45)\n"
-		"(array \"still a list\" sym)\n"
-		"+2 2.3\n"
-		"alt(3 4)\n");
-	
-	unsigned int pos=0;
-	nl_val *expression;
-	do{
-		expression=nl_str_read_exp(str_to_read,&pos);
-		nl_out(stdout,expression);
-		nl_val_free(expression);
-		printf("\npos=%u, str_to_read->d.array.size=%u\n",pos,str_to_read->d.array.size);
-	}while(expression!=NULL);
-	nl_val_free(str_to_read);
-	goto cleanup;
-*/
-	
 	if(fp==stdin){
 		printf("[line %u] nl >> ",line_number);
 	}
@@ -2447,7 +2216,6 @@ int nl_repl(FILE *fp, nl_val *argv){
 #ifdef _DEBUG
 	printf("Info [line %i]: exited program\n",line_number);
 #endif
-//cleanup:
 	
 	//de-allocate the global environment
 	nl_env_frame_free(global_env);

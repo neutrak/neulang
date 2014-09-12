@@ -262,24 +262,6 @@ nl_val *nl_eval(nl_val *exp, nl_env_frame *env, char last_exp, char *early_ret);
 //check if a givne character counts as whitespace in neulang
 char nl_is_whitespace(char c);
 
-//skip fp past any leading whitespaces
-void nl_skip_whitespace(FILE *fp);
-
-//read a number
-nl_val *nl_read_num(FILE *fp);
-
-//read a string (byte array)
-nl_val *nl_read_string(FILE *fp);
-
-//read a single character (byte)
-nl_val *nl_read_char(FILE *fp);
-
-//read an expression list
-nl_val *nl_read_exp_list(FILE *fp);
-
-//read a symbol (just a string with a wrapper) (with a rapper? drop them beats man)
-nl_val *nl_read_symbol(FILE *fp);
-
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp);
 
@@ -320,6 +302,9 @@ nl_val *nl_str_read_num(nl_val *input_string, unsigned int *persistent_pos);
 
 //read a string (byte array) from a string (trust me it makes sense)
 nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos);
+
+//read a single character (byte) from a string
+nl_val *nl_str_read_char(nl_val *input_string, unsigned int *persistent_pos);
 
 //read an expression list from a string
 nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos);

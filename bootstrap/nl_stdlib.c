@@ -22,16 +22,13 @@ char nl_str_char_or_null(nl_val *string, unsigned int pos){
 void nl_str_skip_whitespace(nl_val *input_string, unsigned int *persistent_pos){
 	unsigned int pos=(*persistent_pos);
 	
-	char c=input_string->d.array.v[pos]->d.byte.v;
-	while(nl_is_whitespace(c)){
+	char c=nl_str_char_or_null(input_string,pos);
+	while(nl_is_whitespace(c) && (c!='\0')){
 		if(c=='\n'){
 			line_number++;
 		}
 		pos++;
 		c=nl_str_char_or_null(input_string,pos);
-		if(c=='\0'){
-			break;
-		}
 	}
 	
 	(*persistent_pos)=pos;
@@ -181,6 +178,45 @@ nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
 	}
 	if(c=='"'){
 		pos++;
+	}
+	
+	(*persistent_pos)=pos;
+	return ret;
+}
+
+//read a single character (byte) from a string
+nl_val *nl_str_read_char(nl_val *input_string, unsigned int *persistent_pos){
+	unsigned int pos=(*persistent_pos);
+	
+	nl_val *ret=NULL;
+	
+	char c=nl_str_char_or_null(input_string,pos);
+	pos++;
+	if(c!='\''){
+		fprintf(stderr,"Err [line %u]: character literal didn't start with \'; WHAT DID YOU DO? (started with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
+		return ret;
+	}
+	
+	//allocate a byte
+	ret=nl_val_malloc(BYTE);
+	
+	c=nl_str_char_or_null(input_string,pos);
+	pos++;
+	ret->d.byte.v=c;
+	
+	c=nl_str_char_or_null(input_string,pos);
+	pos++;
+	if(c!='\''){
+		fprintf(stderr,"Warn [line %u]: single-character literal didn't end with \'; (ended with \'%c\')\n",line_number,c);
+#ifdef _STRICT
+		exit(1);
+#endif
+		if(c=='\n'){
+			line_number++;
+		}
 	}
 	
 	(*persistent_pos)=pos;
@@ -348,7 +384,7 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 		ret=nl_str_read_string(input_string,&pos);
 	//if it starts with a single quote, read a character (byte)
 	}else if(c=='\''){
-//		ret=nl_str_read_char(input_string,&pos);
+		ret=nl_str_read_char(input_string,&pos);
 	//if it starts with a ( read a compound expression (a list of expressions)
 	}else if(c=='('){
 		ret=nl_str_read_exp_list(input_string,&pos);
@@ -367,22 +403,30 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 			}
 		}
 		line_number++;
+		//skip past the newline that terminated the comment
+		pos++;
 		ret=nl_str_read_exp(input_string,&pos);
 	//the /* ... */ multi-line comment style, as in gnu89 C
 	}else if(c=='/' && next_c=='*'){
 		pos++;
+		pos++;
+		c=nl_str_char_or_null(input_string,pos);
+		pos++;
 		next_c=nl_str_char_or_null(input_string,pos);
 		
-		if(next_c=='\n'){
-			line_number++;
-		}
+//		if(next_c=='\n'){
+//			line_number++;
+//		}
 		
+//		printf("reading multi-line comment, c=%c, next_c=%c\n",c,next_c);
 		while(!((c=='*') && (next_c=='/'))){
 			c=next_c;
 			next_c=nl_str_char_or_null(input_string,pos+1);
-			if(c=='\0' || next_c=='\0'){
+			if((c=='\0') || (next_c=='\0')){
+//				printf("hit a null byte\n");
 				break;
 			}
+//			printf("next_c=%c\n",next_c);
 			pos++;
 			
 			if(next_c=='\n'){
@@ -394,12 +438,12 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 			pos++;
 		}
 		ret=nl_str_read_exp(input_string,&pos);
-/*
 	//if it starts with a $ read an evaluation (a symbol to be looked up)
 	}else if(c=='$'){
 		//read an evaluation
+		pos++;
 		ret=nl_val_malloc(EVALUATION);
-		nl_val *symbol=nl_read_symbol(fp);
+		nl_val *symbol=nl_str_read_symbol(input_string,&pos);
 		
 		if(symbol->t==SYMBOL){
 			ret->d.eval.sym=symbol;
@@ -413,13 +457,14 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 			ret=NULL;
 			ERR_EXIT(NULL,"could not read evaluation (internal parsing error)",FALSE);
 		}
-*/
 	//if it starts with anything not already handled read a symbol
 	}else{
 		ret=nl_str_read_symbol(input_string,&pos);
 	}
 	
-	//NOTE: whitespace is discarded before we try to read the next expression
+	//skip past trailing whitespace just for good measure
+	//(this is mostly for tracking line number consistently across multiple read_exp() calls, which may or may not contain trailing newlines)
+	nl_str_skip_whitespace(input_string,&pos);
 	
 	(*persistent_pos)=pos;
 	return ret;
