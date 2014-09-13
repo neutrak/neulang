@@ -21,7 +21,7 @@ interesting/important propreties in no particular order
 	all input is done by means of the (in) subroutine and all output is done by means of the (out) subroutine; these are intentionally short as you're expected to use them often; the hope is 
 	we do not support subroutine/function/variable overloading; we encourage developers to put the a type within the function name, and we use this convention for some builtin functions, such as ar-byte-emp and ar-num-emp
 	a raw string with nothing else on the line is also seen as output, because a call shouldn't really be needed for that
-	the "recurse" keyword allows anonymous functions to recurse
+	the "recur" keyword allows anonymous functions to recurse
 	because of scoping rules, the implementation is planned to make data-wise copies when a variable is passed (as an argument) to a lower scope or returned to a higher scope, but otherwise not re-allocate memory, since data can be changed within the local scope
 	
 	should if statements have a return type? it may make tail recursion simpler to implement

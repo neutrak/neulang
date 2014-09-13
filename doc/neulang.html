@@ -29,8 +29,10 @@ pre{
 	<li><a href='#bool'>Boolean Operators</a></li>
 	<li><a href='#array'>Array (and by extension string) Primitives</a></li>
 	<li><a href='#list'>List Primitives</a></li>
+	<li><a href='#struct'>Struct Primitives</a></li>
 	<li><a href='#vars'>Pre-Defined Global Variables</a></li>
 </ul>
+<!-- TODO: each primitive function should have at LEAST one example of its use, probably 2 or 3 -->
 
 <a name='intro'></a>
 <h1>Introduction</h1>
@@ -73,7 +75,7 @@ I know it's common to start with hello world but that's just so boring and even 
 
 <p>
 Okay so at this point a couple notes might be important.  The first thing you'll notice is probably assignment; this is done with the let statement.  Let binds a symbol to a value; it's important to note that the value can be updated, but the type cannot be changed.  
-That is to say, (let a 4) (let a 5) is acceptable, but (let a 4) (let a "c") is not, since let was previously bound to a number value.  
+That is to say, (let a 4) (let a 5) is acceptable, but (let a 4) (let a "c") is not, since &lt;symbol a&gt; was previously bound to a number value.  
 </p>
 
 <p>
@@ -97,7 +99,7 @@ Just for completeness, here are two alternate versions of the same code, one rec
 	//initialize variables (in an imperative style)
 	(let acc 1)
 	//set the accumulator to the result of the loop
-	(let acc (for a 1 (or (&lt; $a $n) (= $a $n)) (+ $a 1)
+	(let acc (for a 1 (&lt;= $a $n) (+ $a 1)
 		(let acc (* $acc $a))
 	after
 		$acc
@@ -163,7 +165,7 @@ The primitive types are listed below.
 	<b>SYMBOL</b> - a literal symbol, the only time this is evaluated is when it is in the first position of a list, where it is checked against keywords and then primitives; otherwise these are self-evaluating
 	</li>
 	<li>
-	<b>EVALUATION</b> - $symbol; a symbol that is meant to be evaluated
+	<b>EVALUATION</b> - $symbol; a symbol that is meant to be evaluated (these will be looked up in the static environment chain)
 	</li>
 </ul>
 
@@ -172,7 +174,7 @@ Additionally, there are <b>NULL</b> values; this is a generic value which can be
 </p>
 
 <p>
-Strings are <b>ARRAY</b>s of <b>BYTE</b>s.  They work like pascal strings, storing length with them.  It's important to note that strings CANNOT be escaped in neulang, there is no \n, \', \", or other escape constructs.  The way to output these strings is by concatenating the desired character via the , (array concatenation) operator.  This is done to prevent bugs due to string processing while dealing with escaped sequences.  
+Strings are <b>ARRAY</b>s of <b>BYTE</b>s.  They work like pascal strings, storing length with them.  It's important to note that strings CANNOT be escaped in neulang, there is no \n, \', \", or other escape constructs.  The way to output these strings is by concatenating the desired character via the , (array concatenation) operator.  This is done to prevent bugs due to string processing while dealing with escaped sequences (e.g. injection errors).  
 </p>
 
 <!-- TODO: examples of values of each type -->
@@ -228,7 +230,47 @@ Nextly, generic comparision primitives.  These can operate on any type but all e
 </ul>
 
 <p>
-For primitives used with other types, see the documentation for that specific section.  
+Generic output and conversion faculties.  These will generally not be used in algorithms, but you'll want to output your results, right?
+</p>
+
+<ul>
+	<li>
+	<b>outs</b> - outputs a string; if more than one string is given in arguments, then all strings are output in order
+	</li>
+	<li>
+	<b>outexp</b> - outputs an expression; functionally equivalent to (outs (val-&gt;memstr $exp))
+	</li>
+	
+	<li>
+	<b>val-&gt;memstr</b> - returns a string representing the given expression; note that this is NOT the same as the original input for that expression (for example (= "&lt;symbol a&gt;" (val-&gt;memstr (lit a))) is TRUE)
+	</li>
+	
+	<li>
+	<b>num-&gt;byte</b> - converts an integer in the range [0,255] to a single byte; for strings this can be used to get a character from an ascii value
+	</li>
+	<li>
+	<b>byte-&gt;num</b> - converts a single-byte value to its equivalent integer numger
+	</li>
+</ul>
+
+<p>
+Input primitives; so the user can, you know, interact with your program.  
+</p>
+
+<ul>
+	<li>
+	<b>inline</b> - reads in one line of input as a string from stdin
+	</li>
+	<li>
+	<b>inexp</b> - reads in a single neulang expression as a data structure from stdin
+	</li>
+	<li>
+	<b>file-&gt;ar</b> - reads in a given file as a string
+	</li>
+</ul>
+
+<p>
+For primitives specific to particular types, see the documentation for that specific section.  
 <br>
 <a href='#array'>Array (and by extension string) Primitives</a><br>
 <a href='#list'>List Primitives</a><br>
@@ -276,16 +318,16 @@ There are many keywords which have a meaning other than direct application.  Alt
 	<b>recur</b> - recursive call; this allows anonymous recursion within a subroutine
 	</li>
 	<li>
-	<b>return</b> - an early return (if this is omitted the last expression is taken as the return value); used in loops, this acts as a "break" statement
+	<b>return</b> - an early return (if this is omitted the last expression is taken as the return value); used in loops, this acts as a "break" statement; used in loops with recur, this acts as a "continue" statement
 	</li>
 	<li>
 	<b>begin</b> - evaluates the given sequence in order and returns the evaluation of the last element, once all elements are evaluated
 	</li>
 	<li>
-	<b>while</b> - the while loop (syntactic sugar for anonymous tail-recursion with no arguments)
+	<b>while</b> ... [<b>after</b>] - the while loop (syntactic sugar for anonymous tail-recursion with no arguments)
 	</li>
 	<li>
-	<b>for</b> - the for loop (syntactic sugar for anonymous tail-recursion with one argument)
+	<b>for</b> ... [<b>after</b>] - the for loop (syntactic sugar for anonymous tail-recursion with one argument)
 	</li>
 </ul>
 
@@ -303,7 +345,7 @@ There is no else-if per se, but rather this behavior is acheived by nesting if s
 
 <pre>
 <code>
-//this is stored as gcd(85/100)
+//the value of x is stored as gcd(85/100)
 (let x 8.5)
 (if (&gt; 7 $x 9) //7&gt;8.5&gt;9
 	"how would you get here I don't even"
@@ -384,10 +426,11 @@ While and For loops are syntactic sugar for anonymous tailcall-optimized recursi
 This is the same method of doing looping that scheme uses, just made more intuitive and simple from a user perspective.  
 The <b>after</b> keyword allows code to be run in the loop environment once the condition has become false (just before returning), and this clause would contain any return value.  
 The <b>return</b> keyword functions in the same way as any other closure, and becomes equivilent to a "break" statement in other languages when placed inside a loop.  
+A statement of <b>(return (recur))</b> within a loop will act as a "continue"; if you can understand why that is then you have a pretty solid grasp of the language semantics.  This is of course still tailcall optimized and will not build up call stack :).  
 </p>
 
 <p>
-The while loop takes at least two arguments (a condition and a body) and will execute the body until the condition becomes false.  
+The while loop takes at least two arguments (a condition and a body) and will execute the body until the condition becomes false.  The condition is evaluated within the loop's local environment, so updating variable values within the loop body will allow the condition to change.  
 </p>
 
 <pre>
@@ -507,7 +550,7 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 	<b>array</b> - creates a new array consisting of the arguments given (in the given order)
 	</li>
 	<li>
-	<b>,</b> - , (comma) is the array (and therefore string) concatenation operator in neulang; this makes much more sense than something like + for string data, and is less ambiguous; it takes any number of arguments (all arrays!) and returns one array composed of all the elements of the argument arrays in order; to make a 2D array rather than flattening data, call <b>array</b> instead.  <b>,</b> is a very useful operator because you cannot escape characters in neulang (strings are from one " to the next " with no ifs, ands, or buts) and therefore must concatenate to output generated data, non-printable characters, and characters like <b>$newl</b> which might hurt your code formatting.  
+	<b>,</b> - , (comma) is the array (and therefore string) concatenation operator in neulang; this makes much more sense than something like + for string data, and is less ambiguous; it takes any number of arguments (all arrays!) and returns one array composed of all the elements of the argument arrays in order.  To make a 2D array rather than flattening data, call <b>array</b> instead.  <b>,</b> is a very useful operator because you cannot escape characters in neulang (strings are from one " to the next " with no ifs, ands, or buts) and therefore must concatenate to output generated data, non-printable characters, and characters like <b>$newl</b> which might hurt your code formatting.  
 	</li>
 	<li>
 	<b>ar-sz</b> - returns size of an array (number of elements)
@@ -521,18 +564,24 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 	<li>
 	<b>ar-extend</b> - returns a new array with all elements of new array, as well as extra elements given (at end) (let array (ar-extend $array $new-value))
 	</li>
+	<li>
+	<b>ar-omit</b> - returns a new array with the element of the array at the given index removed (omitted) (let array (ar-omit $array $index))
+	</li>
+	<li>
+	<b>ar-chop</b> - returns a new array consisting of subarrays of the given array separated by the given delimiter (this is the neulang equivalent of split or explode) (let array (ar-chop $array " "))
+	</li>
 <!-- TODO: implement these in the interpreter -->
+	<li>
+	<b>ar-ins</b> - returns a new array with the given element included at the given index, pushing later elements down (let array (ar-ins $array $index $new))
+	</li>
+	<li>
+	<b>ar-subar</b> - returns a new array which is a subset of the given array limited to the given min and max indices (let array (ar-subar $array $min $max))
+	</li>
 	<li>
 	<b>ar-push</b> - returns a new array with the given element added onto the end of the array (let array (ar-push $array $new))
 	</li>
 	<li>
 	<b>ar-pop</b> - returns a new array with the last element removed from the end of the array (let array (ar-pop $array))
-	</li>
-	<li>
-	<b>ar-rm</b> - returns a new array with the element of the array at the given index removed (let array (ar-rm $array $index))
-	</li>
-	<li>
-	<b>ar-ins</b> - returns a new array with the given element included at the given index, pushing later elements down (let array (ar-ins $array $index $new))
 	</li>
 </ul>
 <a href='#top'>Return to the top of this page</a>
@@ -551,7 +600,7 @@ Lists are used for interal parsing and are useful for data that you plan to iter
 	<b>pair</b> - creates a new list cell with the 2 arguments given (takes EXACTLY 2 arguments); this is a cons cell, for you lisp people
 	</li>
 	<li>
-	<b>list</b> - creates a new list consisting of the arguments given (in the given order)
+	<b>list</b> - creates a new list consisting of the arguments given (in the given order); note that this will evaluate the given list-elements-to-be first, as opposed to lit with a list, which will not perform any such evaluation
 	</li>
 	<li>
 	<b>f</b> - returns the first element in a pair/list (f $list) (equivalent to scheme car)
@@ -565,10 +614,40 @@ Lists are used for interal parsing and are useful for data that you plan to iter
 	<li>
 	<b>list-sz</b> - returns the number of elements in a list (has to iterate through to get this)
 	</li>
+	<li>
+	<b>list-idx</b> - returns the list element at the given index (has to iterate through to get this); if you're using this a lot you should probably switch to an array
+	</li>
+	<li>
+	<b>list-cat</b> - returns a new list consisting of all the elements of the given lists linked together in order
+	</li>
 </ul>
 
 <a href='#top'>Return to the top of this page</a>
 <br><br>
+
+<a name='struct'></a>
+<h1>Struct Primitives</h1>
+<hr>
+
+<p>
+Structs are a method of named data abstraction, and aim to fill goals similar to those of C structs or OO classes.  Although currently these are implemented with parallel arrays at a later date I'm hoping to make these high-quality hash tables.  They share an implementation with environment frames.  
+</p>
+
+<ul>
+	<li>
+	<b>struct</b> - (keyword) creates a new struct; for example (struct (sym1 1) (sym2 2)) will return a struct with sym1 bound to 1 and sym2 bound to 2; This uses a syntax that is separate from other functionality and so cannot be implemented as a normal function
+	</li>
+	<li>
+	<b>struct-get</b> - returns the value of the given symbol within the given struct
+	</li>
+	<li>
+	<b>struct-replace</b> - returns a new struct based on the given struct with the given symbol bound to the given new value
+	</li>
+</ul>
+
+<a href='#top'>Return to the top of this page</a>
+<br><br>
+
 
 <a name='vars'></a>
 <h1>Pre-Defined Global Variables</h1>
