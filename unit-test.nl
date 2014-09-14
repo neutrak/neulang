@@ -575,8 +575,15 @@ else
 
 
 //BEGIN standard library array testing --------------------------------------------------------------------
+
+//array conversion from list(s)
+(assert (= "abcd" (list->ar (list 'a' 'b' 'c' 'd'))))
+(assert (= "abcd" (list->ar (list 'a' 'b') (list 'c' 'd'))))
+
+//array concatenation
 (assert (= "abcd" (, "a" "bc" "d")))
 
+//array size, iteration
 (let num-array (array 0 1 2 3 4 5))
 (assert (= (ar-sz $num-array) 6))
 (for n 0 (< $n (ar-sz $num-array)) (+ $n 1)
@@ -603,10 +610,30 @@ else
 (assert (= (array "gab" "d") (ar-chop "gabcd" "c")))
 (assert (= (array "gabc" (array)) (ar-chop "gabcd" "d")))
 
+(assert (= (lit ('a' 'b' 'c' 'd')) (ar->list "abcd")))
+(assert (= (list 1 2 3 4) (ar->list (array 1 2 3 4))))
+(assert (= (list 1 2 3 4) (ar->list (array 1 2) (array 3 4))))
+
+//array insert
+//normal case
+(assert (= (ar-ins "asdf" 0 (ar->list "bbb")) "bbbasdf"))
+(assert (= (ar-ins "asdf" 1 (ar->list "bbb")) "abbbsdf"))
+(assert (= (ar-ins "asdf" (ar-sz "asdf") (ar->list "bbb")) "asdfbbb"))
+//exceptional (warning) case
+(assert (= (ar-ins "asdf" -1 (ar->list "bbb")) "bbbasdf"))
+(assert (= (ar-ins "asdf" (+ (ar-sz "asdf") 5) (ar->list "bbb")) "asdfbbb"))
+
 //END standard library array testing ----------------------------------------------------------------------
 
 
 //BEGIN standard library list testing ---------------------------------------------------------------------
+
+//list conversion from array
+(assert (= (lit ('a' 'b' 'c' 'd')) (ar->list "abcd")))
+(assert (= (list 1 2 3 4) (ar->list (array 1 2 3 4))))
+(assert (= (list 1 2 3 4) (ar->list (array 1 2) (array 3 4))))
+
+//list concatenation
 (assert (= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
 
 //END standard library list testing -----------------------------------------------------------------------

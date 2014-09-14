@@ -344,6 +344,14 @@ nl_val *nl_num_to_byte(nl_val *num_list);
 //return an integer version of the given byte
 nl_val *nl_byte_to_num(nl_val *byte_list);
 
+//returns the list equivalent to the given array(s)
+//if multiple arrays are given they will be flattened into one sequential list
+nl_val *nl_array_to_list(nl_val *arg_list);
+
+//returns the array equivalent to the given list(s)
+//if multiple lists are given they will be flattened into one sequential array
+nl_val *nl_list_to_array(nl_val *arg_list);
+
 //returns the string-encoded version of any given expression
 nl_val *nl_val_to_memstr(const nl_val *exp);
 
@@ -374,6 +382,10 @@ nl_val *nl_array_extend(nl_val *arg_list);
 //returns an array consisting of all the elements of the starting array
 //EXCEPT the element at the given position
 nl_val *nl_array_omit(nl_val *arg_list);
+
+//returns the index of the first occurance of the given subarray within the given array
+//returns -1 for not found
+nl_val *nl_array_find(nl_val *arg_list);
 
 //array insert
 //returns an array consisting of existing elements, plus given elements inserted at given 0-index-based position

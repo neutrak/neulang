@@ -2067,7 +2067,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-extend"),nl_primitive_wrap(nl_array_extend),env);
 	nl_bind_new(nl_sym_from_c_str("ar-omit"),nl_primitive_wrap(nl_array_omit),env);
 	
-//	nl_bind_new(nl_sym_from_c_str("ar-ins"),nl_primitive_wrap(nl_array_insert),env);
+//	nl_bind_new(nl_sym_from_c_str("ar-find"),nl_primitive_wrap(nl_array_find),env);
+	nl_bind_new(nl_sym_from_c_str("ar-ins"),nl_primitive_wrap(nl_array_insert),env);
 	nl_bind_new(nl_sym_from_c_str("ar-chop"),nl_primitive_wrap(nl_array_chop),env);
 //	nl_bind_new(nl_sym_from_c_str("ar-subar"),nl_primitive_wrap(nl_array_subarray),env);
 	//TODO: make and bind additional array subroutines
@@ -2097,6 +2098,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	nl_bind_new(nl_sym_from_c_str("num->byte"),nl_primitive_wrap(nl_num_to_byte),env);
 	nl_bind_new(nl_sym_from_c_str("byte->num"),nl_primitive_wrap(nl_byte_to_num),env);
+	nl_bind_new(nl_sym_from_c_str("ar->list"),nl_primitive_wrap(nl_array_to_list),env);
+	nl_bind_new(nl_sym_from_c_str("list->ar"),nl_primitive_wrap(nl_list_to_array),env);
 	nl_bind_new(nl_sym_from_c_str("val->memstr"),nl_primitive_wrap(nl_val_list_to_memstr),env);
 	//TODO: all other sensical type conversions
 	

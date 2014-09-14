@@ -780,6 +780,96 @@ nl_val *nl_byte_to_num(nl_val *byte_list){
 	return ret;
 }
 
+//returns the list equivalent to the given array(s)
+//if multiple arrays are given they will be flattened into one sequential list
+nl_val *nl_array_to_list(nl_val *arg_list){
+	nl_val *ret=NULL;
+	if(nl_c_list_size(arg_list)<1){
+		ERR_EXIT(arg_list,"no arguments given to array_to_list, can't convert NULL (returning NULL)",TRUE);
+		return NULL;
+	}
+	
+	//start the list to return
+	nl_val *current_cell=nl_val_malloc(PAIR);
+	current_cell->d.pair.f=NULL;
+	current_cell->d.pair.r=NULL;
+	
+	//set the return value to the head of this list (which we will build the rest of momentarily)
+	ret=current_cell;
+	
+	//whether this is the first array or a continuation (this changes how we pair (or don't pair) to previously accumlated lists)
+	char first_ar=TRUE;
+	
+	//for each argument
+	while((arg_list!=NULL) && (arg_list->t==PAIR)){
+		nl_val *current_ar=arg_list->d.pair.f;
+		if((current_ar==NULL) || (current_ar->t!=ARRAY)){
+			nl_val_free(ret);
+			ERR_EXIT(current_ar,"non-array given to array_to_list conversion",TRUE);
+			return NULL;
+		}
+		
+		//handle for multiple arrays (current_cell should be updated accordingly)
+		if(!first_ar){
+			current_cell->d.pair.r=nl_val_malloc(PAIR);
+			current_cell=current_cell->d.pair.r;
+		}
+		
+		//go through each array element and add a copy to the list to return
+		unsigned int n;
+		for(n=0;n<current_ar->d.array.size;n++){
+			current_cell->d.pair.f=nl_val_cp(current_ar->d.array.v[n]);
+			//if this isn't the last element then make a container for the next element
+			if((n+1)<current_ar->d.array.size){
+				current_cell->d.pair.r=nl_val_malloc(PAIR);
+				current_cell=current_cell->d.pair.r;
+			//if this is the last element then null terminate
+			}else{
+				current_cell->d.pair.r=NULL;
+			}
+		}
+		//I don't know if it was first_ar or not prior to this but it sure isn't now
+		first_ar=FALSE;
+		
+		arg_list=arg_list->d.pair.r;
+	}
+	
+	return ret;
+}
+
+//returns the array equivalent to the given list(s)
+//if multiple lists are given they will be flattened into one sequential array
+nl_val *nl_list_to_array(nl_val *arg_list){
+	nl_val *ret=NULL;
+	if(nl_c_list_size(arg_list)<1){
+		ERR_EXIT(arg_list,"no arguments given to list_to_array, can't convert NULL (returning NULL)",TRUE);
+		return NULL;
+	}
+	
+	//create an array to return
+	ret=nl_val_malloc(ARRAY);
+	
+	//for each argument
+	while((arg_list!=NULL) && (arg_list->t==PAIR)){
+		nl_val *current_list=arg_list->d.pair.f;
+		if((current_list==NULL) || (current_list->t!=PAIR)){
+			nl_val_free(ret);
+			ERR_EXIT(current_list,"non-list given to list_to_array conversion",TRUE);
+			return NULL;
+		}
+		
+		//go through each list element and add a copy to the array to return
+		while((current_list!=NULL) && (current_list->t==PAIR)){
+			nl_array_push(ret,nl_val_cp(current_list->d.pair.f));
+			current_list=current_list->d.pair.r;
+		}
+		
+		arg_list=arg_list->d.pair.r;
+	}
+	
+	return ret;
+}
+
 //returns the string-encoded version of any given expression
 nl_val *nl_val_to_memstr(const nl_val *exp){
 	nl_val *ret=nl_val_malloc(ARRAY);
@@ -994,7 +1084,10 @@ void nl_array_push(nl_val *a, nl_val *v){
 			new_stored_size=1;
 		//when we run out of space, double the available space (don't want to be doing this all the time)
 		}else{
-			new_stored_size*=2;
+//			new_stored_size*=2;
+			
+			//this is an optimization to allow new allocations to use already-allocated memory from previous sizes
+			new_stored_size=((3/2)*new_stored_size)+1;
 		}
 //		nl_val *new_array_v=(nl_val*)(malloc((new_stored_size)*(sizeof(nl_val))));
 		nl_val **new_array_v=(nl_val**)(malloc((new_stored_size)*(sizeof(nl_val*))));
@@ -1218,11 +1311,73 @@ nl_val *nl_array_omit(nl_val *arg_list){
 	return ret;
 }
 
-//TODO: write array insert
+//TODO: write array find
+//returns the index of the first occurance of the given subarray within the given array
+//returns -1 for not found
+nl_val *nl_array_find(nl_val *arg_list){
+	nl_val *ret=NULL;
+	return ret;
+}
+
 //array insert
 //returns an array consisting of existing elements, plus given elements inserted at given 0-index-based position
 nl_val *nl_array_insert(nl_val *arg_list){
 	nl_val *ret=NULL;
+	if(nl_c_list_size(arg_list)!=3){
+		ERR_EXIT(arg_list,"too few arguments given to array insert operation (takes array, index, and a list of new values to insert)",TRUE);
+		return NULL;
+	}
+	
+	nl_val *base_array=arg_list->d.pair.f;
+	if((base_array==NULL) || (base_array->t!=ARRAY)){
+		ERR_EXIT(base_array,"non-array given as first argument to array insert operation",TRUE);
+		return NULL;
+	}
+	
+	nl_val *ins_idx=arg_list->d.pair.r->d.pair.f;
+	if((ins_idx==NULL) || (ins_idx->t!=NUM) || (ins_idx->d.num.d!=1)){
+		ERR_EXIT(ins_idx,"non-number or non-integer given as index argument to array insert operation",TRUE);
+		return NULL;
+	}
+	
+	//the list of new values to insert
+	nl_val *new_val_list=arg_list->d.pair.r->d.pair.r->d.pair.f;
+	if((new_val_list==NULL) && (new_val_list->t!=PAIR)){
+		ERR_EXIT(new_val_list,"null or wrong type given to array insert, we need a LIST of new values to insert",TRUE);
+		return NULL;
+	}
+	
+	long int c_ins_idx=ins_idx->d.num.n;
+	if(c_ins_idx<0){
+		ERR(ins_idx,"negative index given to array insert, new elements will be added to start",TRUE);
+		c_ins_idx=0;
+	}
+	if(c_ins_idx>(base_array->d.array.size)){
+		ERR(ins_idx,"index given to array insert is past the end of the array (greater than array size), new elements will be added to end",TRUE);
+		c_ins_idx=(base_array->d.array.size);
+	}
+	
+	//do the actual insert
+	//first allocate a new array to return
+	ret=nl_val_malloc(ARRAY);
+	
+	unsigned int idx;
+	//NOTE: the <= is intentional here and is what allows us to append to the end of the array
+	for(idx=0;idx<=base_array->d.array.size;idx++){
+		//if we hit the place to insert, then add all the given new elements here
+		if(idx==c_ins_idx){
+			while((new_val_list!=NULL) && (new_val_list->t==PAIR)){
+				nl_array_push(ret,nl_val_cp(new_val_list->d.pair.f));
+				new_val_list=new_val_list->d.pair.r;
+			}
+		}
+		
+		//if we're not past the end, then append a copy of the initial element here
+		if(idx<base_array->d.array.size){
+			nl_array_push(ret,nl_val_cp(base_array->d.array.v[idx]));
+		}
+	}
+	
 	return ret;
 }
 
