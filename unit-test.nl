@@ -742,6 +742,137 @@ else
 
 //END standard library testing ----------------------------------------------------------------------------
 
+//BEGIN array-sorting testing -----------------------------------------------------------------------------
+
+//a very inefficient userspace subarray function
+(let ar-subar (sub (ar start length)
+	(let ret (array))
+	(let idx $start)
+	
+	//return ret directly out of the while loop
+	//for all the length elements directly after the index
+	(return (while (< (- $idx $start) $length)
+		//add them to the return value
+		(let ret (ar-extend $ret (ar-idx $ar $idx)))
+		
+		(let idx (+ $idx 1))
+	after
+		$ret
+	))
+))
+
+
+//merge, aka zip
+(let ar-merge (sub (ar-a ar-b cmp)
+	(let ret (array))
+	
+	//zip up the arrays based on the comparison function
+	(let ret (while (or (> (ar-sz $ar-a) 0) (> (ar-sz $ar-b) 0))
+		//if there are still elements in both arrays
+		(if (and (> (ar-sz $ar-a) 0) (> (ar-sz $ar-b) 0))
+			
+			//take the one chosen by the comparison
+			(if ($cmp (ar-idx $ar-a 0) (ar-idx $ar-b 0))
+				(let ret (ar-extend $ret (ar-idx $ar-a 0)))
+				(let ar-a (ar-omit $ar-a 0))
+			else
+				(let ret (ar-extend $ret (ar-idx $ar-b 0)))
+				(let ar-b (ar-omit $ar-b 0))
+			)
+		//if there are only elements left in a, then take one of those
+		else (if (> (ar-sz $ar-a) 0)
+			(let ret (ar-extend $ret (ar-idx $ar-a 0)))
+			(let ar-a (ar-omit $ar-a 0))
+		//if there are only elements left in b, then take one of those
+		else
+			(let ret (ar-extend $ret (ar-idx $ar-b 0)))
+			(let ar-b (ar-omit $ar-b 0))
+		))
+	after
+		$ret
+	))
+	
+	//return the merged result
+	(return $ret)
+))
+
+//merge sort
+(let ar-merge-sort (sub (ar cmp)
+	//fewer than 2 elements -> already sorted
+	(if (< (ar-sz $ar) 2)
+		(return $ar)
+	)
+	
+	(let split-idx (floor (/ (ar-sz $ar) 2)))
+	
+	//get the lower half
+	(let low ($ar-subar $ar 0 $split-idx))
+	//and the upper half
+	(let high ($ar-subar $ar $split-idx (- (ar-sz $ar) $split-idx)))
+	
+	//recursively sort the sub-arrays
+	(let low ($ar-merge-sort $low $cmp))
+	(let high ($ar-merge-sort $high $cmp))
+
+	//return the (merged) sorted result
+	(return ($ar-merge $low $high $cmp))
+))
+
+//insertion sort, just as a speed comparison
+(let ar-ins-sort (sub (ar cmp)
+	//fewer than 2 elements = already sorted
+	(if (< (ar-sz $ar) 2)
+		(return $ar)
+	)
+	
+	//go through each index of the array
+	(let idx 0)
+	
+	//note that we don't need a variable since we're returning directly out of the while loop
+	(return (while (< $idx (ar-sz $ar))
+		//find the lowest element in the array at or after the current element
+		//initialized as the current element
+		(let lowest (ar-idx $ar $idx))
+		(let low-idx $idx)
+		
+		//iterate through the remainder of the array
+		(let low-idx (while (< $idx (ar-sz $ar))
+			//if something was lower (assuming cmp as <), update the lowest and the associated index
+			(if ($cmp (ar-idx $ar $idx) $lowest)
+				(let lowest (ar-idx $ar $idx))
+				(let low-idx $idx)
+			)
+			
+			//go to the next element
+			(let idx (+ $idx 1))
+		after
+			//return the lowest element found
+			$low-idx
+		))
+		
+		//swap the current element for the lowest element found
+		(let tmp (ar-idx $ar $idx))
+		(let ar (ar-replace $ar $idx (ar-idx $ar $low-idx)))
+		(let ar (ar-replace $ar $low-idx $tmp))
+		
+		//go to the next element
+		(let idx (+ $idx 1))
+	after
+		//when at the end of all elements, return the array with replacements made
+		$ar
+	))
+))
+
+
+(assert (= (array 1 2 3 4 5 6 7 8 9) ($ar-merge (array 1 2 3 4 5) (array 6 7 8 9) (sub (a b) (< $a $b)))))
+(assert (= (array 6 7 8 9 1 2 3 4 5) ($ar-merge (array 1 2 3 4 5) (array 6 7 8 9) (sub (a b) (> $a $b)))))
+
+(assert (= (array 0 1 2 3 4 5 6 7 8 9) ($ar-ins-sort (array 2 3 4 1 0 5 8 9 7 6) (sub (a b) (< $a $b)))))
+
+(assert (= (array 0 1 2 3 4 5 6 7 8 9) ($ar-merge-sort (array 2 3 4 1 0 5 8 9 7 6) (sub (a b) (< $a $b)))))
+
+//END array-sorting testing -------------------------------------------------------------------------------
+
 // EXIT
 //(exit)
 

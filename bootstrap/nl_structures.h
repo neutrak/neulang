@@ -453,6 +453,12 @@ nl_val *nl_mul(nl_val *num_list);
 //divide a list of (rational) numbers
 nl_val *nl_div(nl_val *num_list);
 
+//take the floor of a (rational) number
+nl_val *nl_floor(nl_val *num_list);
+
+//take the ceiling of a (rational) number
+nl_val *nl_ceil(nl_val *num_list);
+
 //equality operator =
 //if more than two arguments are given then this will only return true if a==b==c==... for (= a b c ...)
 //checks if the values of the same type within val_list are equal

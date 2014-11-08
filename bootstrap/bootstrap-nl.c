@@ -452,7 +452,8 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 		//if this environment isn't re-writable then don't even bother; just try a higher scope
 		//this is the ONE time that we CAN change something in an above scope, and it's only done because we re-use scopes as a call stack (implementation detail)
 		if(env->rw==FALSE){
-			return(nl_bind(symbol,value,env->up_scope));
+//			return(nl_bind(symbol,value,env->up_scope));
+			nl_bind(symbol,value,env->up_scope);
 		}
 		
 		//bind symbol
@@ -1102,6 +1103,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		}else{
 			ERR_EXIT(keyword_exp,"wrong syntax for let statement",TRUE);
 		}
+	//TODO: add support for a let-list, allowing multiple symbols to be set at once; this will hugely aid returns from loops
 	//check for subroutine definitions (lambda expressions which are used as closures)
 	}else if(nl_val_cmp(keyword,sub_keyword)==0){
 		//handle sub statements
@@ -2045,7 +2047,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 /*
 	nl_bind_new(nl_sym_from_c_str("%"),nl_primitive_wrap(nl_mod),env);
 */
-	
+	nl_bind_new(nl_sym_from_c_str("floor"),nl_primitive_wrap(nl_floor),env);
+	nl_bind_new(nl_sym_from_c_str("ceil"),nl_primitive_wrap(nl_ceil),env);
 	
 	//ALL the comparison operators (for each type)
 	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_generic_eq),env);

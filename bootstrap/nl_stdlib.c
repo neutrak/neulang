@@ -1920,6 +1920,67 @@ nl_val *nl_div(nl_val *num_list){
 	return acc;
 }
 
+//take the floor of a (rational) number
+nl_val *nl_floor(nl_val *num_list){
+	nl_val *ret=NULL;
+	
+	int arg_count=nl_c_list_size(num_list);
+	if(arg_count>=1){
+		if(num_list->d.pair.f->t==NUM){
+			//floor is just integer division
+			ret=nl_val_malloc(NUM);
+			ret->d.num.d=1;
+			ret->d.num.n=((num_list->d.pair.f->d.num.n)/(num_list->d.pair.f->d.num.d));
+			
+		}else{
+			ERR_EXIT(num_list,"wrong type given to floor (expected NUM)",TRUE);
+		}
+		
+		if(arg_count>1){
+			ERR(num_list,"too many arguments given to floor, ignoring all but the first...",TRUE);
+		}
+	}else{
+		ERR_EXIT(num_list,"no arguments given to floor, can't convert NULL! (returning NULL)",TRUE);
+	}
+	
+	return ret;
+}
+
+//take the ceiling of a (rational) number
+nl_val *nl_ceil(nl_val *num_list){
+	nl_val *ret=NULL;
+	
+	int arg_count=nl_c_list_size(num_list);
+	if(arg_count>=1){
+		if(num_list->d.pair.f->t==NUM){
+			//run gcd to ensure that if the values evenly divide the denominator is 0
+			nl_gcd_reduce(num_list->d.pair.f);
+			
+			ret=nl_val_malloc(NUM);
+			ret->d.num.d=1;
+			
+			//ceiling is just integer division in cases where the numbers evenly divide
+			if(num_list->d.pair.f->d.num.d==1){
+				ret->d.num.n=((num_list->d.pair.f->d.num.n)/(num_list->d.pair.f->d.num.d));
+			//when the numbers do not evenly divide, it is integer division +1
+			}else{
+				ret->d.num.n=(((num_list->d.pair.f->d.num.n)/(num_list->d.pair.f->d.num.d))+1);
+			}
+			
+		}else{
+			ERR_EXIT(num_list,"wrong type given to ceil (expected NUM)",TRUE);
+		}
+		
+		if(arg_count>1){
+			ERR(num_list,"too many arguments given to ceil, ignoring all but the first...",TRUE);
+		}
+	}else{
+		ERR_EXIT(num_list,"no arguments given to ceil, can't convert NULL! (returning NULL)",TRUE);
+	}
+	
+	return ret;
+}
+
 //TODO: write the rest of the math library
 
 //END C-NL-STDLIB-MATH SUBROUTINES  -------------------------------------------------------------------------------
