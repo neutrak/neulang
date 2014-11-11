@@ -648,6 +648,7 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 		//structs are equal iff they bind all the same symbols to all the same values (i.e. all elements of env are equal)
 		case STRUCT:
 			{
+/*
 				nl_env_frame *env_a=v_a->d.nl_struct.env;
 				nl_env_frame *env_b=v_b->d.nl_struct.env;
 				
@@ -658,6 +659,9 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 				if(env_eq==0){
 					env_eq=nl_val_cmp(env_a->value_array,env_b->value_array);
 				}
+*/
+				//TODO: remove this, replace with trie comparison (and you know, implement that)
+				int env_eq=-1;
 				
 				//return the result
 				return env_eq;
@@ -978,6 +982,7 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 		case STRUCT:
 			nl_str_push_cstr(ret,"<struct ");
 			{
+/*
 				unsigned int n;
 				for(n=0;n<(exp->d.nl_struct.env->symbol_array->d.array.size);n++){
 					nl_str_push_cstr(ret,"{");
@@ -998,6 +1003,8 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 						nl_str_push_cstr(ret," ");
 					}
 				}
+*/
+				//TODO: implement pretty output for trie-based structs
 			}
 			nl_str_push_cstr(ret,">");
 			break;
@@ -1087,7 +1094,7 @@ void nl_array_push(nl_val *a, nl_val *v){
 //			new_stored_size*=2;
 			
 			//this is an optimization to allow new allocations to use already-allocated memory from previous sizes
-			new_stored_size=((3/2)*new_stored_size)+1;
+			new_stored_size=((3*new_stored_size)/2)+1;
 		}
 //		nl_val *new_array_v=(nl_val*)(malloc((new_stored_size)*(sizeof(nl_val))));
 		nl_val **new_array_v=(nl_val**)(malloc((new_stored_size)*(sizeof(nl_val*))));

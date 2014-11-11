@@ -138,20 +138,37 @@ struct nl_val {
 	} d;
 };
 
+//a trie to act as a hash table for environment frames
+typedef struct nl_trie_node nl_trie_node;
+struct nl_trie_node {
+	int child_count;
+	
+	//an array of pointers to children
+	nl_trie_node **children;
+	
+	char name;
+	
+	//true or false, whether this is a terminal node
+	char end_node;
+	
+	//the value that's bound to this symbol (NULL for unbound)
+	nl_val *value;
+	
+	//the type of value that was first bound, so we can ensure re-binds don't change type
+	nl_type t;
+};
+
 //environment frame (one global, then one per closure)
 struct nl_env_frame {
 	//true if this environment is writable, otherwise false (read-only)
 	char rw;
 	
-	//store symbols
-	nl_val *symbol_array;
-	//store values
-	nl_val *value_array;
+	//store a trie that maps symbols (really c strings) to values
+	nl_trie_node *trie;
 	
 	//the environment above this one (THIS MUST BE FREE'D SEPERATELY)
 	nl_env_frame* up_scope;
 };
-
 
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
 
@@ -188,6 +205,30 @@ char nl_val_free(nl_val *exp);
 
 //copy a value data-wise into new memory, without changing the original
 nl_val *nl_val_cp(nl_val *v);
+
+//allocate a trie
+nl_trie_node *nl_trie_malloc();
+
+//recursively free a trie and associated values
+void nl_trie_free(nl_trie_node *trie_root);
+
+//allocate a pointer array for trie children
+nl_trie_node **nl_trie_malloc_children(int count);
+
+//make a copy of a trie with data-wise copies of all nodes and all values contained therein
+nl_trie_node *nl_trie_cp(nl_trie_node *from);
+
+//add a node to a trie that maps a c string to a value
+//returns TRUE on success, FALSE on failure
+char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value);
+
+//check if a trie contains a given value; if so, return a pointer to the value
+//returns a pointer to the value if a match was found, else NULL
+//sets the memory at success to TRUE if successful, FALSE if not (because NULL is also a valid value)
+nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, char *success);
+
+//print out a trie structure
+void nl_trie_print(nl_trie_node *trie_root, int level);
 
 //allocate an environment frame
 nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope);

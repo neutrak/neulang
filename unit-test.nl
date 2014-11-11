@@ -153,6 +153,7 @@ weird test */ 5)
 (assert (= $bool TRUE))
 (let bool FALSE)
 (assert (= $bool FALSE))
+
 //NULLs are generic and are always allowed
 (let bool NULL)
 (assert (null? $bool))
@@ -470,6 +471,8 @@ after
 
 ($a-sub)
 
+//(exit)
+
 //END loop testing ----------------------------------------------------------------------------------------
 
 //BEGIN argument testing ----------------------------------------------------------------------------------
@@ -635,6 +638,9 @@ else
 
 //list concatenation
 (assert (= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
+
+
+(exit)
 
 //END standard library list testing -----------------------------------------------------------------------
 

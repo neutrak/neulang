@@ -301,6 +301,7 @@ nl_val *nl_val_cp(nl_val *v){
 		//in a struct copy all the bindings
 		case STRUCT:
 			{
+/*
 				int n;
 				for(n=0;n<(v->d.nl_struct.env->symbol_array->d.array.size);n++){
 					nl_val *symbol=nl_val_cp(v->d.nl_struct.env->symbol_array->d.array.v[n]);
@@ -311,6 +312,8 @@ nl_val *nl_val_cp(nl_val *v){
 					nl_val_free(symbol);
 					nl_val_free(value);
 				}
+*/
+				ret->d.nl_struct.env->trie=nl_trie_cp(v->d.nl_struct.env->trie);
 			}
 			break;
 		//recurse to copy name elements
@@ -329,6 +332,210 @@ nl_val *nl_val_cp(nl_val *v){
 	return ret;
 }
 
+//allocate a trie
+nl_trie_node *nl_trie_malloc(){
+	nl_trie_node *ret=malloc(sizeof(nl_trie_node));
+	
+	ret->child_count=0;
+	ret->children=NULL;
+	ret->name='\0';
+	ret->end_node=FALSE;
+	ret->value=NULL;
+	ret->t=SYMBOL;
+	
+	return ret;
+}
+
+//recursively free a trie and associated values
+void nl_trie_free(nl_trie_node *trie_root){
+	//can't free a null
+	if(trie_root==NULL){
+		return;
+	}
+	
+	//first free children recursively
+	int n;
+	for(n=0;n<trie_root->child_count;n++){
+		nl_trie_free(trie_root->children[n]);
+	}
+	
+	//free the children array itself, if it's not null
+	if(trie_root->children!=NULL){
+		free(trie_root->children);
+	}
+	
+	//if this is an end node, then free the value as well
+	if(trie_root->end_node){
+		nl_val_free(trie_root->value);
+	}
+	
+	//then free the root
+	free(trie_root);
+}
+
+//allocate a pointer array for trie children
+nl_trie_node **nl_trie_malloc_children(int count){
+	nl_trie_node **ret=malloc(sizeof(nl_trie_node*)*count);
+	return ret;
+}
+
+//make a copy of a trie with data-wise copies of all nodes and all values contained therein
+nl_trie_node *nl_trie_cp(nl_trie_node *from){
+	//the result to return
+	nl_trie_node *to=nl_trie_malloc();
+	
+	to->child_count=from->child_count;
+	to->name=from->name;
+	to->end_node=from->end_node;
+	if(from->end_node){
+		to->value=nl_val_cp(from->value);
+		to->t=from->t;
+	}
+	
+	//recurse to children, if there are any
+	if(from->child_count>0){
+		to->children=nl_trie_malloc_children(from->child_count);
+		int n;
+		for(n=0;n<from->child_count;n++){
+			to->children[n]=nl_trie_cp(from->children[n]);
+		}
+	}
+	
+	//and finally return what we just made
+	return to;
+}
+
+//add a node to a trie that maps a c string to a value
+//returns TRUE on success, FALSE on failure
+char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value){
+/*
+#ifdef _DEBUG
+	printf("nl_trie_add_node debug 0, got name %s, length %u, value ",name,length);
+	nl_out(stdout,value);
+	printf("\n");
+#endif
+*/
+	
+	//a value with length is already added
+	//(this is the base case to stop recursion)
+	if(length<1){
+		if((trie_root->end_node) && ((value!=NULL) && (trie_root->t!=value->t))){
+			fprintf(stderr,"Err [line %u]: re-binding %s",value->line,name);
+			fprintf(stderr," to value of wrong type (type %s != type %s) (symbol value unchanged)\n",nl_type_name(value->t),nl_type_name(trie_root->t));
+			nl_val_free(value);
+#ifdef _STRICT
+			exit(1);
+#endif
+			return FALSE;
+		}else{
+			//this is a legal re-bind because the types match; just free the old value
+			if(trie_root->end_node){
+				nl_val_free(trie_root->value);
+			}
+			trie_root->end_node=TRUE;
+			trie_root->value=value;
+			trie_root->t=SYMBOL;
+			
+			//manage memory and type for non-null values
+			if(value!=NULL){
+				trie_root->t=value->t;
+				
+				//this is a new reference to this value
+				value->ref++;
+			}
+		}
+		return TRUE;
+	}
+	
+	int n;
+	for(n=0;n<trie_root->child_count;n++){
+		//found the value, so go to the next character and return early
+		if(name[start_idx]==trie_root->children[n]->name){
+			return nl_trie_add_node(trie_root->children[n],name,start_idx+1,length-1,value);
+		}
+	}
+	
+	//if we got here and didn't return then this child didn't yet exist, so make it
+	trie_root->child_count++;
+	nl_trie_node **new_children=nl_trie_malloc_children(trie_root->child_count);
+	for(n=0;n<(trie_root->child_count-1);n++){
+		new_children[n]=trie_root->children[n];
+	}
+	new_children[trie_root->child_count-1]=nl_trie_malloc();
+	new_children[trie_root->child_count-1]->name=(name[start_idx]);
+	
+	//free the old children and set the trie node to point to the new children
+	free(trie_root->children);
+	trie_root->children=new_children;
+	
+	//now go and try to add the next character to the newly-created child
+	return nl_trie_add_node(trie_root->children[trie_root->child_count-1],name,start_idx+1,length-1,value);
+}
+
+//check if a trie contains a given value; if so, return a pointer to the value
+//returns a pointer to the value if a match was found, else NULL
+//sets the memory at success to TRUE if successful, FALSE if not (because NULL is also a valid value)
+nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, char *success){
+	//success is false until otherwise specified
+	(*success)=FALSE;
+	
+	//a length of 0 indicates that we got to the end node already
+	//so just check if it's a valid end point (terminal)
+	if(length<1){
+		if(trie_root->end_node){
+#ifdef _DEBUG
+/*
+			printf("nl_trie_match debug 0, found value for %s, value is ",name);
+			nl_out(stdout,trie_root->value);
+			printf("\n");
+*/
+#endif
+			//signal the calling code so they know this was a valid value
+			(*success)=TRUE;
+			
+			//we do NOT return a copy; copies are made by calling code if and when they are needed
+			return trie_root->value;
+		}else{
+			//signal the calling code so they know this failed
+			(*success)=FALSE;
+			return NULL;
+		}
+	}
+	
+	int n;
+	for(n=0;(length>0) && (trie_root!=NULL) && (n<trie_root->child_count);n++){
+		//if this node matched, then start on its children (recursively)
+		if(trie_root->children[n]->name==(name[start_idx])){
+			return nl_trie_match(trie_root->children[n],name,start_idx+1,length-1,success);
+		}
+	}
+	
+	//if the node wasn't found then return false
+	return NULL;
+}
+
+//print out a trie structure
+void nl_trie_print(nl_trie_node *trie_root, int level){
+	if(trie_root!=NULL){
+		int n;
+		for(n=0;n<level;n++){
+			printf("-");
+		}
+		
+		printf("%c",trie_root->name);
+		if(trie_root->end_node){
+			printf(" -> ");
+			nl_out(stdout,trie_root->value);
+		}
+		printf("\n");
+		
+		for(n=0;n<trie_root->child_count;n++){
+			printf("|\n");
+			nl_trie_print(trie_root->children[n],level+1);
+		}
+	}
+}
+
 //allocate an environment frame
 nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope){
 	nl_env_frame *ret=(nl_env_frame*)(malloc(sizeof(nl_env_frame)));
@@ -336,8 +543,7 @@ nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope){
 	//environments are read/write by default (after all, this language is procedural, if only contextually)
 	ret->rw=TRUE;
 	
-	ret->symbol_array=nl_val_malloc(ARRAY);
-	ret->value_array=nl_val_malloc(ARRAY);
+	ret->trie=nl_trie_malloc();
 	
 	//the environment above this (NULL for global)
 	ret->up_scope=up_scope;
@@ -347,8 +553,8 @@ nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope){
 
 //free an environment frame
 void nl_env_frame_free(nl_env_frame *env){
-	nl_val_free(env->symbol_array);
-	nl_val_free(env->value_array);
+	//free the trie that binds symbols to values
+	nl_trie_free(env->trie);
 	
 	//note that we do NOT free the above environment here; if you want to do that do it elsewhere
 	
@@ -378,114 +584,67 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 		ERR_EXIT(symbol,"cannot bind a null symbol",TRUE);
 		return FALSE;
 	}
+	if(symbol->t!=SYMBOL){
+		ERR_EXIT(symbol,"cannot bind a non-symbol type",TRUE);
+		return FALSE;
+	}
 	
-	char found=FALSE;
+	char *symbol_c_str=c_str_from_nl_str(symbol->d.sym.name);
 	
-	//look through the symbols
-	int n;
-	for(n=0;n<(env->symbol_array->d.array.size);n++){
-		//if we found this symbol
-//		if(nl_val_cmp(symbol,&(env->symbol_array->d.array.v[n]))==0){
-		if(nl_val_cmp(symbol,env->symbol_array->d.array.v[n])==0){
-			//if this symbol was already bound and the type we're trying to re-bind has a different type, don't bind!
-//			if((value!=NULL) && (value->t!=((&(env->symbol_array->d.array.v[n]))->d.sym.t))){
-			if((value!=NULL) && (value->t!=(env->symbol_array->d.array.v[n]->d.sym.t))){
-				fprintf(stderr,"Err [line %u]: re-binding ",value->line);
-				nl_out(stderr,symbol);
-//				fprintf(stderr," to value of wrong type (type %i != type %i) (symbol value unchanged)\n",value->t,(&(env->symbol_array->d.array.v[n]))->d.sym.t);
-				fprintf(stderr," to value of wrong type (type %s != type %s) (symbol value unchanged)\n",nl_type_name(value->t),nl_type_name(env->symbol_array->d.array.v[n]->d.sym.t));
-				nl_val_free(value);
-#ifdef _STRICT
-				exit(1);
-#endif
-//				ERR_EXIT(symbol,"re-binding symbol to wrong type (symbol value unchanged)",TRUE);
-				
-//				found=TRUE;
-//				break;
-				return FALSE;
-			}
-			
-			//update the value (removing a reference to the old value)
-//			nl_val_free(&(env->value_array->d.array.v[n]));
-			nl_val_free(env->value_array->d.array.v[n]);
-			env->value_array->d.array.v[n]=value;
-			
-			//this is a new reference to that value
-			if(value!=NULL){
-				value->ref++;
-				
-				//once bound values are no longer constant
-				value->cnst=FALSE;
-				
-//				memcpy(&(env->value_array->d.array.v[n]),value,sizeof(nl_val));
-			}else{
-				//TODO: how to store a null if it's not an array of pointers? should I just un-bind this value? (that would return null, after all)
-//				memset(&(env->value_array->d.array.v[n]),0,sizeof(nl_val));
-			}
-			
-			//note that the symbol is already stored
-			//it will get free'd later by the calling code, we'll keep the existing version
-			
-/*
 #ifdef _DEBUG
-			printf("nl_bind debug 1, updated value for ");
-			nl_out(stdout,symbol);
-			printf(" to be ");
-			nl_out(stdout,value);
-			printf("\n");
+//	printf("nl_bind debug 1, binding %s...\n",symbol_c_str);
 #endif
-*/
-			//if this was an application environment (read-only) then also bind it in a higher scope, updating the value there
-			if(env->rw==FALSE){
-				if(!nl_bind(symbol,value,env->up_scope)){
-					//could not bind in up_scope
-				}
-			}
-			
-			found=TRUE;
-			break;
+	
+	//if this was an application environment (read-only) then also bind it in a higher scope, updating the value there
+	if(env->rw==FALSE){
+#ifdef _DEBUG
+//		printf("nl_bind debug 1.25, recursing...\n");
+#endif
+		
+		//refcount the symbol because it will be free'd in the recursive call
+		//since for a trie we don't need to keep it around
+//		symbol->ref++;
+		if(!nl_bind(symbol,value,env->up_scope)){
+			//could not bind in up_scope
 		}
 	}
 	
-	//if we didn't find this symbol in the environment, then go ahead and make it now
-	if(!found){
-		//if this environment isn't re-writable then don't even bother; just try a higher scope
-		//this is the ONE time that we CAN change something in an above scope, and it's only done because we re-use scopes as a call stack (implementation detail)
-		if(env->rw==FALSE){
-//			return(nl_bind(symbol,value,env->up_scope));
-			nl_bind(symbol,value,env->up_scope);
-		}
-		
-		//bind symbol
-		nl_array_push(env->symbol_array,symbol);
-		symbol->ref++;
-		
-		if(value!=NULL){
-			//give the symbol the type that the bound value has (effectively inferring typing at runtime)
-			//note that NULL is a generic value and doesn't change the type; (a value initially bound to NULL will be forever a symbol)
-			symbol->d.sym.t=value->t;
-			
-			value->ref++;
-			
-			//once bound values are no longer constant
-			value->cnst=FALSE;
-			
-/*
 #ifdef _DEBUG
-			printf("nl_bind debug 2, bound new value for ");
-			nl_out(stdout,symbol);
-			printf("; new value is ");
-			nl_out(stdout,value);
-			printf("\n");
+//	printf("nl_bind debug 1.5, calling out to nl_trie_add_node...\n");
+//	printf("env->trie=%p, env->trie->t=%i\n",env->trie,env->trie->t);
+//	printf("symbol_c_str=%p, strlen(symbol_c_str)=%lu\n",symbol_c_str,strlen(symbol_c_str));
+//	printf("symbol_c_str[0]=%c\n",symbol_c_str[0]);
+//	printf("value=%p, value->t=%i\n",value,value->t);
+//	printf("----------------------------------------------------\n");
 #endif
-*/
-		}
-		//push the value now associated with the symbol
-		nl_array_push(env->value_array,value);
+	
+	//bind this symbol in the internal trie structure
+	//note that the add_node handles reference counting for value
+//	char ret=nl_trie_add_node(env->trie,symbol_c_str,0,strlen(symbol_c_str),value);
+	char ret=nl_trie_add_node(env->trie,symbol_c_str,0,symbol->d.sym.name->d.array.size,value);
+	
+#ifdef _DEBUG
+//	printf("nl_bind debug 2, returned from nl_trie_add_node with ret %s...\n",ret?"TRUE":"FALSE");
+#endif
+	
+	//free memory that will no longer be used
+	free(symbol_c_str);
+//	nl_val_free(symbol);
+//	nl_val_free(value);
+	
+	if(value!=NULL){
+		//once bound values are no longer constant
+		value->cnst=FALSE;
 	}
 	
-	return TRUE;
+#ifdef _DEBUG
+//	printf("nl_bind debug 3, finished manging memory, returning...\n");
+#endif
+	
+	return ret;
 }
+
+//TODO: fix this lookup function; NULL should be an allowed value!!! (which means we need another way to indicate success/failure)
 
 //look up the symbol in the given environment frame
 //note that this WILL go up to higher scopes, if there are any
@@ -495,17 +654,22 @@ nl_val *nl_lookup(nl_val *symbol, nl_env_frame *env){
 		ERR_EXIT(symbol,"unbound symbol",TRUE);
 		return NULL;
 	}
+	if((symbol==NULL) || (symbol->t!=SYMBOL)){
+		ERR_EXIT(symbol,"NULL or invalid type given to nl_lookup",TRUE);
+		return NULL;
+	}
 	
-	//look through the symbols
-	int n;
-	for(n=0;n<(env->symbol_array->d.array.size);n++){
-		//if we found this symbol
-//		if(nl_val_cmp(symbol,&(env->symbol_array->d.array.v[n]))==0){
-		if(nl_val_cmp(symbol,env->symbol_array->d.array.v[n])==0){
-			//return the associated value
-//			return &(env->value_array->d.array.v[n]);
-			return env->value_array->d.array.v[n];
-		}
+	//look in the trie for this symbol
+	char *symbol_c_str=c_str_from_nl_str(symbol->d.sym.name);
+	
+	char success=FALSE;
+//	nl_val *ret=nl_trie_match(env->trie,symbol_c_str,0,strlen(symbol_c_str),&success);
+	nl_val *ret=nl_trie_match(env->trie,symbol_c_str,0,symbol->d.sym.name->d.array.size,&success);
+	free(symbol_c_str);
+	
+	//if we found it, return!
+	if(success){
+		return ret;
 	}
 	
 	//if we got here and didn't return, then this symbol wasn't bound in the current environment
@@ -557,6 +721,10 @@ char *c_str_from_nl_str(nl_val *nl_str){
 	}
 	//always null-terminate just in case
 	c_str[buf_size-1]='\0';
+	
+#ifdef _DEBUG
+//	printf("c_str_from_nl_str debug 0, made c_str %s\n",c_str);
+#endif
 	
 	//return the dynamically allocated memory
 	return c_str;
