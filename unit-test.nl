@@ -471,7 +471,18 @@ after
 
 ($a-sub)
 
-//(exit)
+//a mutual recursion loop, to demonstrate that tailcalls are optimized even when they jump between functions (not just directly recursively)
+(let a-mutual-recursion (sub (n)
+	(if (> $n 0)
+		($b-mutual-recursion $n)
+	)
+))
+
+(let b-mutual-recursion (sub (n)
+	($a-mutual-recursion (- $n 1))
+))
+
+($a-mutual-recursion 200000)
 
 //END loop testing ----------------------------------------------------------------------------------------
 
@@ -887,6 +898,7 @@ else
 (assert (= (array 0 1 2 3 4 5 6 7 8 9) ($ar-ins-sort (array 2 3 4 1 0 5 8 9 7 6) (sub (a b) (< $a $b)))))
 
 (assert (= (array 0 1 2 3 4 5 6 7 8 9) ($ar-merge-sort (array 2 3 4 1 0 5 8 9 7 6) (sub (a b) (< $a $b)))))
+(outs "post merge-sort array is " (val->memstr ($ar-merge-sort (array 2 3 4 1 0 5 8 9 7 6) (sub (a b) (< $a $b)))) $newl)
 
 //END array-sorting testing -------------------------------------------------------------------------------
 

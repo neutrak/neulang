@@ -288,9 +288,22 @@ int nl_trie_cmp(nl_trie_node *a, nl_trie_node *b){
 		}
 	}
 	
-	//if we got through all matching children with no failures
-	//then the tries (or sub-tries) are equal symbol-wise, so check their component values
-	return nl_val_cmp(a->value,b->value);
+	if(a->end_node){
+		if(b->end_node){
+			//if we got through all matching children with no failures
+			//then the tries (or sub-tries) are equal symbol-wise, so check their component values
+			return nl_val_cmp(a->value,b->value);
+		}
+		//a had an end node where b did not, so a is "greater" than b
+		return 1;
+	}else if(b->end_node){
+		//b had an end node where a did not, so a is "less" than b
+		return -1;
+	}
+	
+	//if we got here and didn't return then neither node has an end node here
+	//this implicitly means the tries are equal here
+	return 0;
 }
 
 //return as a string a trie as an associative mapping
