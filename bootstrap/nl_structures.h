@@ -206,30 +206,6 @@ char nl_val_free(nl_val *exp);
 //copy a value data-wise into new memory, without changing the original
 nl_val *nl_val_cp(nl_val *v);
 
-//allocate a trie
-nl_trie_node *nl_trie_malloc();
-
-//recursively free a trie and associated values
-void nl_trie_free(nl_trie_node *trie_root);
-
-//allocate a pointer array for trie children
-nl_trie_node **nl_trie_malloc_children(int count);
-
-//make a copy of a trie with data-wise copies of all nodes and all values contained therein
-nl_trie_node *nl_trie_cp(nl_trie_node *from);
-
-//add a node to a trie that maps a c string to a value
-//returns TRUE on success, FALSE on failure
-char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value);
-
-//check if a trie contains a given value; if so, return a pointer to the value
-//returns a pointer to the value if a match was found, else NULL
-//sets the memory at success to TRUE if successful, FALSE if not (because NULL is also a valid value)
-nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, char *success);
-
-//print out a trie structure
-void nl_trie_print(nl_trie_node *trie_root, int level);
-
 //allocate an environment frame
 nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope);
 
@@ -359,6 +335,40 @@ nl_val *nl_str_read_symbol(nl_val *input_string, unsigned int *persistent_pos);
 nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos);
 
 // forward declarations for standard library functions ----------------
+
+//allocate a trie
+nl_trie_node *nl_trie_malloc();
+
+//recursively free a trie and associated values
+void nl_trie_free(nl_trie_node *trie_root);
+
+//allocate a pointer array for trie children
+nl_trie_node **nl_trie_malloc_children(int count);
+
+//make a copy of a trie with data-wise copies of all nodes and all values contained therein
+nl_trie_node *nl_trie_cp(nl_trie_node *from);
+
+//add a node to a trie that maps a c string to a value
+//returns TRUE on success, FALSE on failure
+char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value);
+
+//check if a trie contains a given value; if so, return a pointer to the value
+//returns a pointer to the value if a match was found, else NULL
+//sets the memory at success to TRUE if successful, FALSE if not (because NULL is also a valid value)
+//if reorder is true, re-orders memory so the thing matched will be slightly quicker to find next time, if possible
+nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, char *success, char reorder);
+
+//print out a trie structure
+void nl_trie_print(nl_trie_node *trie_root, int level);
+
+//check if two tries contain all the same elements
+int nl_trie_cmp(nl_trie_node *a, nl_trie_node *b);
+
+//return as a string a trie as an associative mapping
+nl_val *nl_trie_associative_recursive_str(nl_trie_node *trie_root, char *history, int hist_length, char forget_node, nl_val *acc);
+
+//return as a string a trie as an associative mapping (calls the recursive function that does same)
+nl_val *nl_trie_associative_str(nl_trie_node *trie_root);
 
 //emulate getch() behavior on *nix /without/ ncurses
 int nix_getch();

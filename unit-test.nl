@@ -640,18 +640,22 @@ else
 (assert (= (lit ("a" "b" "c" "d")) (list-cat (list "a") (list "b") (list "c") (list "d"))))
 
 
-(exit)
-
 //END standard library list testing -----------------------------------------------------------------------
 
 //BEGIN proper struct testing -----------------------------------------------------------------------------
+
+//(outs (val->memstr (struct (a 5) (b "c") (abc 'd'))) $newl)
+//(exit)
 
 //these native structs are implemented as environment frames and will hopefully be hash tables later
 
 (let some-data (struct
 	(a-var 5)
 	(another-var "c")
+	(a-third-var 'h')
 ))
+
+(outs (val->memstr $some-data) $newl)
 
 (assert (= 5 (struct-get $some-data a-var)))
 (assert (= "c" (struct-get $some-data another-var)))
@@ -661,6 +665,7 @@ else
 
 //END proper struct testing -------------------------------------------------------------------------------
 
+/*
 //BEGIN closure-as-struct testing -------------------------------------------------------------------------
 
 //this is a type that differs from what's within the struct; I'm just trying to ensure that this isn't ever used by struct calls
@@ -745,6 +750,7 @@ else
 (assert (= ($a-line get num NULL) 1))
 
 //END closure-as-struct testing ---------------------------------------------------------------------------
+*/
 
 //END standard library testing ----------------------------------------------------------------------------
 

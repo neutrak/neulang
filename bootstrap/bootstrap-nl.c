@@ -151,6 +151,7 @@ nl_val *nl_val_malloc(nl_type t){
 			ret->d.sub.env=NULL;
 			break;
 		case STRUCT:
+//			ret->d.nl_struct.env=NULL;
 			ret->d.nl_struct.env=nl_env_frame_malloc(NULL);
 			break;
 		case SYMBOL:
@@ -300,21 +301,9 @@ nl_val *nl_val_cp(nl_val *v){
 			break;
 		//in a struct copy all the bindings
 		case STRUCT:
-			{
-/*
-				int n;
-				for(n=0;n<(v->d.nl_struct.env->symbol_array->d.array.size);n++){
-					nl_val *symbol=nl_val_cp(v->d.nl_struct.env->symbol_array->d.array.v[n]);
-					nl_val *value=nl_val_cp(v->d.nl_struct.env->value_array->d.array.v[n]);
-					nl_bind(symbol,value,ret->d.nl_struct.env);
-					
-					//bind adds a reference so clean that up here
-					nl_val_free(symbol);
-					nl_val_free(value);
-				}
-*/
-				ret->d.nl_struct.env->trie=nl_trie_cp(v->d.nl_struct.env->trie);
-			}
+			//the malloc created a new trie which isn't going to be used (because we're making a copy) so we free it here
+			nl_trie_free(ret->d.nl_struct.env->trie);
+			ret->d.nl_struct.env->trie=nl_trie_cp(v->d.nl_struct.env->trie);
 			break;
 		//recurse to copy name elements
 		case SYMBOL:
@@ -330,210 +319,6 @@ nl_val *nl_val_cp(nl_val *v){
 	}
 	
 	return ret;
-}
-
-//allocate a trie
-nl_trie_node *nl_trie_malloc(){
-	nl_trie_node *ret=malloc(sizeof(nl_trie_node));
-	
-	ret->child_count=0;
-	ret->children=NULL;
-	ret->name='\0';
-	ret->end_node=FALSE;
-	ret->value=NULL;
-	ret->t=SYMBOL;
-	
-	return ret;
-}
-
-//recursively free a trie and associated values
-void nl_trie_free(nl_trie_node *trie_root){
-	//can't free a null
-	if(trie_root==NULL){
-		return;
-	}
-	
-	//first free children recursively
-	int n;
-	for(n=0;n<trie_root->child_count;n++){
-		nl_trie_free(trie_root->children[n]);
-	}
-	
-	//free the children array itself, if it's not null
-	if(trie_root->children!=NULL){
-		free(trie_root->children);
-	}
-	
-	//if this is an end node, then free the value as well
-	if(trie_root->end_node){
-		nl_val_free(trie_root->value);
-	}
-	
-	//then free the root
-	free(trie_root);
-}
-
-//allocate a pointer array for trie children
-nl_trie_node **nl_trie_malloc_children(int count){
-	nl_trie_node **ret=malloc(sizeof(nl_trie_node*)*count);
-	return ret;
-}
-
-//make a copy of a trie with data-wise copies of all nodes and all values contained therein
-nl_trie_node *nl_trie_cp(nl_trie_node *from){
-	//the result to return
-	nl_trie_node *to=nl_trie_malloc();
-	
-	to->child_count=from->child_count;
-	to->name=from->name;
-	to->end_node=from->end_node;
-	if(from->end_node){
-		to->value=nl_val_cp(from->value);
-		to->t=from->t;
-	}
-	
-	//recurse to children, if there are any
-	if(from->child_count>0){
-		to->children=nl_trie_malloc_children(from->child_count);
-		int n;
-		for(n=0;n<from->child_count;n++){
-			to->children[n]=nl_trie_cp(from->children[n]);
-		}
-	}
-	
-	//and finally return what we just made
-	return to;
-}
-
-//add a node to a trie that maps a c string to a value
-//returns TRUE on success, FALSE on failure
-char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value){
-/*
-#ifdef _DEBUG
-	printf("nl_trie_add_node debug 0, got name %s, length %u, value ",name,length);
-	nl_out(stdout,value);
-	printf("\n");
-#endif
-*/
-	
-	//a value with length is already added
-	//(this is the base case to stop recursion)
-	if(length<1){
-		if((trie_root->end_node) && ((value!=NULL) && (trie_root->t!=value->t))){
-			fprintf(stderr,"Err [line %u]: re-binding %s",value->line,name);
-			fprintf(stderr," to value of wrong type (type %s != type %s) (symbol value unchanged)\n",nl_type_name(value->t),nl_type_name(trie_root->t));
-			nl_val_free(value);
-#ifdef _STRICT
-			exit(1);
-#endif
-			return FALSE;
-		}else{
-			//this is a legal re-bind because the types match; just free the old value
-			if(trie_root->end_node){
-				nl_val_free(trie_root->value);
-			}
-			trie_root->end_node=TRUE;
-			trie_root->value=value;
-			trie_root->t=SYMBOL;
-			
-			//manage memory and type for non-null values
-			if(value!=NULL){
-				trie_root->t=value->t;
-				
-				//this is a new reference to this value
-				value->ref++;
-			}
-		}
-		return TRUE;
-	}
-	
-	int n;
-	for(n=0;n<trie_root->child_count;n++){
-		//found the value, so go to the next character and return early
-		if(name[start_idx]==trie_root->children[n]->name){
-			return nl_trie_add_node(trie_root->children[n],name,start_idx+1,length-1,value);
-		}
-	}
-	
-	//if we got here and didn't return then this child didn't yet exist, so make it
-	trie_root->child_count++;
-	nl_trie_node **new_children=nl_trie_malloc_children(trie_root->child_count);
-	for(n=0;n<(trie_root->child_count-1);n++){
-		new_children[n]=trie_root->children[n];
-	}
-	new_children[trie_root->child_count-1]=nl_trie_malloc();
-	new_children[trie_root->child_count-1]->name=(name[start_idx]);
-	
-	//free the old children and set the trie node to point to the new children
-	free(trie_root->children);
-	trie_root->children=new_children;
-	
-	//now go and try to add the next character to the newly-created child
-	return nl_trie_add_node(trie_root->children[trie_root->child_count-1],name,start_idx+1,length-1,value);
-}
-
-//check if a trie contains a given value; if so, return a pointer to the value
-//returns a pointer to the value if a match was found, else NULL
-//sets the memory at success to TRUE if successful, FALSE if not (because NULL is also a valid value)
-nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, char *success){
-	//success is false until otherwise specified
-	(*success)=FALSE;
-	
-	//a length of 0 indicates that we got to the end node already
-	//so just check if it's a valid end point (terminal)
-	if(length<1){
-		if(trie_root->end_node){
-#ifdef _DEBUG
-/*
-			printf("nl_trie_match debug 0, found value for %s, value is ",name);
-			nl_out(stdout,trie_root->value);
-			printf("\n");
-*/
-#endif
-			//signal the calling code so they know this was a valid value
-			(*success)=TRUE;
-			
-			//we do NOT return a copy; copies are made by calling code if and when they are needed
-			return trie_root->value;
-		}else{
-			//signal the calling code so they know this failed
-			(*success)=FALSE;
-			return NULL;
-		}
-	}
-	
-	int n;
-	for(n=0;(length>0) && (trie_root!=NULL) && (n<trie_root->child_count);n++){
-		//if this node matched, then start on its children (recursively)
-		if(trie_root->children[n]->name==(name[start_idx])){
-			return nl_trie_match(trie_root->children[n],name,start_idx+1,length-1,success);
-		}
-	}
-	
-	//if the node wasn't found then return false
-	return NULL;
-}
-
-//print out a trie structure
-void nl_trie_print(nl_trie_node *trie_root, int level){
-	if(trie_root!=NULL){
-		int n;
-		for(n=0;n<level;n++){
-			printf("-");
-		}
-		
-		printf("%c",trie_root->name);
-		if(trie_root->end_node){
-			printf(" -> ");
-			nl_out(stdout,trie_root->value);
-		}
-		printf("\n");
-		
-		for(n=0;n<trie_root->child_count;n++){
-			printf("|\n");
-			nl_trie_print(trie_root->children[n],level+1);
-		}
-	}
 }
 
 //allocate an environment frame
@@ -553,6 +338,11 @@ nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope){
 
 //free an environment frame
 void nl_env_frame_free(nl_env_frame *env){
+	//null is already free'd; do nothing
+	if(env==NULL){
+		return;
+	}
+	
 	//free the trie that binds symbols to values
 	nl_trie_free(env->trie);
 	
@@ -663,8 +453,8 @@ nl_val *nl_lookup(nl_val *symbol, nl_env_frame *env){
 	char *symbol_c_str=c_str_from_nl_str(symbol->d.sym.name);
 	
 	char success=FALSE;
-//	nl_val *ret=nl_trie_match(env->trie,symbol_c_str,0,strlen(symbol_c_str),&success);
-	nl_val *ret=nl_trie_match(env->trie,symbol_c_str,0,symbol->d.sym.name->d.array.size,&success);
+//	nl_val *ret=nl_trie_match(env->trie,symbol_c_str,0,strlen(symbol_c_str),&success,TRUE);
+	nl_val *ret=nl_trie_match(env->trie,symbol_c_str,0,symbol->d.sym.name->d.array.size,&success,TRUE);
 	free(symbol_c_str);
 	
 	//if we found it, return!
