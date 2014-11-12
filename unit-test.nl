@@ -663,6 +663,11 @@ else
 (let some-data (struct-replace $some-data a-var 20))
 (assert (= 20 (struct-get $some-data a-var)))
 
+(assert (= (struct (a 5)) (struct (a 5))))
+(assert (not (= (struct (a 4)) (struct (a 5)))))
+(assert (not (= (struct (a 5)) (struct (b 5)))))
+(assert (= (struct (a 4) (b 5)) (struct (b 5) (a 4))))
+
 //END proper struct testing -------------------------------------------------------------------------------
 
 /*

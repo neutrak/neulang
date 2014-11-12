@@ -240,7 +240,6 @@ void nl_trie_print(nl_trie_node *trie_root, int level){
 	}
 }
 
-//TODO: fix this so it checks actual value equality, not JUST symbol equality (what it does now)
 //check if two tries contain all the same elements
 int nl_trie_cmp(nl_trie_node *a, nl_trie_node *b){
 	if(a==NULL){
@@ -254,7 +253,11 @@ int nl_trie_cmp(nl_trie_node *a, nl_trie_node *b){
 	
 	//differing names mean not equal
 	if(a->name!=b->name){
-		return FALSE;
+		if((a->name)<(b->name)){
+			return -1;
+		}else{
+			return 1;
+		}
 	}
 	
 	//differing numbers of children mean not equal
@@ -285,8 +288,9 @@ int nl_trie_cmp(nl_trie_node *a, nl_trie_node *b){
 		}
 	}
 	
-	//if we got through all matching children with no failures, then the tries are equal!
-	return 0;
+	//if we got through all matching children with no failures
+	//then the tries (or sub-tries) are equal symbol-wise, so check their component values
+	return nl_val_cmp(a->value,b->value);
 }
 
 //return as a string a trie as an associative mapping
