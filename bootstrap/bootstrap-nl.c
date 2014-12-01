@@ -1058,6 +1058,32 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			
 			//null-out the list elements we got rid of
 			arguments->d.pair.r->d.pair.f=NULL;
+		//if we got a list followed by something else, eval that thing and bind list
+		}else if((arguments!=NULL) && (arguments->t==PAIR) && (arguments->d.pair.f!=NULL) && (arguments->d.pair.f->t==PAIR) && (arguments->d.pair.r!=NULL) && (arguments->d.pair.r->t==PAIR)){
+			//let should never cause an early return to be passed up; (let a (return b)) will NOT return early
+//			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,early_ret);
+			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,NULL);
+			if(!nl_bind_list(arguments->d.pair.f,bound_value,env)){
+				ERR_EXIT(arguments->d.pair.f,"let couldn't bind list of symbols to list of values",TRUE);
+			}
+			
+			//if this bind was unsuccessful (for example a type error) then re-set bound_value to NULL so we don't try to access it
+			//(it was already free'd)
+//			if(nl_lookup(arguments->d.pair.f,env)!=bound_value){
+//				bound_value=NULL;
+//			}
+			
+			//return a copy of the value that was just bound (this is also sort of an internal test to ensure it was bound right)
+//			ret=nl_val_cp(nl_lookup(arguments->d.pair.f,env));
+			ret=nl_val_cp(bound_value);
+			
+			//since what we just returned was a copy, the original won't be free'd by the calling code
+			//so we're one reference too high at the moment
+			nl_val_free(bound_value);
+			
+			//null-out the list elements we got rid of
+			arguments->d.pair.r->d.pair.f=NULL;
+
 		}else{
 			ERR_EXIT(keyword_exp,"wrong syntax for let statement",TRUE);
 		}

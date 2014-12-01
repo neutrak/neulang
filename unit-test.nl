@@ -166,6 +166,18 @@ weird test */ 5)
 (let if_check (if TRUE -4.2 else (if FALSE 4 else 3)))
 (assert (= $if_check -4.2))
 
+//let with lists; this allows multiple binds in a single let call
+(let (i j k) (list 0 1 2))
+(assert (= $i 0))
+(assert (= $j 1))
+(assert (= $k 2))
+
+//let with lists from a sub return
+(let (i j k) ((sub () (list 2 1 0))))
+(assert (= $i 2))
+(assert (= $j 1))
+(assert (= $k 0))
+
 // END let statement testing ------------------------------------------------------------------------------
 
 // BEGIN sub statement testing ----------------------------------------------------------------------------
@@ -482,7 +494,7 @@ after
 	($a-mutual-recursion (- $n 1))
 ))
 
-($a-mutual-recursion 200000)
+($a-mutual-recursion 2000)
 
 //END loop testing ----------------------------------------------------------------------------------------
 

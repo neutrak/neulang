@@ -301,6 +301,8 @@ There are many keywords which have a meaning other than direct application.  Alt
 
 	<li>
 	<b>let</b> - the assignment operator, (let symbol $value)
+	<br>to bind more than one symbol at a time, the following syntax is supported: (let (symbol0 symbol1 symbol2 ...) (list $value0 $value1 $value2 ...))
+	<br>note that this differs from scheme's define, where define and a list is used to bind a function; that is NOT the case in neulang
 	</li>
 	<li>
 	<b>lit</b> - short for "literal"; returns its literal arguments without doing evaluation on them (this differs from list, which evaluates first)
@@ -318,7 +320,8 @@ There are many keywords which have a meaning other than direct application.  Alt
 	<b>recur</b> - recursive call; this allows anonymous recursion within a subroutine
 	</li>
 	<li>
-	<b>return</b> - an early return (if this is omitted the last expression is taken as the return value); used in loops, this acts as a "break" statement; used in loops with recur, this acts as a "continue" statement
+	<b>return</b> - an early return (if this is omitted the last expression is taken as the return value)
+	<br>used in loops, this acts as a "break" statement; used in loops with recur, this acts as a "continue" statement
 	</li>
 	<li>
 	<b>begin</b> - evaluates the given sequence in order and returns the evaluation of the last element, once all elements are evaluated
