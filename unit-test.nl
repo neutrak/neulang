@@ -52,6 +52,28 @@ k I think it works
 
 // END parsing for various types --------------------------------------------------------------------------
 
+// BEGIN comparison testing -------------------------------------------------------------------------------
+
+(assert (= 2 2))
+(assert (= -4 -4))
+(assert (not (= 2 -2)))
+(assert (!= 4 -4))
+(assert (!= 4 3))
+
+(assert (< 4 5))
+(assert (not (< 5 4)))
+(assert (<= 4 5))
+(assert (<= 5 5))
+(assert (not (<= 6 5)))
+
+(assert (> 5 4))
+(assert (not (> 4 5)))
+(assert (>= 5 4))
+(assert (>= 5 5))
+(assert (not (>= 5 6)))
+
+// END comparison testing ---------------------------------------------------------------------------------
+
 // BEGIN if statement testing -----------------------------------------------------------------------------
 
 //null return from conditional

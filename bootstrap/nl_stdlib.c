@@ -2427,6 +2427,35 @@ nl_val *nl_generic_eq(nl_val *val_list){
 	return ret;
 }
 
+//not equal operator !=
+//equivalent to (not (= <arg list>))
+nl_val *nl_generic_neq(nl_val *val_list){
+	nl_val *ret=NULL;
+	
+	nl_val *eq_ret=nl_generic_eq(val_list);
+	
+	//pass NULLs up as error signals
+	if(eq_ret==NULL){
+		return NULL;
+	}
+	
+	//make a return value
+	ret=nl_val_malloc(BYTE);
+	
+	//return the NOT of the equal result
+	if(nl_is_true(eq_ret)){
+		ret->d.byte.v=FALSE;
+	}else{
+		ret->d.byte.v=TRUE;
+	}
+	
+	//free the eq result
+	nl_val_free(eq_ret);
+	
+	//return the neq result
+	return ret;
+}
+
 //gt operator >
 //if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
 //checks if the values of the same type within val_list are in descending order

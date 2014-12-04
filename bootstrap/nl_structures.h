@@ -515,6 +515,10 @@ nl_val *nl_ceil(nl_val *num_list);
 //checks if the values of the same type within val_list are equal
 nl_val *nl_generic_eq(nl_val *val_list);
 
+//not equal operator !=
+//equivalent to (not (= <arg list>))
+nl_val *nl_generic_neq(nl_val *val_list);
+
 //gt operator >
 //if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
 //checks if the values of the same type within val_list are in descending order

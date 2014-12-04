@@ -2036,6 +2036,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	
 	//ALL the comparison operators (for each type)
 	nl_bind_new(nl_sym_from_c_str("="),nl_primitive_wrap(nl_generic_eq),env);
+	nl_bind_new(nl_sym_from_c_str("!="),nl_primitive_wrap(nl_generic_neq),env);
 	nl_bind_new(nl_sym_from_c_str(">"),nl_primitive_wrap(nl_generic_gt),env);
 	nl_bind_new(nl_sym_from_c_str("<"),nl_primitive_wrap(nl_generic_lt),env);
 	nl_bind_new(nl_sym_from_c_str(">="),nl_primitive_wrap(nl_generic_ge),env);
