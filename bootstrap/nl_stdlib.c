@@ -1860,10 +1860,60 @@ nl_val *nl_array_chop(nl_val *arg_list){
 	return ret;
 }
 
-//TODO: write subarray
 //subarray
-//returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
+//returns a new array consisting of a subset of the given array (length number of elements from given start)
 nl_val *nl_array_subarray(nl_val *arg_list){
+	nl_val *ret=NULL;
+	
+	int argc=nl_c_list_size(arg_list);
+	if(argc!=3){
+		ERR_EXIT(arg_list,"wrong number of arguments given to subarray (takes exactly 3 arguments: array, start, length)",TRUE);
+		return NULL;
+	}
+	
+	if((arg_list->d.pair.f==NULL) || (arg_list->d.pair.f->t!=ARRAY)){
+		ERR_EXIT(arg_list,"wrong argument type given to subarray operation (require array as first operand)",TRUE);
+		return NULL;
+	}
+	
+	nl_val *full_array=arg_list->d.pair.f;
+	
+	nl_val *start_idx=arg_list->d.pair.r->d.pair.f;
+	nl_val *length=arg_list->d.pair.r->d.pair.r->d.pair.f;
+	
+	if((start_idx==NULL) || (start_idx->t!=NUM) || (start_idx->d.num.d!=1)){
+		ERR_EXIT(start_idx,"wrong type given as start index to subarray operation (an integer is required)",TRUE);
+		return NULL;
+	}
+	if((length==NULL) || (length->t!=NUM) || (length->d.num.d!=1)){
+		ERR_EXIT(length,"wrong type given as length to subarray operation (an integer is required)",TRUE);
+		return NULL;
+	}
+	
+	long int start_idx_int=start_idx->d.num.n;
+	long int length_int=length->d.num.n;
+	
+	//negative lengths are allowed, and they go backwards
+	//neat-o!
+	if(length_int<0){
+		start_idx_int+=(length_int+1);
+		length_int=abs(length_int);
+	}
+	
+	ret=nl_val_malloc(ARRAY);
+	
+	unsigned int n;
+	for(n=(unsigned int)(start_idx_int);(n<full_array->d.array.size) && (n<(start_idx_int+length_int));n++){
+		nl_array_push(ret,nl_val_cp(full_array->d.array.v[n]));
+	}
+	
+	return ret;
+}
+
+//TODO: write array range
+//array range
+//returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
+nl_val *nl_array_range(){
 	nl_val *ret=NULL;
 	return ret;
 }

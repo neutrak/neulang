@@ -450,6 +450,14 @@ nl_val *nl_array_chop(nl_val *arg_list);
 //returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
 nl_val *nl_array_subarray(nl_val *arg_list);
 
+//subarray
+//returns a new array consisting of a subset of the given array (length number of elements from given start)
+nl_val *nl_array_subarray(nl_val *arg_list);
+
+//array range
+//returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
+nl_val *nl_array_range();
+
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list);

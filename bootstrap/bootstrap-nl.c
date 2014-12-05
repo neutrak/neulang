@@ -2058,7 +2058,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 //	nl_bind_new(nl_sym_from_c_str("ar-find"),nl_primitive_wrap(nl_array_find),env);
 	nl_bind_new(nl_sym_from_c_str("ar-ins"),nl_primitive_wrap(nl_array_insert),env);
 	nl_bind_new(nl_sym_from_c_str("ar-chop"),nl_primitive_wrap(nl_array_chop),env);
-//	nl_bind_new(nl_sym_from_c_str("ar-subar"),nl_primitive_wrap(nl_array_subarray),env);
+	nl_bind_new(nl_sym_from_c_str("ar-subar"),nl_primitive_wrap(nl_array_subarray),env);
+//	nl_bind_new(nl_sym_from_c_str("ar-range"),nl_primitive_wrap(nl_array_range),env);
 	//TODO: make and bind additional array subroutines
 	
 	//TODO: list concatenation

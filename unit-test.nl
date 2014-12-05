@@ -671,6 +671,17 @@ else
 (assert (= (ar-ins "asdf" -1 (ar->list "bbb")) "bbbasdf"))
 (assert (= (ar-ins "asdf" (+ (ar-sz "asdf") 5) (ar->list "bbb")) "asdfbbb"))
 
+//subarray operations
+//subarray takes array, start, and length
+(assert (= (ar-subar "asdfasdf" 0 4) "asdf"))
+(assert (= (ar-subar "asdfasdf" 2 3) "dfa"))
+
+//going off the end just stops pre-maturely and returns what it can
+(assert (= (ar-subar "asdfasdf" 4 8) "asdf"))
+
+//negative lengths go backwards
+(assert (= (ar-subar "asdfasdf" 3 -4) "asdf"))
+
 //END standard library array testing ----------------------------------------------------------------------
 
 
@@ -807,7 +818,7 @@ else
 //BEGIN array-sorting testing -----------------------------------------------------------------------------
 
 //a very inefficient userspace subarray function
-(let ar-subar (sub (ar start length)
+(let manual-ar-subar (sub (ar start length)
 	(let ret (array))
 	(let idx $start)
 	
@@ -868,9 +879,9 @@ else
 	(let split-idx (floor (/ (ar-sz $ar) 2)))
 	
 	//get the lower half
-	(let low ($ar-subar $ar 0 $split-idx))
+	(let low (ar-subar $ar 0 $split-idx))
 	//and the upper half
-	(let high ($ar-subar $ar $split-idx (- (ar-sz $ar) $split-idx)))
+	(let high (ar-subar $ar $split-idx (- (ar-sz $ar) $split-idx)))
 	
 	//recursively sort the sub-arrays
 	(let low ($ar-merge-sort $low $cmp))
