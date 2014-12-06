@@ -947,6 +947,30 @@ else
 
 //END array-sorting testing -------------------------------------------------------------------------------
 
+//BEGIN extended algorithm testing ------------------------------------------------------------------------
+
+//a square root function based on newton's method
+//note that because we don't yet have bignums this overflows when trying to find large square roots
+(let sqrt (sub (x)
+	(let guess $x)
+	(return (while (> (abs (- $x (* $guess $guess))) 0.1)
+//		(outs "$guess=" (val->memstr $guess) $newl)
+		(let slope (* -2 $guess))
+		(let intercept (+ (- $x (* $guess $guess)) (* 2 $guess $guess)))
+		(let guess (/ $intercept (* 2 $guess)))
+	after
+		$guess
+	))
+))
+
+(outs (val->memstr ($sqrt 2)) $newl)
+
+//assert that the square root of 4 is about 2 (proving we computed it correctly to within our tolerance)
+(assert (< (abs (- ($sqrt 4) 2)) 0.1))
+
+//END extended algorithm testing --------------------------------------------------------------------------
+
+
 // EXIT
 //(exit)
 
