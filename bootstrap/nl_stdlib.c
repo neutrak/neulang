@@ -931,9 +931,9 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 		fprintf(stderr,"Err [line %u]: comparison between different types is nonsensical, assuming a<b...",line_number);
 		fprintf(stderr,"(offending values were a=");
 		nl_out(stderr,v_a);
-		fprintf(stderr," and b=");
+		fprintf(stderr," (of type %s) and b=",nl_type_name(v_a->t));
 		nl_out(stderr,v_b);
-		fprintf(stderr,")\n");
+		fprintf(stderr," (of type %s))\n",nl_type_name(v_b->t));
 #ifdef _STRICT
 		exit(1);
 #endif
@@ -2445,8 +2445,12 @@ nl_val *nl_generic_eq(nl_val *val_list){
 		ERR_EXIT(val_list,"a NULL argument was given to equality operator, returning NULL",TRUE);
 		return NULL;
 	}
-	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
-		ERR_EXIT(val_list,"incorrect use of eq operator =; arg count < 2 or inconsistent type",TRUE);
+//	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
+//		ERR_EXIT(val_list,"incorrect use of eq operator =; arg count < 2 or inconsistent type",TRUE);
+//		return NULL;
+//	}
+	if(!(nl_c_list_size(val_list)>=2)){
+		ERR_EXIT(val_list,"too few arguments given to eq operator =",TRUE);
 		return NULL;
 	}
 	
@@ -2457,11 +2461,11 @@ nl_val *nl_generic_eq(nl_val *val_list){
 	val_list=val_list->d.pair.r;
 	
 	while((val_list!=NULL) && (val_list->t==PAIR)){
-		if(last_value->t!=val_list->d.pair.f->t){
-			ERR_EXIT(val_list,"inconsistent types given to eq operator =",TRUE);
-			nl_val_free(ret);
-			return NULL;
-		}
+//		if(last_value->t!=val_list->d.pair.f->t){
+//			ERR_EXIT(val_list,"inconsistent types given to eq operator =",TRUE);
+//			nl_val_free(ret);
+//			return NULL;
+//		}
 		
 		//if we got a==b, then set the return to true and keep going
 		if(nl_val_cmp(last_value,val_list->d.pair.f)==0){
