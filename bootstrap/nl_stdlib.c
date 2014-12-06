@@ -894,8 +894,8 @@ void nl_gcd_reduce(nl_val *v){
 	}
 	
 	//find greatest common divisor of numerator and denominator (negatives are ignored for this)
-	long long int a=abs(v->d.num.n);
-	long long int b=abs(v->d.num.d);
+	long long int a=llabs(v->d.num.n);
+	long long int b=llabs(v->d.num.d);
 	while(b!=0){
 		long long int temp=b;
 		
@@ -1897,7 +1897,7 @@ nl_val *nl_array_subarray(nl_val *arg_list){
 	//neat-o!
 	if(length_int<0){
 		start_idx_int+=(length_int+1);
-		length_int=abs(length_int);
+		length_int=llabs(length_int);
 	}
 	
 	ret=nl_val_malloc(ARRAY);
@@ -2435,8 +2435,8 @@ nl_val *nl_abs(nl_val *num_list){
 	if(arg_count>=1){
 		if(num_list->d.pair.f->t==NUM){
 			ret=nl_val_malloc(NUM);
-			ret->d.num.n=abs(num_list->d.pair.f->d.num.n);
-			ret->d.num.d=abs(num_list->d.pair.f->d.num.d);
+			ret->d.num.n=llabs(num_list->d.pair.f->d.num.n);
+			ret->d.num.d=llabs(num_list->d.pair.f->d.num.d);
 		}else{
 			ERR_EXIT(num_list,"wrong type given to abs (expected NUM)",TRUE);
 		}
