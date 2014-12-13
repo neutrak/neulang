@@ -17,7 +17,7 @@ nl_trie_node *nl_trie_malloc(){
 	ret->children=NULL;
 	ret->name='\0';
 	ret->end_node=FALSE;
-	ret->value=NULL;
+	ret->value=nl_null;
 	ret->t=SYMBOL;
 	
 	return ret;
@@ -96,7 +96,7 @@ char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int st
 	//a value with length is already added
 	//(this is the base case to stop recursion)
 	if(length<1){
-		if((trie_root->end_node) && ((value!=NULL) && (trie_root->t!=value->t))){
+		if((trie_root->end_node) && ((value!=nl_null) && (trie_root->t!=value->t))){
 			fprintf(stderr,"Err [line %u]: re-binding %s",value->line,name);
 			fprintf(stderr," to value of wrong type (type %s != type %s) (symbol value unchanged)\n",nl_type_name(value->t),nl_type_name(trie_root->t));
 			nl_val_free(value);
@@ -114,7 +114,7 @@ char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int st
 			trie_root->t=SYMBOL;
 			
 			//manage memory and type for non-null values
-			if(value!=NULL){
+			if(value!=nl_null){
 				trie_root->t=value->t;
 				
 				//this is a new reference to this value
@@ -176,12 +176,12 @@ nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int st
 		}else{
 			//signal the calling code so they know this failed
 			(*success)=FALSE;
-			return NULL;
+			return nl_null;
 		}
 	}
 	
 	int found_child=-1;
-	nl_val *result=NULL;
+	nl_val *result=nl_null;
 	
 	int n;
 	for(n=0;(length>0) && (trie_root!=NULL) && (n<trie_root->child_count);n++){
@@ -215,7 +215,7 @@ nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int st
 	}
 	
 	//if the node wasn't found then return false
-	return NULL;
+	return nl_null;
 }
 
 //print out a trie structure
@@ -312,7 +312,7 @@ nl_val *nl_trie_associative_recursive_str(nl_trie_node *trie_root, char *history
 		return nl_str_from_c_str("");
 	}
 	
-	if(acc==NULL){
+	if(acc==nl_null){
 		acc=nl_val_malloc(ARRAY);
 	}
 	
@@ -369,7 +369,7 @@ nl_val *nl_trie_associative_recursive_str(nl_trie_node *trie_root, char *history
 #ifdef _DEBUG
 //		printf("nl_trie_associative_recursive_str debug 4\n");
 #endif
-		if(tmp_str!=NULL){
+		if(tmp_str!=nl_null){
 			nl_str_push_nlstr(acc,tmp_str);
 			nl_val_free(tmp_str);
 		}
@@ -387,7 +387,7 @@ nl_val *nl_trie_associative_recursive_str(nl_trie_node *trie_root, char *history
 
 //return as a string a trie as an associative mapping (calls the recursive function that does same)
 nl_val *nl_trie_associative_str(nl_trie_node *trie_root){
-    return nl_trie_associative_recursive_str(trie_root,NULL,0,TRUE,NULL);
+    return nl_trie_associative_recursive_str(trie_root,NULL,0,TRUE,nl_null);
 }
 
 //END TRIE LIBRARY SUBROUTINES ------------------------------------------------------------------------------------
@@ -507,7 +507,7 @@ nl_val *nl_str_read_num(nl_val *input_string, unsigned int *persistent_pos){
 	if(ret->d.num.d==0){
 		ERR_EXIT(ret,"divide-by-0 in rational number; did you forget a denominator?",TRUE);
 		nl_val_free(ret);
-		ret=NULL;
+		ret=nl_null;
 	}else{
 		//gcd reduce the number for faster computation
 		nl_gcd_reduce(ret);
@@ -521,7 +521,7 @@ nl_val *nl_str_read_num(nl_val *input_string, unsigned int *persistent_pos){
 nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
 	unsigned int pos=(*persistent_pos);
 	
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	char c=nl_str_char_or_null(input_string,pos);
 	if(c!='"'){
@@ -540,7 +540,7 @@ nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
 		c=input_string->d.array.v[pos]->d.byte.v;
 	}else{
 		nl_val_free(ret);
-		return NULL;
+		return nl_null;
 	}
 	
 	//read until end quote, THERE IS NO ESCAPE
@@ -558,7 +558,7 @@ nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
 			c=input_string->d.array.v[pos]->d.byte.v;
 		}else{
 			nl_val_free(ret);
-			return NULL;
+			return nl_null;
 		}
 	}
 	if(c=='"'){
@@ -573,7 +573,7 @@ nl_val *nl_str_read_string(nl_val *input_string, unsigned int *persistent_pos){
 nl_val *nl_str_read_char(nl_val *input_string, unsigned int *persistent_pos){
 	unsigned int pos=(*persistent_pos);
 	
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	char c=nl_str_char_or_null(input_string,pos);
 	pos++;
@@ -612,7 +612,7 @@ nl_val *nl_str_read_char(nl_val *input_string, unsigned int *persistent_pos){
 nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos){
 	unsigned int pos=(*persistent_pos);
 	
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	char c=nl_str_char_or_null(input_string,pos);
 	if(c!='('){
@@ -633,12 +633,12 @@ nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos)
 	nl_val *next_exp=nl_str_read_exp(input_string,&pos);
 	
 	//continue reading expressions until we hit a NULL
-	while(next_exp!=NULL){
+	while(next_exp!=nl_null){
 		list_cell->d.pair.f=next_exp;
-		list_cell->d.pair.r=NULL;
+		list_cell->d.pair.r=nl_null;
 		
 		next_exp=nl_str_read_exp(input_string,&pos);
-		if(next_exp!=NULL){
+		if(next_exp!=nl_null){
 			list_cell->d.pair.r=nl_val_malloc(PAIR);
 			list_cell=list_cell->d.pair.r;
 		}
@@ -657,7 +657,7 @@ nl_val *nl_str_read_exp_list(nl_val *input_string, unsigned int *persistent_pos)
 nl_val *nl_str_read_symbol(nl_val *input_string, unsigned int *persistent_pos){
 	unsigned int pos=(*persistent_pos);
 	
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	char c;
 	
@@ -718,22 +718,23 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 	unsigned int pos=(*persistent_pos);
 	
 	//first ensure the string is valid
-	if((input_string==NULL) || (input_string->t!=ARRAY)){
+	if((input_string->t!=ARRAY)){
 		ERR_EXIT(input_string,"null or incorrect type given to str_read_exp",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	unsigned int n;
 	for(n=0;n<input_string->d.array.size;n++){
+		//TODO: remove this null check? as a nl_val pointer it should never be NULL, only nl_null (which has its own type)
 		if((input_string->d.array.v[n]==NULL) || (input_string->d.array.v[n]->t!=BYTE)){
 			ERR_EXIT(input_string->d.array.v[n],"invalid string entry (null or non-byte) given to str_read_exp",TRUE);
-			return NULL;
+			return nl_null;
 		}
 	}
 	
 	//a position past the end of the array is just a NULL value
 	if((input_string->d.array.size)<=pos){
-		return NULL;
+		return nl_null;
 	}
 	
 /*
@@ -745,14 +746,14 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 */
 	
 	//initialize the return to null
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	//skip past any whitespace any time we go to read an expression
 	nl_str_skip_whitespace(input_string,&pos);
 	
 	//if we hit the end of the string then exit
 	if((input_string->d.array.size)<=pos){
-		return NULL;
+		return nl_null;
 	}
 	
 	//read a character from the given string
@@ -839,8 +840,8 @@ nl_val *nl_str_read_exp(nl_val *input_string, unsigned int *persistent_pos){
 			ret=symbol;
 		}else{
 			nl_val_free(ret);
-			ret=NULL;
-			ERR_EXIT(NULL,"could not read evaluation (internal parsing error)",FALSE);
+			ret=nl_null;
+			ERR_EXIT(nl_null,"could not read evaluation (internal parsing error)",FALSE);
 		}
 	//if it starts with anything not already handled read a symbol
 	}else{
@@ -880,7 +881,7 @@ int nix_getch(){
 //gcd-reduce a rational number
 void nl_gcd_reduce(nl_val *v){
 	//ignore null and non-rational values
-	if((v==NULL) || (v->t!=NUM)){
+	if((v->t!=NUM)){
 #ifdef _STRICT
 		exit(1);
 #endif
@@ -916,13 +917,13 @@ void nl_gcd_reduce(nl_val *v){
 //this is value comparison, NOT pointer comparison
 int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 	//first handle nulls; anything is larger than null
-	if((v_a==NULL) && (v_b==NULL)){
+	if((v_a==nl_null) && (v_b==nl_null)){
 		return 0;
 	}
-	if(v_a==NULL){
+	if(v_a==nl_null){
 		return -1;
 	}
-	if(v_b==NULL){
+	if(v_b==nl_null){
 		return 1;
 	}
 	
@@ -1070,8 +1071,8 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 
 //return whether or not this list contains null (this does NOT recurse to sub-lists)
 char nl_contains_nulls(nl_val *val_list){
-	while((val_list!=NULL) && (val_list->t==PAIR)){
-		if(val_list->d.pair.f==NULL){
+	while((val_list->t==PAIR)){
+		if(val_list->d.pair.f==nl_null){
 			return TRUE;
 		}
 		val_list=val_list->d.pair.r;
@@ -1081,7 +1082,7 @@ char nl_contains_nulls(nl_val *val_list){
 
 //push a c string onto a neulang string (note that this is side-effect based, it's an array push)
 void nl_str_push_cstr(nl_val *nl_str, const char *cstr){
-	if((nl_str==NULL) || (nl_str->t!=ARRAY)){
+	if((nl_str->t!=ARRAY)){
 		ERR_EXIT(nl_str,"non-array type given to string push operation",TRUE);
 		return;
 	}
@@ -1099,12 +1100,12 @@ void nl_str_push_cstr(nl_val *nl_str, const char *cstr){
 
 //push a neulang string onto another neulang string (only the first one is changed, the second is not, and data is copied in element by element)
 void nl_str_push_nlstr(nl_val *nl_str, const nl_val *str_to_push){
-	if((nl_str==NULL) || (nl_str->t!=ARRAY)){
+	if((nl_str->t!=ARRAY)){
 		ERR_EXIT(nl_str,"non-array type given to string push operation",TRUE);
 		return;
 	}
 	
-	if((str_to_push==NULL) || (str_to_push->t!=ARRAY)){
+	if((str_to_push->t!=ARRAY)){
 		ERR_EXIT(str_to_push,"non-array type given as argument/addition in string push operation",TRUE);
 		return;
 	}
@@ -1119,7 +1120,7 @@ void nl_str_push_nlstr(nl_val *nl_str, const nl_val *str_to_push){
 
 //return a byte version of the given number constant, if possible
 nl_val *nl_num_to_byte(nl_val *num_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	int arg_count=nl_c_list_size(num_list);
 	if(arg_count>=1){
@@ -1147,7 +1148,7 @@ nl_val *nl_num_to_byte(nl_val *num_list){
 
 //return an integer version of the given byte
 nl_val *nl_byte_to_num(nl_val *byte_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	int arg_count=nl_c_list_size(byte_list);
 	if(arg_count>=1){
@@ -1173,16 +1174,16 @@ nl_val *nl_byte_to_num(nl_val *byte_list){
 //returns the list equivalent to the given array(s)
 //if multiple arrays are given they will be flattened into one sequential list
 nl_val *nl_array_to_list(nl_val *arg_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	if(nl_c_list_size(arg_list)<1){
 		ERR_EXIT(arg_list,"no arguments given to array_to_list, can't convert NULL (returning NULL)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//start the list to return
 	nl_val *current_cell=nl_val_malloc(PAIR);
-	current_cell->d.pair.f=NULL;
-	current_cell->d.pair.r=NULL;
+	current_cell->d.pair.f=nl_null;
+	current_cell->d.pair.r=nl_null;
 	
 	//set the return value to the head of this list (which we will build the rest of momentarily)
 	ret=current_cell;
@@ -1191,12 +1192,12 @@ nl_val *nl_array_to_list(nl_val *arg_list){
 	char first_ar=TRUE;
 	
 	//for each argument
-	while((arg_list!=NULL) && (arg_list->t==PAIR)){
+	while((arg_list->t==PAIR)){
 		nl_val *current_ar=arg_list->d.pair.f;
-		if((current_ar==NULL) || (current_ar->t!=ARRAY)){
+		if((current_ar->t!=ARRAY)){
 			nl_val_free(ret);
 			ERR_EXIT(current_ar,"non-array given to array_to_list conversion",TRUE);
-			return NULL;
+			return nl_null;
 		}
 		
 		//handle for multiple arrays (current_cell should be updated accordingly)
@@ -1215,7 +1216,7 @@ nl_val *nl_array_to_list(nl_val *arg_list){
 				current_cell=current_cell->d.pair.r;
 			//if this is the last element then null terminate
 			}else{
-				current_cell->d.pair.r=NULL;
+				current_cell->d.pair.r=nl_null;
 			}
 		}
 		//I don't know if it was first_ar or not prior to this but it sure isn't now
@@ -1230,26 +1231,26 @@ nl_val *nl_array_to_list(nl_val *arg_list){
 //returns the array equivalent to the given list(s)
 //if multiple lists are given they will be flattened into one sequential array
 nl_val *nl_list_to_array(nl_val *arg_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	if(nl_c_list_size(arg_list)<1){
 		ERR_EXIT(arg_list,"no arguments given to list_to_array, can't convert NULL (returning NULL)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//create an array to return
 	ret=nl_val_malloc(ARRAY);
 	
 	//for each argument
-	while((arg_list!=NULL) && (arg_list->t==PAIR)){
+	while((arg_list->t==PAIR)){
 		nl_val *current_list=arg_list->d.pair.f;
-		if((current_list==NULL) || (current_list->t!=PAIR)){
+		if((current_list->t!=PAIR)){
 			nl_val_free(ret);
 			ERR_EXIT(current_list,"non-list given to list_to_array conversion",TRUE);
-			return NULL;
+			return nl_null;
 		}
 		
 		//go through each list element and add a copy to the array to return
-		while((current_list!=NULL) && (current_list->t==PAIR)){
+		while((current_list->t==PAIR)){
 			nl_array_push(ret,nl_val_cp(current_list->d.pair.f));
 			current_list=current_list->d.pair.r;
 		}
@@ -1276,7 +1277,7 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 #endif
 */
 	
-	if(exp==NULL){
+	if(exp==nl_null){
 		nl_str_push_cstr(ret,"NULL"); //should this be a null string instead?
 		return ret;
 	}
@@ -1307,7 +1308,7 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 				
 				//linked-list conversion
 				int len=0;
-				while((exp!=NULL) && (exp->t==PAIR)){
+				while((exp->t==PAIR)){
 					nl_str_push_cstr(ret," ");
 					
 					tmp_str=nl_val_to_memstr(exp->d.pair.f);
@@ -1351,12 +1352,12 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 			nl_str_push_cstr(ret,"<closure/subroutine with args (");
 			{
 				nl_val *sub_args=exp->d.sub.args;
-				while(sub_args!=NULL){
+				while(sub_args!=nl_null){
 					tmp_str=nl_val_to_memstr(sub_args->d.pair.f);
 					nl_str_push_nlstr(ret,tmp_str);
 					nl_val_free(tmp_str);
 					
-					if(sub_args->d.pair.r!=NULL){
+					if(sub_args->d.pair.r!=nl_null){
 						nl_str_push_cstr(ret," ");
 					}
 					
@@ -1399,7 +1400,7 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 			break;
 		case SYMBOL:
 			nl_str_push_cstr(ret,"<symbol ");
-			if(exp->d.sym.name!=NULL){
+			if(exp->d.sym.name!=nl_null){
 				unsigned int n;
 				for(n=0;n<(exp->d.sym.name->d.array.size);n++){
 //					tmp_str=nl_val_to_memstr(&(exp->d.sym.name->d.array.v[n]));
@@ -1412,7 +1413,7 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 			break;
 		case EVALUATION:
 			nl_str_push_cstr(ret,"<evaluation ");
-			if((exp->d.eval.sym!=NULL) && (exp->d.eval.sym->d.sym.name!=NULL)){
+			if((exp->d.eval.sym!=nl_null) && (exp->d.eval.sym->d.sym.name!=nl_null)){
 				unsigned int n;
 				for(n=0;n<(exp->d.eval.sym->d.sym.name->d.array.size);n++){
 //					tmp_str=nl_val_to_memstr(&(exp->d.eval.sym->d.sym.name->d.array.v[n]));
@@ -1424,7 +1425,7 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 			nl_str_push_cstr(ret,">");
 			break;
 		default:
-			ERR(NULL,"cannot convert unknown type to string",FALSE);
+			ERR(nl_null,"cannot convert unknown type to string",FALSE);
 			
 			break;
 	}
@@ -1438,7 +1439,7 @@ nl_val *nl_val_list_to_memstr(nl_val *val_list){
 	//temporary string for sub-expressions
 	nl_val *tmp_str;
 	
-	while(val_list!=NULL && val_list->t==PAIR){
+	while(val_list->t==PAIR){
 		nl_val *exp=val_list->d.pair.f;
 		
 		tmp_str=nl_val_to_memstr(exp);
@@ -1448,7 +1449,7 @@ nl_val *nl_val_list_to_memstr(nl_val *val_list){
 		val_list=val_list->d.pair.r;
 		
 		//put a space between successive elements
-		if(val_list!=NULL){
+		if(val_list!=nl_null){
 			nl_str_push_cstr(ret," ");
 		}
 	}
@@ -1466,7 +1467,7 @@ nl_val *nl_val_list_to_memstr(nl_val *val_list){
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v){
 	//this operation is undefined on null and non-array values
-	if((a==NULL) || (a->t!=ARRAY)){
+	if((a->t!=ARRAY)){
 		return;
 	}
 	
@@ -1518,33 +1519,33 @@ void nl_array_push(nl_val *a, nl_val *v){
 nl_val *nl_array_idx(nl_val *args){
 	if(nl_c_list_size(args)!=2){
 		ERR_EXIT(args,"wrong number of arguments to array idx",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	nl_val *a=args->d.pair.f;
 	nl_val *idx=args->d.pair.r->d.pair.f;
 	
-	if((a==NULL) || (idx==NULL)){
+	if((a==nl_null) || (idx==NULL)){
 		ERR_EXIT(args,"null argument given to array idx",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	if((a->t!=ARRAY) || (idx->t!=NUM)){
 		ERR_EXIT(args,"wrong type given to array idx, takes array then index (an integer)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	int index=0;
-	if((idx!=NULL) && (idx->t==NUM) && (idx->d.num.d==1)){
+	if((idx->t==NUM) && (idx->d.num.d==1)){
 		index=idx->d.num.n;
 	}else{
 		ERR_EXIT(args,"given array index is not an integer",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	if((index<0) || (index>=(a->d.array.size))){
 		ERR_EXIT(args,"out-of-bounds index given to array idx",TRUE);
-		return NULL;
+		return nl_null;
 	}
 //	return nl_val_cp(&(a->d.array.v[index]));
 	return nl_val_cp(a->d.array.v[index]);
@@ -1553,13 +1554,13 @@ nl_val *nl_array_idx(nl_val *args){
 //return the size of the first argument
 //NOTE: subsequent arguments are IGNORED
 nl_val *nl_array_size(nl_val *array_list){
-	nl_val *acc=NULL;
-	if((array_list!=NULL) && (array_list->t==PAIR) && (array_list->d.pair.f->t==ARRAY)){
+	nl_val *acc=nl_null;
+	if((array_list->t==PAIR) && (array_list->d.pair.f->t==ARRAY)){
 		acc=nl_val_malloc(NUM);
 		acc->d.num.d=1;
 		acc->d.num.n=array_list->d.pair.f->d.array.size;
 		
-		if(array_list->d.pair.r!=NULL){
+		if(array_list->d.pair.r!=nl_null){
 //			fprintf(stderr,"Warn [line %u]: too many arguments given to array size operation, only the first will be used...\n",line_number);
 			ERR(array_list,"too many arguments given to array size operation, only the first will be used...",TRUE);
 		}
@@ -1571,9 +1572,15 @@ nl_val *nl_array_size(nl_val *array_list){
 
 //concatenate all the given arrays (a list) into one new larger array
 nl_val *nl_array_cat(nl_val *array_list){
+#ifdef _DEBUG
+	printf("nl_array_cat debug 0, array_list=");
+	nl_out(stdout,array_list);
+	printf("\n");
+#endif
+	
 	nl_val *acc=nl_val_malloc(ARRAY);
 	
-	while((array_list!=NULL) && (array_list->d.pair.f->t==ARRAY)){
+	while((array_list->t==PAIR) && (array_list->d.pair.f->t==ARRAY)){
 		
 		//we got an array, so add it to the accumulator
 		nl_val *current_array=array_list->d.pair.f;
@@ -1588,7 +1595,7 @@ nl_val *nl_array_cat(nl_val *array_list){
 		array_list=array_list->d.pair.r;
 	}
 	
-	if(array_list!=NULL){
+	if(array_list!=nl_null){
 		ERR_EXIT(array_list,"got a non-array value in array concatenation operation",TRUE);
 	}
 	
@@ -1601,25 +1608,25 @@ nl_val *nl_array_replace(nl_val *arg_list){
 	int argc=nl_c_list_size(arg_list);
 	if(argc!=3){
 		ERR_EXIT(arg_list,"incorrect number of arguments given to array replace operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	nl_val *ar=arg_list->d.pair.f;
 	nl_val *idx=arg_list->d.pair.r->d.pair.f;
 	nl_val *new_val=arg_list->d.pair.r->d.pair.r->d.pair.f;
 	
-	if((ar==NULL) || (ar->t!=ARRAY) || (idx==NULL) || (idx->t!=NUM)){
+	if((ar->t!=ARRAY) || (idx->t!=NUM)){
 		ERR_EXIT(arg_list,"invalid type given to array replace operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	if(idx->d.num.d!=NUM){
+	if((idx->t!=NUM) || (idx->d.num.d!=1)){
 		ERR_EXIT(idx,"non-integer index given to array replace operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	if(idx->d.num.n>=(ar->d.array.size)){
 		ERR_EXIT(idx,"index given to array replace operation is larger than array size",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//okay now we're past the error handling and we can actually do something
@@ -1645,18 +1652,18 @@ nl_val *nl_array_replace(nl_val *arg_list){
 nl_val *nl_array_extend(nl_val *arg_list){
 	if(nl_c_list_size(arg_list)<1){
 		ERR_EXIT(arg_list,"no arguments given to array extend operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	if((arg_list->d.pair.f==NULL) || (arg_list->d.pair.f->t!=ARRAY)){
+	if((arg_list->d.pair.f->t!=ARRAY)){
 		ERR_EXIT(arg_list,"non-array given as first argument to array extend operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	nl_val *ret=nl_val_cp(arg_list->d.pair.f);
 	arg_list=arg_list->d.pair.r;
 	
-	while(arg_list!=NULL){
+	while(arg_list!=nl_null){
 		nl_array_push(ret,nl_val_cp(arg_list->d.pair.f));
 		arg_list=arg_list->d.pair.r;
 	}
@@ -1670,24 +1677,24 @@ nl_val *nl_array_omit(nl_val *arg_list){
 	int argc=nl_c_list_size(arg_list);
 	if(argc!=2){
 		ERR_EXIT(arg_list,"incorrect number of arguments given to array omit operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	nl_val *ar=arg_list->d.pair.f;
 	nl_val *idx=arg_list->d.pair.r->d.pair.f;
 	
-	if((ar==NULL) || (ar->t!=ARRAY) || (idx==NULL) || (idx->t!=NUM)){
+	if((ar->t!=ARRAY) || (idx->t!=NUM)){
 		ERR_EXIT(arg_list,"invalid type given to array omit operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	if(idx->d.num.d!=NUM){
+	if((idx->t!=NUM) || (idx->d.num.d!=1)){
 		ERR_EXIT(idx,"non-integer index given to array omit operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	if(idx->d.num.n>=(ar->d.array.size)){
 		ERR_EXIT(idx,"index given to array omit operation is larger than array size",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//okay now we're past the error handling and we can actually do something
@@ -1711,36 +1718,36 @@ nl_val *nl_array_omit(nl_val *arg_list){
 //returns the index of the first occurance of the given subarray within the given array
 //returns -1 for not found
 nl_val *nl_array_find(nl_val *arg_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	return ret;
 }
 
 //array insert
 //returns an array consisting of existing elements, plus given elements inserted at given 0-index-based position
 nl_val *nl_array_insert(nl_val *arg_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	if(nl_c_list_size(arg_list)!=3){
 		ERR_EXIT(arg_list,"too few arguments given to array insert operation (takes array, index, and a list of new values to insert)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	nl_val *base_array=arg_list->d.pair.f;
-	if((base_array==NULL) || (base_array->t!=ARRAY)){
+	if((base_array->t!=ARRAY)){
 		ERR_EXIT(base_array,"non-array given as first argument to array insert operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	nl_val *ins_idx=arg_list->d.pair.r->d.pair.f;
-	if((ins_idx==NULL) || (ins_idx->t!=NUM) || (ins_idx->d.num.d!=1)){
+	if((ins_idx->t!=NUM) || (ins_idx->d.num.d!=1)){
 		ERR_EXIT(ins_idx,"non-number or non-integer given as index argument to array insert operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//the list of new values to insert
 	nl_val *new_val_list=arg_list->d.pair.r->d.pair.r->d.pair.f;
-	if((new_val_list==NULL) && (new_val_list->t!=PAIR)){
+	if((new_val_list->t!=PAIR)){
 		ERR_EXIT(new_val_list,"null or wrong type given to array insert, we need a LIST of new values to insert",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	long int c_ins_idx=ins_idx->d.num.n;
@@ -1762,7 +1769,7 @@ nl_val *nl_array_insert(nl_val *arg_list){
 	for(idx=0;idx<=base_array->d.array.size;idx++){
 		//if we hit the place to insert, then add all the given new elements here
 		if(idx==c_ins_idx){
-			while((new_val_list!=NULL) && (new_val_list->t==PAIR)){
+			while((new_val_list->t==PAIR)){
 				nl_array_push(ret,nl_val_cp(new_val_list->d.pair.f));
 				new_val_list=new_val_list->d.pair.r;
 			}
@@ -1783,19 +1790,19 @@ nl_val *nl_array_chop(nl_val *arg_list){
 	//check number of arguments is 2
 	if(nl_c_list_size(arg_list)!=2){
 		ERR_EXIT(arg_list,"incorrect number of arguments given to array chop operation (takes array and delimiter)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//check no nulls
-	if((arg_list->d.pair.f==NULL) || (arg_list->d.pair.r->d.pair.f==NULL)){
+	if((arg_list->d.pair.f==nl_null) || (arg_list->d.pair.r->d.pair.f==nl_null)){
 		ERR_EXIT(arg_list,"NULL given to array chop operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//check both are arrays
 	if((arg_list->d.pair.f->t!=ARRAY) || (arg_list->d.pair.r->d.pair.f->t!=ARRAY)){
 		ERR_EXIT(arg_list,"incorrect type given to array chop operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//okay, now the fun part
@@ -1820,7 +1827,8 @@ nl_val *nl_array_chop(nl_val *arg_list){
 			if((n+n2)>=(haystack->d.array.size)){
 				break;
 			//if they're both not null then check values
-			}else if((haystack->d.array.v[n+n2]!=NULL) && (needle->d.array.v[n2]!=NULL)){
+//			}else if((haystack->d.array.v[n+n2]!=NULL) && (needle->d.array.v[n2]!=NULL)){
+			}else if((haystack->d.array.v[n+n2]!=nl_null) && (needle->d.array.v[n2]!=nl_null)){
 				//if the values are of different types they cannot be equal
 				if((haystack->d.array.v[n+n2]->t)!=(needle->d.array.v[n2]->t)){
 					break;
@@ -1832,7 +1840,8 @@ nl_val *nl_array_chop(nl_val *arg_list){
 				}
 				
 			//if one, but not both, entries are null, then we DIDN'T find the needle
-			}else if((haystack->d.array.v[n+n2]==NULL) || (needle->d.array.v[n2]==NULL)){
+//			}else if((haystack->d.array.v[n+n2]==NULL) || (needle->d.array.v[n2]==NULL)){
+			}else if((haystack->d.array.v[n+n2]==nl_null) || (needle->d.array.v[n2]==nl_null)){
 				break;
 			//two nulls are equal
 			}
@@ -1863,17 +1872,17 @@ nl_val *nl_array_chop(nl_val *arg_list){
 //subarray
 //returns a new array consisting of a subset of the given array (length number of elements from given start)
 nl_val *nl_array_subarray(nl_val *arg_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	int argc=nl_c_list_size(arg_list);
 	if(argc!=3){
 		ERR_EXIT(arg_list,"wrong number of arguments given to subarray (takes exactly 3 arguments: array, start, length)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	if((arg_list->d.pair.f==NULL) || (arg_list->d.pair.f->t!=ARRAY)){
+	if((arg_list->d.pair.f->t!=ARRAY)){
 		ERR_EXIT(arg_list,"wrong argument type given to subarray operation (require array as first operand)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	nl_val *full_array=arg_list->d.pair.f;
@@ -1881,13 +1890,13 @@ nl_val *nl_array_subarray(nl_val *arg_list){
 	nl_val *start_idx=arg_list->d.pair.r->d.pair.f;
 	nl_val *length=arg_list->d.pair.r->d.pair.r->d.pair.f;
 	
-	if((start_idx==NULL) || (start_idx->t!=NUM) || (start_idx->d.num.d!=1)){
+	if((start_idx->t!=NUM) || (start_idx->d.num.d!=1)){
 		ERR_EXIT(start_idx,"wrong type given as start index to subarray operation (an integer is required)",TRUE);
-		return NULL;
+		return nl_null;
 	}
-	if((length==NULL) || (length->t!=NUM) || (length->d.num.d!=1)){
+	if((length->t!=NUM) || (length->d.num.d!=1)){
 		ERR_EXIT(length,"wrong type given as length to subarray operation (an integer is required)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	long int start_idx_int=start_idx->d.num.n;
@@ -1914,14 +1923,14 @@ nl_val *nl_array_subarray(nl_val *arg_list){
 //array range
 //returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
 nl_val *nl_array_range(){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	return ret;
 }
 
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list){
-	while((array_list!=NULL) && (array_list->t==PAIR))
+	while((array_list->t==PAIR))
 	{
 		nl_val *output_str=array_list->d.pair.f;
 		
@@ -1934,17 +1943,17 @@ nl_val *nl_outstr(nl_val *array_list){
 		array_list=array_list->d.pair.r;
 	}
 	
-	return NULL;
+	return nl_null;
 }
 
 //outputs the given value to stdout
 //returns NULL (a void function)
 nl_val *nl_outexp(nl_val *v_list){
-	while(v_list!=NULL && v_list->t==PAIR){
+	while(v_list->t==PAIR){
 		nl_out(stdout,v_list->d.pair.f);
 		v_list=v_list->d.pair.r;
 	}
-	return NULL;
+	return nl_null;
 }
 
 //reads input from stdin and returns the resulting expression
@@ -1961,7 +1970,7 @@ nl_val *nl_inline(nl_val *arg_list){
 	nl_val *ledit_keyword=nl_sym_from_c_str("ledit");
 	
 	int argc=nl_c_list_size(arg_list);
-	if((argc>=1) && (arg_list->d.pair.f!=NULL) && (arg_list->d.pair.f->t==SYMBOL) && (nl_val_cmp(arg_list->d.pair.f,ledit_keyword)==0)){
+	if((argc>=1) && (arg_list->d.pair.f->t==SYMBOL) && (nl_val_cmp(arg_list->d.pair.f,ledit_keyword)==0)){
 		line_edit=TRUE;
 	}
 	
@@ -2014,7 +2023,7 @@ nl_val *nl_inchar(nl_val *arg_list){
 //note that cyclic lists are infinite and this will never terminate on them
 int nl_c_list_size(nl_val *list){
 	int len=0;
-	while((list!=NULL) && (list->t==PAIR)){
+	while((list->t==PAIR)){
 		len++;
 		list=list->d.pair.r;
 	}
@@ -2023,7 +2032,7 @@ int nl_c_list_size(nl_val *list){
 
 //returns the list element at the given index (we use 0-indexing)
 nl_val *nl_c_list_idx(nl_val *list, nl_val *idx){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	if((idx->t!=NUM) || (idx->d.num.d!=1)){
 		fprintf(stderr,"Err [line %u]: nl_list_idx only accepts integer list indices, given index was ",line_number);
@@ -2032,11 +2041,11 @@ nl_val *nl_c_list_idx(nl_val *list, nl_val *idx){
 #ifdef _STRICT
 		exit(1);
 #endif
-		return NULL;
+		return nl_null;
 	}
 	
 	int current_idx=0;
-	while((list!=NULL) && (list->t==PAIR)){
+	while((list->t==PAIR)){
 		if(current_idx==(idx->d.num.n)){
 			ret=nl_val_cp(list->d.pair.f);
 			break;
@@ -2055,8 +2064,8 @@ nl_val *nl_list_size(nl_val *list_list){
 	ret->d.num.d=1;
 	ret->d.num.n=0;
 	
-	if((list_list!=NULL) && (list_list->t==PAIR)){
-		if(list_list->d.pair.r!=NULL){
+	if((list_list->t==PAIR)){
+		if(list_list->d.pair.r!=nl_null){
 //			fprintf(stderr,"Warn [line %u]: too many arguments given to list size operation, only the first will be used...\n",line_number);
 			ERR(list_list,"too many arguments given to list size operation, only the first will be used...",TRUE);
 		}
@@ -2064,21 +2073,21 @@ nl_val *nl_list_size(nl_val *list_list){
 		nl_val *list_entry=list_list->d.pair.f;
 		if(list_entry->t!=PAIR){
 			nl_val_free(ret);
-			ret=NULL;
+			ret=nl_null;
 			ERR_EXIT(list_list,"wrong type given to list size operation!",TRUE);
 		}else{
 			//if we started on a NULL just skip past that (the empty list is technically NULL . NULL)
-			if(list_entry->d.pair.f==NULL){
+			if(list_entry->d.pair.f==nl_null){
 				list_entry=list_entry->d.pair.r;
 			}
-			while((list_entry!=NULL) && (list_entry->t==PAIR)){
+			while((list_entry->t==PAIR)){
 				ret->d.num.n++;
 				list_entry=list_entry->d.pair.r;
 			}
 		}
 	}else{
 		nl_val_free(ret);
-		ret=NULL;
+		ret=nl_null;
 		ERR_EXIT(list_list,"wrong syntax for list size operation (did you give us a NULL?)",TRUE);
 	}
 	return ret;
@@ -2090,11 +2099,11 @@ nl_val *nl_list_idx(nl_val *arg_list){
 	int args=nl_c_list_size(arg_list);
 	if(args<2 || nl_contains_nulls(arg_list)){
 		ERR_EXIT(arg_list,"too few arguments (or a NULL) given to list idx operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	if(arg_list->d.pair.f->t!=PAIR && arg_list->d.pair.r->d.pair.f->t!=NUM){
 		ERR_EXIT(arg_list,"incorrect types given to list idx operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	return nl_c_list_idx(arg_list->d.pair.f,arg_list->d.pair.r->d.pair.f);
@@ -2102,11 +2111,11 @@ nl_val *nl_list_idx(nl_val *arg_list){
 
 //concatenates all the given lists
 nl_val *nl_list_cat(nl_val *list_list){
-	nl_val *acc=NULL;
-	nl_val *current_acc_cell=NULL;
+	nl_val *acc=nl_null;
+	nl_val *current_acc_cell=nl_null;
 	char first_list=TRUE;
 	
-	while((list_list!=NULL) && (list_list->d.pair.f->t==PAIR)){
+	while((list_list!=nl_null) && (list_list->d.pair.f->t==PAIR)){
 		//we got a list, so add it to the accumulator
 		if(first_list){
 			acc=nl_val_cp(list_list->d.pair.f);
@@ -2116,17 +2125,17 @@ nl_val *nl_list_cat(nl_val *list_list){
 			current_acc_cell->d.pair.r=nl_val_cp(list_list->d.pair.f);
 		}
 		
-		while((current_acc_cell->t==PAIR) && (current_acc_cell->d.pair.r!=NULL)){
+		while((current_acc_cell->t==PAIR) && (current_acc_cell->d.pair.r!=nl_null)){
 			current_acc_cell=current_acc_cell->d.pair.r;
 		}
 		
 		list_list=list_list->d.pair.r;
 	}
 	
-	if(list_list!=NULL){
+	if(list_list!=nl_null){
 		ERR_EXIT(list_list,"got a non-list value in list concatenation operation",TRUE);
 		nl_val_free(acc);
-		acc=NULL;
+		acc=nl_null;
 	}
 	
 	return acc;
@@ -2143,7 +2152,7 @@ nl_val *nl_struct_get(nl_val *sym_list){
 	int arg_count=nl_c_list_size(sym_list);
 	if((arg_count<2) || (sym_list->d.pair.f->t!=STRUCT)){
 		ERR_EXIT(sym_list,"incorrect argument count or type given to struct get operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	if(arg_count==2){
@@ -2156,14 +2165,14 @@ nl_val *nl_struct_get(nl_val *sym_list){
 	
 	nl_val *current_struct=sym_list->d.pair.f;
 	sym_list=sym_list->d.pair.r;
-	while((sym_list!=NULL) && (sym_list->t==PAIR)){
+	while((sym_list->t==PAIR)){
 		current_node->d.pair.f=nl_val_cp(nl_lookup(sym_list->d.pair.f,current_struct->d.nl_struct.env));
 		
-		if(sym_list->d.pair.r!=NULL){
+		if(sym_list->d.pair.r!=nl_null){
 			current_node->d.pair.r=nl_val_malloc(PAIR);
 			current_node=current_node->d.pair.r;
 		}else{
-			current_node->d.pair.r=NULL;
+			current_node->d.pair.r=nl_null;
 		}
 		
 		sym_list=sym_list->d.pair.r;
@@ -2174,9 +2183,9 @@ nl_val *nl_struct_get(nl_val *sym_list){
 
 //return the result of replacing the given symbol with the given value in the struct
 nl_val *nl_struct_replace(nl_val *rqst_list){
-	if((nl_c_list_size(rqst_list)!=3) || (rqst_list->t!=PAIR) || (rqst_list->d.pair.f==NULL) || (rqst_list->d.pair.f->t!=STRUCT)){
+	if((nl_c_list_size(rqst_list)!=3) || (rqst_list->t!=PAIR) || (rqst_list->d.pair.f->t!=STRUCT)){
 		ERR_EXIT(rqst_list,"incorrect use of struct set operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	nl_val *current_struct=rqst_list->d.pair.f;
@@ -2185,7 +2194,7 @@ nl_val *nl_struct_replace(nl_val *rqst_list){
 	
 	if(!nl_bind(symbol,new_value,current_struct->d.nl_struct.env)){
 		ERR_EXIT(rqst_list,"could not bind symbol in struct",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//return this so it can be used (remember we don't do side-effects, referential transparency and whatnot)
@@ -2200,19 +2209,19 @@ nl_val *nl_struct_replace(nl_val *rqst_list){
 
 //add a list of (rational) numbers
 nl_val *nl_add(nl_val *num_list){
-	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
+	nl_val *acc=nl_null;
+	if((num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
 		ERR_EXIT(num_list,"incorrect use of add operation (null list or incorrect type in first operand)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	while((num_list!=NULL) && (num_list->t==PAIR)){
+	while((num_list->t==PAIR)){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
-		if(num_list->d.pair.f==NULL){
+		if(num_list->d.pair.f==nl_null){
 			continue;
 		}
 		
@@ -2220,7 +2229,7 @@ nl_val *nl_add(nl_val *num_list){
 		if(num_list->d.pair.f->t!=NUM){
 			ERR_EXIT(num_list,"non-number given to add operation, returning NULL from add",TRUE);
 			nl_val_free(acc);
-			return NULL;
+			return nl_null;
 		}
 		nl_val *current_num=num_list->d.pair.f;
 		
@@ -2242,19 +2251,19 @@ nl_val *nl_add(nl_val *num_list){
 
 //subtract a list of (rational) numbers
 nl_val *nl_sub(nl_val *num_list){
-	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
+	nl_val *acc=nl_null;
+	if((num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
 		ERR_EXIT(num_list,"incorrect use of sub operation (null list or incorrect type in first operand)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	while((num_list!=NULL) && (num_list->t==PAIR)){
+	while((num_list->t==PAIR)){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
-		if(num_list->d.pair.f==NULL){
+		if(num_list->d.pair.f==nl_null){
 			continue;
 		}
 		
@@ -2262,7 +2271,7 @@ nl_val *nl_sub(nl_val *num_list){
 		if(num_list->d.pair.f->t!=NUM){
 			ERR_EXIT(num_list,"non-number given to subtract operation, returning NULL from subtract",TRUE);
 			nl_val_free(acc);
-			return NULL;
+			return nl_null;
 		}
 		nl_val *current_num=num_list->d.pair.f;
 		
@@ -2284,19 +2293,19 @@ nl_val *nl_sub(nl_val *num_list){
 
 //multiply a list of (rational) numbers
 nl_val *nl_mul(nl_val *num_list){
-	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
+	nl_val *acc=nl_null;
+	if((num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
 		ERR_EXIT(num_list,"incorrect use of mul operation (null list or incorrect type in first operand)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	while((num_list!=NULL) && (num_list->t==PAIR)){
+	while((num_list->t==PAIR)){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
-		if(num_list->d.pair.f==NULL){
+		if(num_list->d.pair.f==nl_null){
 			continue;
 		}
 		
@@ -2304,7 +2313,7 @@ nl_val *nl_mul(nl_val *num_list){
 		if(num_list->d.pair.f->t!=NUM){
 			ERR_EXIT(num_list,"non-number given to mul operation, returning NULL from mul",TRUE);
 			nl_val_free(acc);
-			return NULL;
+			return nl_null;
 		}
 		nl_val *current_num=num_list->d.pair.f;
 		
@@ -2326,19 +2335,19 @@ nl_val *nl_mul(nl_val *num_list){
 
 //divide a list of (rational) numbers
 nl_val *nl_div(nl_val *num_list){
-	nl_val *acc=NULL;
-	if((num_list!=NULL) && (num_list->t==PAIR) && (num_list->d.pair.f!=NULL) && (num_list->d.pair.f->t==NUM)){
+	nl_val *acc=nl_null;
+	if((num_list->t==PAIR) && (num_list->d.pair.f->t==NUM)){
 		acc=nl_val_cp(num_list->d.pair.f);
 		num_list=num_list->d.pair.r;
 	}else{
 		ERR_EXIT(num_list,"incorrect use of div operation (null list or incorrect type in first operand)",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	while((num_list!=NULL) && (num_list->t==PAIR)){
+	while((num_list->t==PAIR)){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
-		if(num_list->d.pair.f==NULL){
+		if(num_list->d.pair.f==nl_null){
 			continue;
 		}
 		
@@ -2346,7 +2355,7 @@ nl_val *nl_div(nl_val *num_list){
 		if(num_list->d.pair.f->t!=NUM){
 			ERR_EXIT(num_list,"non-number given to div operation, returning NULL from mul",TRUE);
 			nl_val_free(acc);
-			return NULL;
+			return nl_null;
 		}
 		nl_val *current_num=num_list->d.pair.f;
 		
@@ -2368,7 +2377,7 @@ nl_val *nl_div(nl_val *num_list){
 
 //take the floor of a (rational) number
 nl_val *nl_floor(nl_val *num_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	int arg_count=nl_c_list_size(num_list);
 	if(arg_count>=1){
@@ -2394,7 +2403,7 @@ nl_val *nl_floor(nl_val *num_list){
 
 //take the ceiling of a (rational) number
 nl_val *nl_ceil(nl_val *num_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	int arg_count=nl_c_list_size(num_list);
 	if(arg_count>=1){
@@ -2429,7 +2438,7 @@ nl_val *nl_ceil(nl_val *num_list){
 
 //get the absolute value of a (rational) number
 nl_val *nl_abs(nl_val *num_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	int arg_count=nl_c_list_size(num_list);
 	if(arg_count>=1){
@@ -2463,20 +2472,20 @@ nl_val *nl_abs(nl_val *num_list){
 //if more than two arguments are given then this will only return true if a==b==c==... for (= a b c ...)
 //checks if the values of the same type within val_list are equal
 nl_val *nl_generic_eq(nl_val *val_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
 		ERR_EXIT(val_list,"a NULL argument was given to equality operator, returning NULL",TRUE);
-		return NULL;
+		return nl_null;
 	}
 //	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
 //		ERR_EXIT(val_list,"incorrect use of eq operator =; arg count < 2 or inconsistent type",TRUE);
-//		return NULL;
+//		return nl_null;
 //	}
 	if(!(nl_c_list_size(val_list)>=2)){
 		ERR_EXIT(val_list,"too few arguments given to eq operator =",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	ret=nl_val_malloc(BYTE);
@@ -2485,11 +2494,11 @@ nl_val *nl_generic_eq(nl_val *val_list){
 	nl_val *last_value=val_list->d.pair.f;
 	val_list=val_list->d.pair.r;
 	
-	while((val_list!=NULL) && (val_list->t==PAIR)){
+	while((val_list->t==PAIR)){
 //		if(last_value->t!=val_list->d.pair.f->t){
 //			ERR_EXIT(val_list,"inconsistent types given to eq operator =",TRUE);
 //			nl_val_free(ret);
-//			return NULL;
+//			return nl_null;
 //		}
 		
 		//if we got a==b, then set the return to true and keep going
@@ -2509,13 +2518,13 @@ nl_val *nl_generic_eq(nl_val *val_list){
 //not equal operator !=
 //equivalent to (not (= <arg list>))
 nl_val *nl_generic_neq(nl_val *val_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	nl_val *eq_ret=nl_generic_eq(val_list);
 	
 	//pass NULLs up as error signals
-	if(eq_ret==NULL){
-		return NULL;
+	if(eq_ret==nl_null){
+		return nl_null;
 	}
 	
 	//make a return value
@@ -2539,16 +2548,16 @@ nl_val *nl_generic_neq(nl_val *val_list){
 //if more than two arguments are given then this will only return true if a>b>c>... for (> a b c ...)
 //checks if the values of the same type within val_list are in descending order
 nl_val *nl_generic_gt(nl_val *val_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
 		ERR_EXIT(val_list,"a NULL argument was given to greater than operator, returning NULL",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
 		ERR_EXIT(val_list,"incorrect use of gt operator >; arg count < 2 or inconsistent type",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	ret=nl_val_malloc(BYTE);
@@ -2557,12 +2566,12 @@ nl_val *nl_generic_gt(nl_val *val_list){
 	nl_val *last_value=val_list->d.pair.f;
 	val_list=val_list->d.pair.r;
 	
-	while((val_list!=NULL) && (val_list->t==PAIR)){
-		if(last_value->t!=val_list->d.pair.f->t){
-			ERR_EXIT(val_list,"inconsistent types given to gt operator >",TRUE);
-			nl_val_free(ret);
-			return NULL;
-		}
+	while((val_list->t==PAIR)){
+//		if(last_value->t!=val_list->d.pair.f->t){
+//			ERR_EXIT(val_list,"inconsistent types given to gt operator >",TRUE);
+//			nl_val_free(ret);
+//			return nl_null;
+//		}
 		
 		//if we got a>b, then set the return to true and keep going
 		if(nl_val_cmp(last_value,val_list->d.pair.f)>0){
@@ -2582,16 +2591,16 @@ nl_val *nl_generic_gt(nl_val *val_list){
 //if more than two arguments are given then this will only return true if a<b<c<... for (< a b c ...)
 //checks if the values of the same type within val_list are in ascending order
 nl_val *nl_generic_lt(nl_val *val_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	
 	//garbage in, garbage out; if you give us NULL we return NULL
 	if(nl_contains_nulls(val_list)){
 		ERR_EXIT(val_list,"a NULL argument was given to less than operator, returning NULL",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	if(!((nl_c_list_size(val_list)>=2) && (val_list->d.pair.f->t==val_list->d.pair.r->d.pair.f->t))){
 		ERR_EXIT(val_list,"incorrect use of lt operator <; arg count < 2 or inconsistent type",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	ret=nl_val_malloc(BYTE);
@@ -2600,12 +2609,12 @@ nl_val *nl_generic_lt(nl_val *val_list){
 	nl_val *last_value=val_list->d.pair.f;
 	val_list=val_list->d.pair.r;
 	
-	while((val_list!=NULL) && (val_list->t==PAIR)){
-		if(last_value->t!=val_list->d.pair.f->t){
-			ERR_EXIT(val_list,"inconsistent types given to lt operator <",TRUE);
-			nl_val_free(ret);
-			return NULL;
-		}
+	while((val_list->t==PAIR)){
+//		if(last_value->t!=val_list->d.pair.f->t){
+//			ERR_EXIT(val_list,"inconsistent types given to lt operator <",TRUE);
+//			nl_val_free(ret);
+//			return nl_null;
+//		}
 		
 		//if we got a<b, then set the return to true and keep going
 		if(nl_val_cmp(last_value,val_list->d.pair.f)<0){
@@ -2655,8 +2664,8 @@ nl_val *nl_is_null(nl_val *val_list){
 	nl_val *val_list_start=val_list;
 
 	//first check for straight-up NULL values
-	while((val_list!=NULL) && (val_list->t==PAIR)){
-		if(val_list->d.pair.f!=NULL){
+	while((val_list->t==PAIR)){
+		if(val_list->d.pair.f!=nl_null){
 			ret->d.byte.v=FALSE;
 			break;
 		}
@@ -2669,12 +2678,12 @@ nl_val *nl_is_null(nl_val *val_list){
 		ret->d.byte.v=TRUE;
 		
 		val_list=val_list_start;
-		nl_val *list_entry=NULL;
-		while((ret->d.byte.v==TRUE) && (val_list!=NULL) && (val_list->t==PAIR)){
+		nl_val *list_entry=nl_null;
+		while((ret->d.byte.v==TRUE) && (val_list->t==PAIR)){
 			list_entry=val_list->d.pair.f;
-			while(list_entry!=NULL && list_entry->t==PAIR){
+			while(list_entry->t==PAIR){
 				//if we found an entry within the list that wasn't null then return false
-				if(list_entry->d.pair.f!=NULL){
+				if(list_entry->d.pair.f!=nl_null){
 					ret->d.byte.v=FALSE;
 					break;
 				}
@@ -2683,7 +2692,7 @@ nl_val *nl_is_null(nl_val *val_list){
 			}
 			
 			//if we found a non-list entry that wasn't null then return false
-			if(list_entry!=NULL){
+			if(list_entry!=nl_null){
 				ret->d.byte.v=FALSE;
 				break;
 			}
@@ -2701,10 +2710,10 @@ nl_val *nl_is_null(nl_val *val_list){
 
 //bitwise OR operation on the byte type
 nl_val *nl_byte_or(nl_val *byte_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	if(nl_c_list_size(byte_list)<2){
 		ERR_EXIT(byte_list,"insufficient arguments given to bitwise or operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//allocate an accumulator
@@ -2712,14 +2721,14 @@ nl_val *nl_byte_or(nl_val *byte_list){
 	//start with 0 because we'll OR everything else
 	ret->d.byte.v=0;
 	
-	while((byte_list!=NULL) && (byte_list->t==PAIR)){
-		if(byte_list->d.pair.f!=NULL && byte_list->d.pair.f->t==BYTE){
+	while((byte_list->t==PAIR)){
+		if(byte_list->d.pair.f->t==BYTE){
 			//store a bitwise OR of the accumulator and the list element in the accumulator
 			ret->d.byte.v=((ret->d.byte.v)|(byte_list->d.pair.f->d.byte.v));
 		}else{
 			nl_val_free(ret);
 			ERR_EXIT(byte_list,"incorrect type given to bitwise or operation",TRUE);
-			return NULL;
+			return nl_null;
 		}
 		
 		byte_list=byte_list->d.pair.r;
@@ -2730,10 +2739,10 @@ nl_val *nl_byte_or(nl_val *byte_list){
 
 //bitwise AND operation on the byte type
 nl_val *nl_byte_and(nl_val *byte_list){
-	nl_val *ret=NULL;
+	nl_val *ret=nl_null;
 	if(nl_c_list_size(byte_list)<2){
 		ERR_EXIT(byte_list,"insufficient arguments given to bitwise or operation",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	//allocate an accumulator
@@ -2741,14 +2750,14 @@ nl_val *nl_byte_and(nl_val *byte_list){
 	//start with 0xff because we'll AND everything else
 	ret->d.byte.v=0xff;
 	
-	while((byte_list!=NULL) && (byte_list->t==PAIR)){
-		if(byte_list->d.pair.f!=NULL && byte_list->d.pair.f->t==BYTE){
+	while((byte_list->t==PAIR)){
+		if(byte_list->d.pair.f->t==BYTE){
 			//store a bitwise AND of the accumulator and the list element in the accumulator
 			ret->d.byte.v=((ret->d.byte.v)&(byte_list->d.pair.f->d.byte.v));
 		}else{
 			nl_val_free(ret);
 			ERR_EXIT(byte_list,"incorrect type given to bitwise or operation",TRUE);
-			return NULL;
+			return nl_null;
 		}
 		
 		byte_list=byte_list->d.pair.r;
@@ -2766,12 +2775,12 @@ nl_val *nl_byte_and(nl_val *byte_list){
 nl_val *nl_str_from_file(nl_val *fname_list){
 	if(nl_c_list_size(fname_list)!=1){
 		ERR_EXIT(fname_list,"file->str operation takes exactly one argument",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
-	if((fname_list->d.pair.f==NULL) || (fname_list->d.pair.f->t!=ARRAY)){
+	if((fname_list->d.pair.f->t!=ARRAY)){
 		ERR_EXIT(fname_list->d.pair.f,"wrong type argument given to file->str, expecting byte array",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	char *fname=c_str_from_nl_str(fname_list->d.pair.f);
@@ -2780,7 +2789,7 @@ nl_val *nl_str_from_file(nl_val *fname_list){
 	if(fp==NULL){
 		free(fname);
 		ERR_EXIT(fname_list->d.pair.f,"could not open file",TRUE);
-		return NULL;
+		return nl_null;
 	}
 	
 	nl_val *ret=nl_val_malloc(ARRAY);
@@ -2809,7 +2818,7 @@ nl_val *nl_str_from_file(nl_val *fname_list){
 nl_val *nl_assert(nl_val *cond_list){
 	nl_val *ret=nl_val_malloc(BYTE);
 	ret->d.byte.v=TRUE;
-	while(cond_list!=NULL && cond_list->t==PAIR){
+	while(cond_list->t==PAIR){
 		if(!nl_is_true(cond_list->d.pair.f)){
 			ret->d.byte.v=FALSE;
 #ifdef _STRICT
@@ -2821,7 +2830,7 @@ nl_val *nl_assert(nl_val *cond_list){
 		cond_list=cond_list->d.pair.r;
 	}
 #ifdef _DEBUG
-	if(cond_list!=NULL){
+	if(cond_list!=nl_null){
 		printf("line %i: assert succeeded\n",cond_list->line);
 	}else{
 		printf("line %i: assert succeeded\n",line_number);
@@ -2834,13 +2843,13 @@ nl_val *nl_assert(nl_val *cond_list){
 nl_val *nl_sleep(nl_val *time_list){
 	if(nl_c_list_size(time_list)==0){
 		ERR_EXIT(time_list,"too few arguments given to sleep operation",FALSE);
-		return NULL;
+		return nl_null;
 	}
 	
-	while((time_list!=NULL) && (time_list->t==PAIR)){
-		if((time_list->d.pair.f==NULL) || (time_list->d.pair.f->t!=NUM)){
+	while((time_list->t==PAIR)){
+		if((time_list->d.pair.f->t!=NUM)){
 			ERR_EXIT(time_list,"non-number argument given to sleep operation",TRUE);
-			return NULL;
+			return nl_null;
 		}
 		//perform the division (from the rational number) then mul by 1000000 for a precision of 1 microsecond
 		useconds_t time_to_sleep=(useconds_t)((1000000*(((double)(time_list->d.pair.f->d.num.n))/((double)(time_list->d.pair.f->d.num.d)))));
@@ -2854,7 +2863,7 @@ nl_val *nl_sleep(nl_val *time_list){
 		time_list=time_list->d.pair.r;
 	}
 	
-	return NULL;
+	return nl_null;
 }
 
 

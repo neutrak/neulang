@@ -38,6 +38,7 @@ typedef enum {
 	//internal types (might still be user visible, but mostly an implementation detail)
 	SYMBOL, //variable names, for the symbol table, internally this is a [byte]array
 	EVALUATION, //to-be-evaluated symbol, denoted $symbol
+	NL_NULL, //null type
 } nl_type;
 
 typedef struct nl_env_frame nl_env_frame;
@@ -179,6 +180,9 @@ struct nl_env_frame {
 char end_program;
 int exit_status;
 unsigned int line_number;
+
+//global null
+nl_val *nl_null;
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
 
