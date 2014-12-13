@@ -1071,7 +1071,7 @@ int nl_val_cmp(const nl_val *v_a, const nl_val *v_b){
 
 //return whether or not this list contains null (this does NOT recurse to sub-lists)
 char nl_contains_nulls(nl_val *val_list){
-	while((val_list->t==PAIR)){
+	while(val_list->t==PAIR){
 		if(val_list->d.pair.f==nl_null){
 			return TRUE;
 		}
@@ -1192,7 +1192,7 @@ nl_val *nl_array_to_list(nl_val *arg_list){
 	char first_ar=TRUE;
 	
 	//for each argument
-	while((arg_list->t==PAIR)){
+	while(arg_list->t==PAIR){
 		nl_val *current_ar=arg_list->d.pair.f;
 		if((current_ar->t!=ARRAY)){
 			nl_val_free(ret);
@@ -1241,7 +1241,7 @@ nl_val *nl_list_to_array(nl_val *arg_list){
 	ret=nl_val_malloc(ARRAY);
 	
 	//for each argument
-	while((arg_list->t==PAIR)){
+	while(arg_list->t==PAIR){
 		nl_val *current_list=arg_list->d.pair.f;
 		if((current_list->t!=PAIR)){
 			nl_val_free(ret);
@@ -1250,7 +1250,7 @@ nl_val *nl_list_to_array(nl_val *arg_list){
 		}
 		
 		//go through each list element and add a copy to the array to return
-		while((current_list->t==PAIR)){
+		while(current_list->t==PAIR){
 			nl_array_push(ret,nl_val_cp(current_list->d.pair.f));
 			current_list=current_list->d.pair.r;
 		}
@@ -1769,7 +1769,7 @@ nl_val *nl_array_insert(nl_val *arg_list){
 	for(idx=0;idx<=base_array->d.array.size;idx++){
 		//if we hit the place to insert, then add all the given new elements here
 		if(idx==c_ins_idx){
-			while((new_val_list->t==PAIR)){
+			while(new_val_list->t==PAIR){
 				nl_array_push(ret,nl_val_cp(new_val_list->d.pair.f));
 				new_val_list=new_val_list->d.pair.r;
 			}
@@ -1930,8 +1930,7 @@ nl_val *nl_array_range(){
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list){
-	while((array_list->t==PAIR))
-	{
+	while(array_list->t==PAIR){
 		nl_val *output_str=array_list->d.pair.f;
 		
 		int n;
@@ -2023,7 +2022,7 @@ nl_val *nl_inchar(nl_val *arg_list){
 //note that cyclic lists are infinite and this will never terminate on them
 int nl_c_list_size(nl_val *list){
 	int len=0;
-	while((list->t==PAIR)){
+	while(list->t==PAIR){
 		len++;
 		list=list->d.pair.r;
 	}
@@ -2045,7 +2044,7 @@ nl_val *nl_c_list_idx(nl_val *list, nl_val *idx){
 	}
 	
 	int current_idx=0;
-	while((list->t==PAIR)){
+	while(list->t==PAIR){
 		if(current_idx==(idx->d.num.n)){
 			ret=nl_val_cp(list->d.pair.f);
 			break;
@@ -2064,7 +2063,7 @@ nl_val *nl_list_size(nl_val *list_list){
 	ret->d.num.d=1;
 	ret->d.num.n=0;
 	
-	if((list_list->t==PAIR)){
+	if(list_list->t==PAIR){
 		if(list_list->d.pair.r!=nl_null){
 //			fprintf(stderr,"Warn [line %u]: too many arguments given to list size operation, only the first will be used...\n",line_number);
 			ERR(list_list,"too many arguments given to list size operation, only the first will be used...",TRUE);
@@ -2080,7 +2079,7 @@ nl_val *nl_list_size(nl_val *list_list){
 			if(list_entry->d.pair.f==nl_null){
 				list_entry=list_entry->d.pair.r;
 			}
-			while((list_entry->t==PAIR)){
+			while(list_entry->t==PAIR){
 				ret->d.num.n++;
 				list_entry=list_entry->d.pair.r;
 			}
@@ -2165,7 +2164,7 @@ nl_val *nl_struct_get(nl_val *sym_list){
 	
 	nl_val *current_struct=sym_list->d.pair.f;
 	sym_list=sym_list->d.pair.r;
-	while((sym_list->t==PAIR)){
+	while(sym_list->t==PAIR){
 		current_node->d.pair.f=nl_val_cp(nl_lookup(sym_list->d.pair.f,current_struct->d.nl_struct.env));
 		
 		if(sym_list->d.pair.r!=nl_null){
@@ -2218,7 +2217,7 @@ nl_val *nl_add(nl_val *num_list){
 		return nl_null;
 	}
 	
-	while((num_list->t==PAIR)){
+	while(num_list->t==PAIR){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
 		if(num_list->d.pair.f==nl_null){
@@ -2260,7 +2259,7 @@ nl_val *nl_sub(nl_val *num_list){
 		return nl_null;
 	}
 	
-	while((num_list->t==PAIR)){
+	while(num_list->t==PAIR){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
 		if(num_list->d.pair.f==nl_null){
@@ -2302,7 +2301,7 @@ nl_val *nl_mul(nl_val *num_list){
 		return nl_null;
 	}
 	
-	while((num_list->t==PAIR)){
+	while(num_list->t==PAIR){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
 		if(num_list->d.pair.f==nl_null){
@@ -2344,7 +2343,7 @@ nl_val *nl_div(nl_val *num_list){
 		return nl_null;
 	}
 	
-	while((num_list->t==PAIR)){
+	while(num_list->t==PAIR){
 		//TODO: should null elements make the whole result null? (acting as NaN)
 		//ignore null elements
 		if(num_list->d.pair.f==nl_null){
@@ -2494,7 +2493,7 @@ nl_val *nl_generic_eq(nl_val *val_list){
 	nl_val *last_value=val_list->d.pair.f;
 	val_list=val_list->d.pair.r;
 	
-	while((val_list->t==PAIR)){
+	while(val_list->t==PAIR){
 //		if(last_value->t!=val_list->d.pair.f->t){
 //			ERR_EXIT(val_list,"inconsistent types given to eq operator =",TRUE);
 //			nl_val_free(ret);
@@ -2566,7 +2565,7 @@ nl_val *nl_generic_gt(nl_val *val_list){
 	nl_val *last_value=val_list->d.pair.f;
 	val_list=val_list->d.pair.r;
 	
-	while((val_list->t==PAIR)){
+	while(val_list->t==PAIR){
 //		if(last_value->t!=val_list->d.pair.f->t){
 //			ERR_EXIT(val_list,"inconsistent types given to gt operator >",TRUE);
 //			nl_val_free(ret);
@@ -2609,7 +2608,7 @@ nl_val *nl_generic_lt(nl_val *val_list){
 	nl_val *last_value=val_list->d.pair.f;
 	val_list=val_list->d.pair.r;
 	
-	while((val_list->t==PAIR)){
+	while(val_list->t==PAIR){
 //		if(last_value->t!=val_list->d.pair.f->t){
 //			ERR_EXIT(val_list,"inconsistent types given to lt operator <",TRUE);
 //			nl_val_free(ret);
@@ -2664,7 +2663,7 @@ nl_val *nl_is_null(nl_val *val_list){
 	nl_val *val_list_start=val_list;
 
 	//first check for straight-up NULL values
-	while((val_list->t==PAIR)){
+	while(val_list->t==PAIR){
 		if(val_list->d.pair.f!=nl_null){
 			ret->d.byte.v=FALSE;
 			break;
@@ -2721,7 +2720,7 @@ nl_val *nl_byte_or(nl_val *byte_list){
 	//start with 0 because we'll OR everything else
 	ret->d.byte.v=0;
 	
-	while((byte_list->t==PAIR)){
+	while(byte_list->t==PAIR){
 		if(byte_list->d.pair.f->t==BYTE){
 			//store a bitwise OR of the accumulator and the list element in the accumulator
 			ret->d.byte.v=((ret->d.byte.v)|(byte_list->d.pair.f->d.byte.v));
@@ -2750,7 +2749,7 @@ nl_val *nl_byte_and(nl_val *byte_list){
 	//start with 0xff because we'll AND everything else
 	ret->d.byte.v=0xff;
 	
-	while((byte_list->t==PAIR)){
+	while(byte_list->t==PAIR){
 		if(byte_list->d.pair.f->t==BYTE){
 			//store a bitwise AND of the accumulator and the list element in the accumulator
 			ret->d.byte.v=((ret->d.byte.v)&(byte_list->d.pair.f->d.byte.v));
@@ -2846,7 +2845,7 @@ nl_val *nl_sleep(nl_val *time_list){
 		return nl_null;
 	}
 	
-	while((time_list->t==PAIR)){
+	while(time_list->t==PAIR){
 		if((time_list->d.pair.f->t!=NUM)){
 			ERR_EXIT(time_list,"non-number argument given to sleep operation",TRUE);
 			return nl_null;

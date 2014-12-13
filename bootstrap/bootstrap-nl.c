@@ -618,7 +618,7 @@ int nl_list_occur(nl_val *list, nl_val *value){
 	}
 	
 	//while we're not at list end
-	while((list->t==PAIR)){
+	while(list->t==PAIR){
 		if(list->d.pair.f!=nl_null){
 			//if we found a sub-list recurse and add that result to the count
 			if(list->d.pair.f->t==PAIR){
@@ -635,7 +635,7 @@ int nl_list_occur(nl_val *list, nl_val *value){
 
 //evaluate all the elements in a list, replacing them with their evaluations
 void nl_eval_elements(nl_val *list, nl_env_frame *env){
-	while((list->t==PAIR)){
+	while(list->t==PAIR){
 //		char early_ret=FALSE;
 //		nl_val *ev_result=nl_eval(list->d.pair.f,env,FALSE,&early_ret);
 		nl_val *ev_result=nl_eval(list->d.pair.f,env,FALSE,NULL);
@@ -678,7 +678,7 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 	nl_val *body_start=body;
 	
 	nl_val *to_eval=nl_null;
-	while((body->t==PAIR)){
+	while(body->t==PAIR){
 		//if the next statement is the last, set that for the next loop iteration
 		if(body->d.pair.r==nl_null){
 			on_last_exp=TRUE;
@@ -927,7 +927,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *ea
 		
 		//true eval
 		nl_val *tmp_args=arguments;
-		while((tmp_args->t==PAIR)){
+		while(tmp_args->t==PAIR){
 			//if we hit an else statement then break out (skipping over false case)
 			if((tmp_args->d.pair.r==nl_null) || ((tmp_args->d.pair.r->t==PAIR) && (tmp_args->d.pair.r->d.pair.f!=nl_null) && (tmp_args->d.pair.r->d.pair.f->t==SYMBOL) && (nl_val_cmp(else_keyword,tmp_args->d.pair.r->d.pair.f)==0))){
 				nl_val_free(tmp_args->d.pair.r);
@@ -944,7 +944,7 @@ nl_val *nl_eval_if(nl_val *arguments, nl_env_frame *env, char last_exp, char *ea
 		return nl_eval_sequence(tmp_args,env,early_ret);
 	}else if(cond!=nl_null){
 		//skip over true case
-		while((arguments->t==PAIR)){
+		while(arguments->t==PAIR){
 			//if we hit an else statement then break out
 			if((arguments->d.pair.f->t==SYMBOL) && (nl_val_cmp(arguments->d.pair.f,else_keyword)==0)){
 				break;
@@ -1153,7 +1153,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			nl_val *post_loop=nl_null;
 			
 			arguments=body;
-			while((arguments->t==PAIR)){
+			while(arguments->t==PAIR){
 				nl_val *next_arg=arguments->d.pair.r;
 				
 				//if we found an "after" then shove everything else in the post-loop and break
@@ -1196,7 +1196,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 //			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=body;
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=nl_val_cp(body);
 			body=sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r;
-			while((body->t==PAIR)){
+			while(body->t==PAIR){
 				if(body->d.pair.r==nl_null){
 					//add in the recursive call that makes it, you know, loop
 					body->d.pair.r=nl_val_malloc(PAIR);
@@ -1251,7 +1251,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			nl_val *post_loop=nl_null;
 			
 			arguments=body;
-			while((arguments->t==PAIR)){
+			while(arguments->t==PAIR){
 				nl_val *next_arg=arguments->d.pair.r;
 				
 				//if we found an "after" then shove everything else in the post-loop and break
@@ -1297,7 +1297,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 //			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=body;
 			sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r=nl_val_cp(body);
 			body=sub_to_eval->d.pair.r->d.pair.r->d.pair.f->d.pair.r->d.pair.r;
-			while((body->t==PAIR)){
+			while(body->t==PAIR){
 				if(body->d.pair.r==nl_null){
 					//add in the recursive call that makes it, you know, loop
 					body->d.pair.r=nl_val_malloc(PAIR);
@@ -1352,14 +1352,14 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		
 		//throw them in an array to return
 		ret=nl_val_malloc(ARRAY);
-		while((arguments->t==PAIR)){
+		while(arguments->t==PAIR){
 			nl_array_push(ret,nl_val_cp(arguments->d.pair.f));
 			
 			arguments=arguments->d.pair.r;
 		}
 	//check for f statements (car)
 	}else if(nl_val_cmp(keyword,f_keyword)==0){
-		if((arguments->t==PAIR)){
+		if(arguments->t==PAIR){
 			//evaluate the first argument
 //			nl_val *result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
 			nl_val *result=nl_eval(arguments->d.pair.f,env,FALSE,NULL);
@@ -1367,7 +1367,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			arguments->d.pair.f=result;
 			
 			//if it was a pair then return the first entry
-			if((arguments->d.pair.f->t==PAIR)){
+			if(arguments->d.pair.f->t==PAIR){
 				ret=arguments->d.pair.f->d.pair.f;
 				if(ret!=nl_null){
 					ret->ref++;
@@ -1380,7 +1380,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		}
 	//check for r statements (cdr)
 	}else if(nl_val_cmp(keyword,r_keyword)==0){
-		if((arguments->t==PAIR)){
+		if(arguments->t==PAIR){
 			//evaluate the first argument
 //			nl_val *result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
 			nl_val *result=nl_eval(arguments->d.pair.f,env,FALSE,NULL);
@@ -1388,7 +1388,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			arguments->d.pair.f=result;
 			
 			//if it was a pair then return the second entry
-			if((arguments->d.pair.f->t==PAIR)){
+			if(arguments->d.pair.f->t==PAIR){
 				ret=arguments->d.pair.f->d.pair.r;
 				if(ret!=nl_null){
 					ret->ref++;
@@ -1411,7 +1411,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		ret=nl_val_malloc(BYTE);
 		//true until we find a false value
 		ret->d.byte.v=TRUE;
-		while((arguments->t==PAIR)){
+		while(arguments->t==PAIR){
 //			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
 			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,NULL);
 			arguments->d.pair.f=tmp_result;
@@ -1428,7 +1428,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		ret=nl_val_malloc(BYTE);
 		//false until we find a true value
 		ret->d.byte.v=FALSE;
-		while((arguments->t==PAIR)){
+		while(arguments->t==PAIR){
 //			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
 			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,NULL);
 			arguments->d.pair.f=tmp_result;
@@ -1448,7 +1448,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		ret=nl_val_malloc(BYTE);
 		//false by default
 		ret->d.byte.v=FALSE;
-		while((arguments->t==PAIR)){
+		while(arguments->t==PAIR){
 //			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
 			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,NULL);
 			arguments->d.pair.f=tmp_result;
@@ -1469,7 +1469,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		ret=nl_val_malloc(BYTE);
 		//false until we find a true value, after which we better not find any more!
 		ret->d.byte.v=FALSE;
-		while((arguments->t==PAIR)){
+		while(arguments->t==PAIR){
 //			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,early_ret);
 			nl_val *tmp_result=nl_eval(arguments->d.pair.f,env,FALSE,NULL);
 			arguments->d.pair.f=tmp_result;
@@ -1565,7 +1565,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		//in the default case check for subroutines bound to this symbol
 		nl_val *prim_sub=nl_lookup(keyword,env);
 //		if((prim_sub!=NULL) && ((prim_sub->t==PRI) || (prim_sub->t==SUB))){ //this allows user-defined subs without $
-		if((prim_sub->t==PRI)){
+		if(prim_sub->t==PRI){
 			//do eager evaluation on arguments
 			nl_eval_elements(arguments,env);
 			//call apply
@@ -1654,7 +1654,7 @@ tailcall:
 		//pairs eagerly evaluate then (if first argument isn't a keyword) call out to apply
 		case PAIR:
 			//make this check the first list entry, if it is a symbol then check it against keyword and primitive list
-			if((exp->d.pair.f->t==SYMBOL)){
+			if(exp->d.pair.f->t==SYMBOL){
 				return nl_eval_keyword(exp,env,last_exp,early_ret);
 			//otherwise eagerly evaluate then call out to apply
 			}else if(exp->d.pair.f!=nl_null){
