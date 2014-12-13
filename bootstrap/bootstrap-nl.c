@@ -227,7 +227,7 @@ char nl_val_free(nl_val *exp){
 			nl_val_free(exp->d.sub.args);
 			nl_val_free(exp->d.sub.body);
 			//if this was chained in an application environment then it needs another free (had an extra reference)
-//			if(exp->d.sub.env->rw==FALSE){
+//			if(exp->d.sub.env->shared==FALSE){
 //				nl_env_frame_free(exp->d.sub.env);
 //			}
 			nl_env_frame_free(exp->d.sub.env);
@@ -325,8 +325,8 @@ nl_val *nl_val_cp(nl_val *v){
 nl_env_frame *nl_env_frame_malloc(nl_env_frame *up_scope){
 	nl_env_frame *ret=(nl_env_frame*)(malloc(sizeof(nl_env_frame)));
 	
-	//environments are read/write by default (after all, this language is procedural, if only contextually)
-	ret->rw=TRUE;
+	//environments are shared by default
+	ret->shared=TRUE;
 	
 	ret->trie=nl_trie_malloc();
 	
@@ -353,7 +353,7 @@ void nl_env_frame_free(nl_env_frame *env){
 
 //bind the given symbol to the given value in the given environment frame
 //note that we do NOT change anything in the above scopes; this preserves referential transparency
-//^ there is one exception to that, which is for new vars in a non-rw env (an application frame, aka call stack entry)
+//^ there is one exception to that, which is for new vars in a non-shared env (an application frame, aka call stack entry)
 //returns TRUE for success, FALSE for failure
 char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	//can't bind to a null environment
@@ -362,8 +362,8 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 		return FALSE;
 /*
 #ifdef _DEBUG
-	}else if(env->rw==FALSE){
-		printf("nl_bind debug 0, got a read-only environment while binding symbol ");
+	}else if(env->shared==FALSE){
+		printf("nl_bind debug 0, got a non-shared environment while binding symbol ");
 		nl_out(stdout,symbol);
 		printf("...\n");
 #endif
@@ -385,8 +385,8 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 //	printf("nl_bind debug 1, binding %s...\n",symbol_c_str);
 #endif
 	
-	//if this was an application environment (read-only) then also bind it in a higher scope, updating the value there
-	if(env->rw==FALSE){
+	//if this was an application environment then also bind it in a higher scope, updating the value there
+	if(env->shared==FALSE){
 #ifdef _DEBUG
 //		printf("nl_bind debug 1.25, recursing...\n");
 #endif
@@ -835,8 +835,8 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 			//could not bind to closure scope
 		}
 		
-		//set the apply env read-only so any new vars go into the closure env
-		apply_env->rw=FALSE;
+		//set the apply env not shared so any new vars go into the closure env
+		apply_env->shared=FALSE;
 		
 		//return keywords are handled in nl_eval_sequence (by setting last expression and executing as begin)
 		//and recur are handled in nl_eval_sub (by substituting the closure for all instances of recur in the body)
@@ -971,8 +971,8 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	ret->d.sub.args=arguments->d.pair.f;
 	ret->d.sub.args->ref++;
 	
-	//create a new environment for this closure which links up to the existing environment (the closest rewritable one, application envs don't get used!)
-	while(env!=NULL && env->rw==FALSE){
+	//create a new environment for this closure which links up to the existing environment (the closest shared one, application envs don't get used!)
+	while(env!=NULL && env->shared==FALSE){
 		env=env->up_scope;
 	}
 	ret->d.sub.env=nl_env_frame_malloc(env);

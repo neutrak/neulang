@@ -160,8 +160,9 @@ struct nl_trie_node {
 
 //environment frame (one global, then one per closure)
 struct nl_env_frame {
-	//true if this environment is writable, otherwise false (read-only)
-	char rw;
+	//true if this environment is shared (closure or global)
+	//otherwise false (application / call stack entry)
+	char shared;
 	
 	//store a trie that maps symbols (really c strings) to values
 	nl_trie_node *trie;
@@ -214,7 +215,7 @@ void nl_env_frame_free(nl_env_frame *env);
 
 //bind the given symbol to the given value in the given environment frame
 //note that we do NOT change anything in the above scopes; this preserves referential transparency
-//^ there is one exception to that, which is for new vars in a non-rw env (an application frame, aka call stack entry)
+//^ there is one exception to that, which is for new vars in a non-shared env (an application frame, aka call stack entry)
 //returns TRUE for success, FALSE for failure
 char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env);
 
