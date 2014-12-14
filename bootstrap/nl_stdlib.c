@@ -1458,6 +1458,44 @@ nl_val *nl_val_list_to_memstr(nl_val *val_list){
 	return ret;
 }
 
+//returns the symbol equivilent of the given string
+nl_val *nl_str_to_sym(nl_val *str_list){
+	int argc=nl_c_list_size(str_list);
+	if(argc!=1){
+		ERR_EXIT(str_list,"incorrect number of arguments given to str->sym",TRUE);
+		return nl_null;
+	}
+	
+	if(str_list->d.pair.f->t!=ARRAY){
+		ERR_EXIT(str_list->d.pair.f,"incorrect type given to str->sym (expected ARRAY)",TRUE);
+		return nl_null;
+	}
+	
+	nl_val *ret=nl_val_malloc(SYMBOL);
+	ret->d.sym.name=nl_val_cp(str_list->d.pair.f);
+	
+	return ret;
+}
+
+//returns the string equivilent of the given symbol
+nl_val *nl_sym_to_str(nl_val *sym_list){
+	int argc=nl_c_list_size(sym_list);
+	if(argc!=1){
+		ERR_EXIT(sym_list,"incorrect number of arguments given to sym->str",TRUE);
+		return nl_null;
+	}
+	
+	if(sym_list->d.pair.f->t!=SYMBOL){
+		ERR_EXIT(sym_list->d.pair.f,"incorrect type given to sym->str (expected SYMBOL)",TRUE);
+		return nl_null;
+	}
+	
+	nl_val *ret;
+	ret=nl_val_cp(sym_list->d.pair.f->d.sym.name);
+	
+	return ret;
+}
+
 
 //BEGIN C-NL-STDLIB-ARRAY SUBROUTINES  ----------------------------------------------------------------------------
 

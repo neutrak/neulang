@@ -414,6 +414,12 @@ nl_val *nl_val_to_memstr(const nl_val *exp);
 //returns the string-encoded version of any given list of expressions
 nl_val *nl_val_list_to_memstr(nl_val *val_list);
 
+//returns the symbol equivilent of the given string
+nl_val *nl_str_to_sym(nl_val *str_list);
+
+//returns the string equivilent of the given symbol
+nl_val *nl_sym_to_str(nl_val *sym_list);
+
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v);
 

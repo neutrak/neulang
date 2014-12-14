@@ -2109,6 +2109,8 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar->list"),nl_primitive_wrap(nl_array_to_list),env);
 	nl_bind_new(nl_sym_from_c_str("list->ar"),nl_primitive_wrap(nl_list_to_array),env);
 	nl_bind_new(nl_sym_from_c_str("val->memstr"),nl_primitive_wrap(nl_val_list_to_memstr),env);
+	nl_bind_new(nl_sym_from_c_str("str->sym"),nl_primitive_wrap(nl_str_to_sym),env);
+	nl_bind_new(nl_sym_from_c_str("sym->str"),nl_primitive_wrap(nl_sym_to_str),env);
 	//TODO: all other sensical type conversions
 	
 	//TODO: any other bitwise operations that make sense
