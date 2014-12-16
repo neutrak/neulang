@@ -110,6 +110,12 @@ struct nl_val {
 			//arguments (linked list of symbols to bind to values during apply)
 			nl_val *args;
 			
+			//number of required arguments (may be called with more arguments if named arguments are used)
+			unsigned int req_arg_cnt;
+			
+			//named arguments, a list of pairs with default values
+			nl_val *dflt_args;
+			
 			//body (linked list of statements to execute)
 			nl_val *body;
 			

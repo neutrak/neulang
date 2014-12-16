@@ -37,6 +37,7 @@ nl_val *sub_keyword;
 nl_val *begin_keyword;
 nl_val *recur_keyword;
 nl_val *return_keyword;
+nl_val *with_keyword;
 nl_val *while_keyword;
 nl_val *for_keyword;
 nl_val *after_keyword;
@@ -155,6 +156,8 @@ nl_val *nl_val_malloc(nl_type t){
 		case SUB:
 //			ret->d.sub.t=NUM;
 			ret->d.sub.args=nl_null;
+			ret->d.sub.req_arg_cnt=0;
+			ret->d.sub.dflt_args=nl_null;
 			ret->d.sub.body=nl_null;
 			ret->d.sub.env=NULL;
 			break;
@@ -238,6 +241,7 @@ char nl_val_free(nl_val *exp){
 		//subroutines need the body an closure environment free'd
 		case SUB:
 			nl_val_free(exp->d.sub.args);
+			nl_val_free(exp->d.sub.dflt_args);
 			nl_val_free(exp->d.sub.body);
 			//if this was chained in an application environment then it needs another free (had an extra reference)
 //			if(exp->d.sub.env->shared==FALSE){
@@ -987,8 +991,80 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	
 	//allocate some memory for this and start filling it
 	ret=nl_val_malloc(SUB);
-	ret->d.sub.args=arguments->d.pair.f;
+	
+	//save argument symbols for later (required AND optional named arguments)
+	char req_over=FALSE;
+	ret->d.sub.req_arg_cnt=0;
+	nl_val *arg_iter=arguments->d.pair.f;
+	
+	//for each argument in the new closure
+	while(arg_iter->t==PAIR){
+		//normal symbols are required arguments
+		if(arg_iter->d.pair.f->t==SYMBOL){
+			if(req_over){
+				ERR_EXIT(arguments,"subroutine expects to take required argument AFTER named argument",TRUE);
+				break;
+			}
+			ret->d.sub.req_arg_cnt++;
+		//pairs are named arguments
+		}else if((arg_iter->d.pair.f->t==PAIR) && (arg_iter->d.pair.f->d.pair.r->t==PAIR)){
+			req_over=TRUE;
+			arg_iter->d.pair.f->d.pair.r->d.pair.f=nl_eval(arg_iter->d.pair.f->d.pair.r->d.pair.f,env,FALSE,NULL);
+			
+			nl_val *n_arg=nl_val_malloc(PAIR);
+			n_arg->d.pair.f=arg_iter->d.pair.f->d.pair.f;
+			n_arg->d.pair.r=arg_iter->d.pair.f->d.pair.r->d.pair.f;
+			
+			n_arg->d.pair.f->ref++;
+			n_arg->d.pair.r->ref++;
+			
+			//if there were no named arguments yet, then make a new named argument list
+			if(ret->d.sub.dflt_args==nl_null){
+				ret->d.sub.dflt_args=nl_val_malloc(PAIR);
+				ret->d.sub.dflt_args->d.pair.f=n_arg;
+				ret->d.sub.dflt_args->d.pair.r=nl_null;
+			//if there was already a named argument list, then append to the end
+			}else{
+				nl_val *sub_arg_iter=ret->d.sub.dflt_args;
+				while(sub_arg_iter->t==PAIR){
+					if(sub_arg_iter->d.pair.r==nl_null){
+						sub_arg_iter->d.pair.r=nl_val_malloc(PAIR);
+						sub_arg_iter->d.pair.r->d.pair.f=n_arg;
+						sub_arg_iter->d.pair.r->d.pair.r=nl_null;
+						break;
+					}
+					sub_arg_iter=sub_arg_iter->d.pair.r;
+				}
+			}
+		}else if(arg_iter->d.pair.f!=nl_null){
+			ERR_EXIT(arguments,"non-symbol and non-list given as subroutine argument",TRUE);
+			break;
+		}
+		
+		arg_iter=arg_iter->d.pair.r;
+	}
+	//separate named arguments from unnamed arguments
+	nl_val *req_args=arguments->d.pair.f;
+	ret->d.sub.args=req_args;
+	if(ret->d.sub.req_arg_cnt>0){
+		int n;
+		for(n=0;n<(ret->d.sub.req_arg_cnt-1);n++){
+			req_args=req_args->d.pair.r;
+		}
+		nl_val_free(req_args->d.pair.r);
+		req_args->d.pair.r=nl_null;
+	}
 	ret->d.sub.args->ref++;
+	
+#ifdef _DEBUG
+	if(ret->d.sub.dflt_args!=nl_null){
+		printf("eval_sub debug 0, got sub with %u required arguments ",ret->d.sub.req_arg_cnt);
+		nl_out(stdout,ret->d.sub.args);
+		printf(", default (named) arguments ");
+		nl_out(stdout,ret->d.sub.dflt_args);
+		printf("\n");
+	}
+#endif
 	
 	//create a new environment for this closure which links up to the existing environment (the closest shared one, application envs don't get used!)
 	while(env!=NULL && env->shared==FALSE){
@@ -1106,12 +1182,10 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		}else{
 			ERR_EXIT(keyword_exp,"wrong syntax for let statement",TRUE);
 		}
-	//TODO: add support for a let-list, allowing multiple symbols to be set at once; this will hugely aid returns from loops
 	//check for subroutine definitions (lambda expressions which are used as closures)
 	}else if(nl_val_cmp(keyword,sub_keyword)==0){
 		//handle sub statements
 		ret=nl_eval_sub(arguments,env);
-		
 	//check for begin statements (executed in-order, returning only the last)
 	}else if(nl_val_cmp(keyword,begin_keyword)==0){
 		//handle begin statements
@@ -1143,6 +1217,39 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 		//NOTE: eval sequence frees the associated arguments (which is why we ref++'d a couple lines above this)
 		//NOTE: this is used for tailcalls and depends on C TCO (-O3 or -O2)
 		return nl_eval_sequence(arguments,env,NULL);
+	//check for with statements, which are used when calling with named arguments
+	}else if(nl_val_cmp(keyword,with_keyword)==0){
+		if(arguments==nl_null){
+			ERR_EXIT(keyword_exp,"no arguments given to with statement",TRUE);
+			return nl_null;
+		}
+		
+		while(arguments->t==PAIR && arguments->d.pair.f->t==PAIR){
+			if(arguments->d.pair.f->d.pair.r->t!=PAIR){
+				ERR_EXIT(keyword_exp,"incorrect syntax for with statement",TRUE);
+				return nl_null;
+			}else{
+				nl_val *tmp=nl_val_malloc(PAIR);
+				
+				arguments->d.pair.f->d.pair.r->d.pair.f=nl_eval(arguments->d.pair.f->d.pair.r->d.pair.f,env,FALSE,NULL);
+				
+				tmp->d.pair.f=arguments->d.pair.f->d.pair.f;
+				tmp->d.pair.r=arguments->d.pair.f->d.pair.r->d.pair.f;
+				
+				tmp->d.pair.f->ref++;
+				tmp->d.pair.r->ref++;
+				
+				nl_val_free(arguments->d.pair.f);
+				arguments->d.pair.f=tmp;
+			}
+			
+			arguments=arguments->d.pair.r;
+		}
+		
+		//return a literal (with (sym val) ...), but with values substituted for evaluation results
+		ret=keyword_exp;
+		ret->ref++;
+		
 	//check for while statements (we'll convert this to tail recursion)
 	}else if(nl_val_cmp(keyword,while_keyword)==0){
 		if(nl_c_list_size(arguments)<2){
@@ -1993,6 +2100,7 @@ void nl_keyword_malloc(){
 	begin_keyword=nl_sym_from_c_str("begin");
 	recur_keyword=nl_sym_from_c_str("recur");
 	return_keyword=nl_sym_from_c_str("return");
+	with_keyword=nl_sym_from_c_str("with");
 	while_keyword=nl_sym_from_c_str("while");
 	for_keyword=nl_sym_from_c_str("for");
 	after_keyword=nl_sym_from_c_str("after");
@@ -2023,6 +2131,7 @@ void nl_keyword_free(){
 	nl_val_free(begin_keyword);
 	nl_val_free(recur_keyword);
 	nl_val_free(return_keyword);
+	nl_val_free(with_keyword);
 	nl_val_free(while_keyword);
 	nl_val_free(for_keyword);
 	nl_val_free(after_keyword);
