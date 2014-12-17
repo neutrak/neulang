@@ -888,16 +888,7 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 		
 		nl_val *arg_syms=sub->d.sub.args;
 		nl_val *arg_vals=arguments;
-/*
-		if(!nl_bind_list(arg_syms,arg_vals,apply_env)){
-			ERR_EXIT(arg_vals,"could not bind arguments to application environment (call stack) from apply (this usually means number of arguments declared and given differ)",TRUE);
-		}
-		//also bind those same arguments to the closure environment
-		//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env)){
-			//could not bind to closure scope
-		}
-*/
+		
 		if(!nl_bind_dflt(sub->d.sub.dflt_args,apply_env)){
 			ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
 		}
@@ -1861,16 +1852,6 @@ tailcall:
 */
 				//if this is the last expression then it doesn't need any environment trickery and we can just execute the body directly
 				}else if((last_exp) && (sub->t==SUB)){
-/*
-					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
-						ERR_EXIT(exp->d.pair.r,"could not bind arguments to application environment (call stack) from eval (this usually means number of arguments declared and given differ)",TRUE);
-					}
-					//also bind those same arguments to the closure environment
-					//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env)){
-						//could not bind to closure scope
-					}
-*/
 					if(!nl_bind_dflt(sub->d.sub.dflt_args,env)){
 						ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
 					}
