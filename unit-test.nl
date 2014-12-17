@@ -295,6 +295,23 @@ $return-value
 //ensure the value outside the sub didn't change
 (assert (= $a -4.1))
 
+//test with NAMED arguments
+(let point-sub (sub (z (x 0) (y -1))
+	(list $x $y $z)
+))
+
+(assert (= ($point-sub 1) (list 0 -1 1)))
+(assert (= ($point-sub 2 (with (y 5))) (list 0 5 2)))
+(assert (= ($point-sub 3 (with (y 4) (x 2))) (list 2 4 3)))
+(assert (= ($point-sub 4 (with (x 1) (y 7))) (list 1 7 4)))
+
+(let named-only-sub (sub ((y 5) (x 2))
+	(list $x $y)
+))
+
+(assert (= ($named-only-sub) (list 2 5)))
+(assert (= ($named-only-sub (with (y 0))) (list 2 0)))
+
 //(exit)
 
 // END sub statement testing ------------------------------------------------------------------------------

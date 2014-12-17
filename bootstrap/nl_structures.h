@@ -265,9 +265,13 @@ void nl_eval_elements(nl_val *list, nl_env_frame *env);
 //evaluate the list of values in order, returning the evaluation of the last statement only
 nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret);
 
+//bind default arguments (symbols) to values in the given environment
+//returns TRUE on success, FALSE on failure
+char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env);
+
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env);
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_with);
 
 //apply a given subroutine to its arguments
 //note that returns are handled in eval_sequence

@@ -791,9 +791,21 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 	return ret;
 }
 
+//bind default arguments (symbols) to values in the given environment
+//returns TRUE on success, FALSE on failure
+char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env){
+	while(dflt_args->t==PAIR && dflt_args->d.pair.f->t==PAIR){
+		if(!nl_bind(dflt_args->d.pair.f->d.pair.f,dflt_args->d.pair.f->d.pair.r,env)){
+			return FALSE;
+		}
+		dflt_args=dflt_args->d.pair.r;
+	}
+	return TRUE;
+}
+
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env){
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_with){
 	//if there was nothing to bind
 	if((symbols->t==PAIR) && (symbols->d.pair.f==nl_null) && (symbols->d.pair.r==nl_null)){
 		//we are successful at doing nothing (aren't you so proud?)
@@ -810,9 +822,36 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env){
 		values=values->d.pair.r;
 	}
 	
-	//if there weren't as many of one list as the other then return with error
-	if((symbols!=nl_null) || (values!=nl_null)){
-		return FALSE;
+	//if "with" statements (named arguments) are allowed then handle that gracefully
+	if(allow_with){
+		//if required arguments were missing
+		if((symbols!=nl_null) && (values==nl_null)){
+			ERR(values,"required arguments were missing from call",TRUE);
+			ERR(symbols,"expected arguments values for all symbols",TRUE);
+			return FALSE;
+		}
+		
+		//there were more values than symbols to bind to, check for named arguments
+		if((symbols==nl_null) && (values!=nl_null)){
+			//now we're only looking for a "with" statement
+			values=values->d.pair.f;
+			
+			//if this was a "with" then bind its sub-expressions
+			if((values->t==PAIR) && (values->d.pair.f->t==SYMBOL) && (nl_val_cmp(values->d.pair.f,with_keyword)==0)){
+				if(!nl_bind_dflt(values->d.pair.r,env)){
+					return FALSE;
+				}
+			}else{
+				ERR(values,"too many arguments given (did you forget a \"with\" when trying to use named arguments?)",TRUE);
+				return FALSE;
+			}
+		}
+	//if with statements are NOT allowed then be an asshole
+	}else{
+		//if there weren't as many of one list as the other then return with error
+		if((symbols!=nl_null) || (values!=nl_null)){
+			return FALSE;
+		}
 	}
 	return TRUE;
 }
@@ -849,12 +888,26 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 		
 		nl_val *arg_syms=sub->d.sub.args;
 		nl_val *arg_vals=arguments;
+/*
 		if(!nl_bind_list(arg_syms,arg_vals,apply_env)){
 			ERR_EXIT(arg_vals,"could not bind arguments to application environment (call stack) from apply (this usually means number of arguments declared and given differ)",TRUE);
 		}
 		//also bind those same arguments to the closure environment
 		//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
 		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env)){
+			//could not bind to closure scope
+		}
+*/
+		if(!nl_bind_dflt(sub->d.sub.dflt_args,apply_env)){
+			ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
+		}
+		if(!nl_bind_list(arg_syms,arg_vals,apply_env,TRUE)){
+			ERR_EXIT(arg_vals,"could not bind arguments to application environment (call stack) from apply",TRUE);
+		}
+		
+		//also bind those same arguments to the closure environment
+		//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
+		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env,TRUE)){
 			//could not bind to closure scope
 		}
 		
@@ -1056,6 +1109,12 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	}
 	ret->d.sub.args->ref++;
 	
+	if(ret->d.sub.req_arg_cnt==0){
+		nl_val_free(ret->d.sub.args);
+		ret->d.sub.args=nl_null;
+	}
+	
+	
 #ifdef _DEBUG
 	if(ret->d.sub.dflt_args!=nl_null){
 		printf("eval_sub debug 0, got sub with %u required arguments ",ret->d.sub.req_arg_cnt);
@@ -1158,7 +1217,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			//let should never cause an early return to be passed up; (let a (return b)) will NOT return early
 //			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,early_ret);
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,NULL);
-			if(!nl_bind_list(arguments->d.pair.f,bound_value,env)){
+			if(!nl_bind_list(arguments->d.pair.f,bound_value,env,FALSE)){
 				ERR_EXIT(arguments->d.pair.f,"let couldn't bind list of symbols to list of values",TRUE);
 			}
 			
@@ -1802,6 +1861,7 @@ tailcall:
 */
 				//if this is the last expression then it doesn't need any environment trickery and we can just execute the body directly
 				}else if((last_exp) && (sub->t==SUB)){
+/*
 					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env)){
 						ERR_EXIT(exp->d.pair.r,"could not bind arguments to application environment (call stack) from eval (this usually means number of arguments declared and given differ)",TRUE);
 					}
@@ -1810,6 +1870,20 @@ tailcall:
 					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env)){
 						//could not bind to closure scope
 					}
+*/
+					if(!nl_bind_dflt(sub->d.sub.dflt_args,env)){
+						ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
+					}
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env,TRUE)){
+						ERR_EXIT(exp->d.pair.r,"could not bind arguments to application environment (call stack) from apply",TRUE);
+					}
+					
+					//also bind those same arguments to the closure environment
+					//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env,TRUE)){
+						//could not bind to closure scope
+					}
+
 					
 					nl_val_free(exp);
 					nl_val_free(sub);
