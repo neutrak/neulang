@@ -172,6 +172,10 @@ nl_val *nl_val_malloc(nl_type t){
 		case EVALUATION:
 			ret->d.eval.sym=nl_null;
 			break;
+		case BIND:
+			ret->d.bind.sym=nl_null;
+			ret->d.bind.v=nl_null;
+			break;
 		case NL_NULL:
 			//NOTE: there should be only one, global, NULL, named nl_null
 			break;
@@ -260,6 +264,10 @@ char nl_val_free(nl_val *exp){
 		case EVALUATION:
 			nl_val_free(exp->d.eval.sym);
 			break;
+		case BIND:
+			nl_val_free(exp->d.bind.sym);
+			nl_val_free(exp->d.bind.v);
+			break;
 		//nothing to free for a null
 		//(note we should never actually get here because there was a check at the top)
 		//(NULL is not reference counted and must be manually free()'d)
@@ -335,6 +343,10 @@ nl_val *nl_val_cp(nl_val *v){
 		//recurse to copy symbol
 		case EVALUATION:
 			ret->d.eval.sym=nl_val_cp(v->d.eval.sym);
+			break;
+		case BIND:
+			ret->d.bind.sym=nl_val_cp(v->d.bind.sym);
+			ret->d.bind.v=nl_val_cp(v->d.bind.v);
 			break;
 		default:
 			break;
@@ -794,8 +806,8 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 //bind default arguments (symbols) to values in the given environment
 //returns TRUE on success, FALSE on failure
 char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env){
-	while(dflt_args->t==PAIR && dflt_args->d.pair.f->t==PAIR){
-		if(!nl_bind(dflt_args->d.pair.f->d.pair.f,dflt_args->d.pair.f->d.pair.r,env)){
+	while(dflt_args->t==PAIR && dflt_args->d.pair.f->t==BIND){
+		if(!nl_bind(dflt_args->d.pair.f->d.bind.sym,dflt_args->d.pair.f->d.bind.v,env)){
 			return FALSE;
 		}
 		dflt_args=dflt_args->d.pair.r;
@@ -805,7 +817,7 @@ char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env){
 
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_with){
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds){
 	//if there was nothing to bind
 	if((symbols->t==PAIR) && (symbols->d.pair.f==nl_null) && (symbols->d.pair.r==nl_null)){
 		//we are successful at doing nothing (aren't you so proud?)
@@ -822,8 +834,8 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow
 		values=values->d.pair.r;
 	}
 	
-	//if "with" statements (named arguments) are allowed then handle that gracefully
-	if(allow_with){
+	//if delayed binding statements (named arguments) are allowed then handle that gracefully
+	if(allow_delayed_binds){
 		//if required arguments were missing
 		if((symbols!=nl_null) && (values==nl_null)){
 			ERR(values,"required arguments were missing from call",TRUE);
@@ -832,21 +844,19 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow
 		}
 		
 		//there were more values than symbols to bind to, check for named arguments
-		if((symbols==nl_null) && (values!=nl_null)){
-			//now we're only looking for a "with" statement
-			values=values->d.pair.f;
-			
-			//if this was a "with" then bind its sub-expressions
-			if((values->t==PAIR) && (values->d.pair.f->t==SYMBOL) && (nl_val_cmp(values->d.pair.f,with_keyword)==0)){
-				if(!nl_bind_dflt(values->d.pair.r,env)){
+		while(values->t==PAIR){
+			//if this was a delayed binding then bind it in the environment now
+			if(values->d.pair.f->t==BIND){
+				if(!nl_bind(values->d.pair.f->d.bind.sym,values->d.pair.f->d.bind.v,env)){
 					return FALSE;
 				}
 			}else{
-				ERR(values,"too many arguments given (did you forget a \"with\" when trying to use named arguments?)",TRUE);
+				ERR(values,"too many arguments given (did you forget a : when trying to use named arguments?)",TRUE);
 				return FALSE;
 			}
+			values=values->d.pair.r;
 		}
-	//if with statements are NOT allowed then be an asshole
+	//if delayed binding statements are NOT allowed then be an asshole
 	}else{
 		//if there weren't as many of one list as the other then return with error
 		if((symbols!=nl_null) || (values!=nl_null)){
@@ -1043,6 +1053,9 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	
 	//for each argument in the new closure
 	while(arg_iter->t==PAIR){
+		//first evaluate the argument (symbols self-evaluate)
+		arg_iter->d.pair.f=nl_eval(arg_iter->d.pair.f,env,FALSE,NULL);
+		
 		//normal symbols are required arguments
 		if(arg_iter->d.pair.f->t==SYMBOL){
 			if(req_over){
@@ -1050,17 +1063,14 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 				break;
 			}
 			ret->d.sub.req_arg_cnt++;
-		//pairs are named arguments
-		}else if((arg_iter->d.pair.f->t==PAIR) && (arg_iter->d.pair.f->d.pair.r->t==PAIR)){
+		//binds are named arguments
+		}else if(arg_iter->d.pair.f->t==BIND){
 			req_over=TRUE;
-			arg_iter->d.pair.f->d.pair.r->d.pair.f=nl_eval(arg_iter->d.pair.f->d.pair.r->d.pair.f,env,FALSE,NULL);
 			
-			nl_val *n_arg=nl_val_malloc(PAIR);
-			n_arg->d.pair.f=arg_iter->d.pair.f->d.pair.f;
-			n_arg->d.pair.r=arg_iter->d.pair.f->d.pair.r->d.pair.f;
-			
-			n_arg->d.pair.f->ref++;
-			n_arg->d.pair.r->ref++;
+			nl_val *n_arg=arg_iter->d.pair.f;
+//			n_arg->d.bind.sym->ref++;
+//			n_arg->d.bind.v->ref++;
+			n_arg->ref++;
 			
 			//if there were no named arguments yet, then make a new named argument list
 			if(ret->d.sub.dflt_args==nl_null){
@@ -1104,7 +1114,6 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 		nl_val_free(ret->d.sub.args);
 		ret->d.sub.args=nl_null;
 	}
-	
 	
 #ifdef _DEBUG
 	if(ret->d.sub.dflt_args!=nl_null){
@@ -1780,6 +1789,7 @@ tailcall:
 		case PRI:
 		case SUB:
 		case STRUCT:
+		case NL_NULL:
 			return exp;
 			break;
 		//symbols are generally self-evaluating
@@ -1924,6 +1934,11 @@ tailcall:
 			if(!((ret->t==PRI) || (ret->t==SUB))){
 				ret->cnst=TRUE;
 			}
+			break;
+		//binds evaluate their value portion but not their symbols
+		case BIND:
+			ret=nl_val_cp(exp);
+			ret->d.bind.v=nl_eval(ret->d.bind.v,env,FALSE,NULL);
 			break;
 		//default self-evaluating
 		default:

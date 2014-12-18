@@ -688,6 +688,19 @@ nl_val *nl_str_read_symbol(nl_val *input_string, unsigned int *persistent_pos){
 			ret->d.pair.f=symbol;
 			ret->d.pair.r=list_remainder;
 			return ret;
+		//the : syntax denotes a delayed binding
+		}else if(c==':'){
+			ret->d.sym.name=name;
+			nl_val *symbol=ret;
+			nl_val *value=nl_str_read_exp(input_string,&pos);
+			
+			//return by pointer the position in string
+			(*persistent_pos)=pos;
+			
+			ret=nl_val_malloc(BIND);
+			ret->d.bind.sym=symbol;
+			ret->d.bind.v=value;
+			return ret;
 		}
 		nl_val *ar_entry=nl_val_malloc(BYTE);
 		ar_entry->d.byte.v=c;
@@ -1277,10 +1290,12 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 #endif
 */
 	
+/*
 	if(exp==nl_null){
 		nl_str_push_cstr(ret,"NULL"); //should this be a null string instead?
 		return ret;
 	}
+*/
 	
 	switch(exp->t){
 		case BYTE:
@@ -1423,6 +1438,20 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 				}
 			}
 			nl_str_push_cstr(ret,">");
+			break;
+		case BIND:
+			nl_str_push_cstr(ret,"<delayed binding ");
+			tmp_str=nl_val_to_memstr(exp->d.bind.sym);
+			nl_str_push_nlstr(ret,tmp_str);
+			nl_val_free(tmp_str);
+			nl_str_push_cstr(ret," : ");
+			tmp_str=nl_val_to_memstr(exp->d.bind.v);
+			nl_str_push_nlstr(ret,tmp_str);
+			nl_val_free(tmp_str);
+			nl_str_push_cstr(ret,">");
+			break;
+		case NL_NULL:
+			nl_str_push_cstr(ret,"NULL"); //should this be a null string instead?
 			break;
 		default:
 			ERR(nl_null,"cannot convert unknown type to string",FALSE);

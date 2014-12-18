@@ -38,6 +38,7 @@ typedef enum {
 	//internal types (might still be user visible, but mostly an implementation detail)
 	SYMBOL, //variable names, for the symbol table, internally this is a [byte]array
 	EVALUATION, //to-be-evaluated symbol, denoted $symbol
+	BIND, //delayed variable binding
 	NL_NULL, //null type
 } nl_type;
 
@@ -142,6 +143,14 @@ struct nl_val {
 		struct {
 			nl_val *sym;
 		} eval;
+		
+		//delayed binding value
+		struct {
+			//symbol to bind
+			nl_val *sym;
+			//value to bind to symbol
+			nl_val *v;
+		} bind;
 	} d;
 };
 
@@ -271,7 +280,7 @@ char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env);
 
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_with);
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds);
 
 //apply a given subroutine to its arguments
 //note that returns are handled in eval_sequence
