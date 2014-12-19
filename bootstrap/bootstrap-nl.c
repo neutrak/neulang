@@ -824,38 +824,84 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow
 		return TRUE;
 	}
 	
-	while((symbols->t==PAIR) && (values->t==PAIR)){
+	//store the start of the symbols list, we might need to come back to it
+	nl_val *symbol_start=symbols;
+	
+	//how many required arguments were bound (i.e. un-named argument values passed)
+	unsigned int req_args_bound=0;
+	unsigned int req_arg_cnt=0;
+	
+	//whether or not a named argument has been received (required arguments cannot come after named arguments)
+	char got_bind=FALSE;
+	
+//	while((symbols->t==PAIR) && (values->t==PAIR)){
+	while(values->t==PAIR){
+		//if we were passed a named argument
+		//then ignore the symbol position and bind what was requested
+		if((allow_delayed_binds) && (values->d.pair.f->t==BIND)){
+/*
+#ifdef _DEBUG
+			printf("nl_bind_list debug 0, got delayed binding ");
+			nl_out(stdout,values->d.pair.f);
+			printf("\n");
+#endif
+*/
+			if(!nl_bind(values->d.pair.f->d.bind.sym,values->d.pair.f->d.bind.v,env)){
+				return FALSE;
+			}
+			got_bind=TRUE;
 		//bind the argument to its associated symbol
-		if((symbols->d.pair.f!=nl_null) && (!nl_bind(symbols->d.pair.f,values->d.pair.f,env))){
+		}else if((!got_bind) && (symbols->t==PAIR) && (symbols->d.pair.f!=nl_null)){
+			if(!nl_bind(symbols->d.pair.f,values->d.pair.f,env)){
+				return FALSE;
+			}
+			//else isn't needed due to early return
+			req_args_bound++;
+		}else if(got_bind){
+			ERR(values->d.pair.f,"got non-named argument after named argument; this is NOT allowed (named arguments must come last)",TRUE);
+			return FALSE;
+		}else{
+			//TODO: in this case, if there are named arguments available to bind to, bind values to those symbols in order
+			// ^ this can be done by building up a symbol list here and re-setting the symbols pointer to its head, with a flag so we know to free it
+			
+			ERR(values->d.pair.f,"got too many arguments, no symbols left to bind to!",TRUE);
 			return FALSE;
 		}
 		
-		symbols=symbols->d.pair.r;
+		if(symbols!=nl_null){
+			req_arg_cnt++;
+			symbols=symbols->d.pair.r;
+		}
+		
 		values=values->d.pair.r;
 	}
 	
 	//if delayed binding statements (named arguments) are allowed then handle that gracefully
 	if(allow_delayed_binds){
-		//if required arguments were missing
-		if((symbols!=nl_null) && (values==nl_null)){
-			ERR(values,"required arguments were missing from call",TRUE);
-			ERR(symbols,"expected arguments values for all symbols",TRUE);
-			return FALSE;
-		}
-		
-		//there were more values than symbols to bind to, check for named arguments
-		while(values->t==PAIR){
-			//if this was a delayed binding then bind it in the environment now
-			if(values->d.pair.f->t==BIND){
-				if(!nl_bind(values->d.pair.f->d.bind.sym,values->d.pair.f->d.bind.v,env)){
-					return FALSE;
+		//if required arguments were missing, they might have been given as named arguments
+		if(req_args_bound<req_arg_cnt){
+			//verify all required arguments are bound
+			symbols=symbol_start;
+			while(symbols->t==PAIR){
+				//if this symbol WASN'T bound, then we have a problem!
+				if((env!=NULL) && (symbols->d.pair.f->t==SYMBOL)){
+					char success;
+					char *tmp_name=c_str_from_nl_str(symbols->d.pair.f->d.sym.name);
+					nl_trie_match(env->trie,tmp_name,0,symbols->d.pair.f->d.sym.name->d.array.size,&success,FALSE);
+					free(tmp_name);
+					
+					if(!success){
+						ERR(symbols->d.pair.f,"no value given for required argument",TRUE);
+						return FALSE;
+					}
 				}
-			}else{
-				ERR(values,"too many arguments given (did you forget a : when trying to use named arguments?)",TRUE);
-				return FALSE;
+				
+				symbols=symbols->d.pair.r;
 			}
-			values=values->d.pair.r;
 		}
+		//else we got all the required arguments
+		//and named arguments are just gravy (they will have a value anyway, so no worries)
+		//so fall through and return TRUE
 	//if delayed binding statements are NOT allowed then be an asshole
 	}else{
 		//if there weren't as many of one list as the other then return with error
