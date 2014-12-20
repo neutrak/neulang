@@ -713,6 +713,16 @@ else
 //negative lengths go backwards
 (assert (= (ar-subar "asdfasdf" 3 -4) "asdf"))
 
+//array range takes array, min, and max
+(assert (= (ar-range "asdfasdf" 0 3) "asdf"))
+(assert (= (ar-range "asdfasdf" 2 4) "dfa"))
+
+//going off the end just stops pre-maturely and returns what it can
+(assert (= (ar-range "asdfasdf" 4 12) "asdf"))
+
+//if end < start the indices get flipped
+(assert (= (ar-range "asdfasdf" 3 0) "asdf"))
+
 //END standard library array testing ----------------------------------------------------------------------
 
 

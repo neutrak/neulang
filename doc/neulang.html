@@ -167,6 +167,12 @@ The primitive types are listed below.
 	<li>
 	<b>EVALUATION</b> - $symbol; a symbol that is meant to be evaluated (these will be looked up in the static environment chain)
 	</li>
+	<li>
+	<b>BIND</b> - symbol:value ; a delayed binding type to allow for named arguments in subroutine declarations and calls
+	</li>
+	<li>
+	<b>NL_NULL</b> - NULL, the special NULL type, of which one object exists and all other uses are references
+	</li>
 </ul>
 
 <p>
@@ -420,6 +426,25 @@ Some simple subroutines are shown below.
 </code>
 </pre>
 <br>
+
+<p>
+Named arguments are also supported, and use a special delayed binding type
+</p>
+
+<pre>
+<code>
+
+(let point-sub (sub (z x:0 y:-1)
+	(list $x $y $z)
+))
+
+(assert (= ($point-sub 1) (list 0 -1 1)))
+(assert (= ($point-sub 2 y:5) (list 0 5 2)))
+
+</code>
+</pre>
+
+<br>
 <a href='#top'>Return to the top of this page</a>
 <br><br>
 
@@ -576,12 +601,15 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 	<li>
 	<b>ar-chop</b> - returns a new array consisting of subarrays of the given array separated by the given delimiter (this is the neulang equivalent of split or explode) (let array (ar-chop $array " "))
 	</li>
+	<li>
+	<b>ar-subar</b> - returns a new array which is a subset of the given array limited to the given start index through start index + length (let array (ar-subar $array $start $length))
+	</li>
+	<li>
+	<b>ar-range</b> - returns a new array which is a subset of the given array limited to the given min and max indices (let array (ar-range $array $min $max))
+	</li>
 <!-- TODO: implement these in the interpreter -->
 	<li>
 	<b>ar-ins</b> - returns a new array with the given element included at the given index, pushing later elements down (let array (ar-ins $array $index $new))
-	</li>
-	<li>
-	<b>ar-subar</b> - returns a new array which is a subset of the given array limited to the given min and max indices (let array (ar-subar $array $min $max))
 	</li>
 	<li>
 	<b>ar-push</b> - returns a new array with the given element added onto the end of the array (let array (ar-push $array $new))

@@ -486,7 +486,7 @@ nl_val *nl_array_subarray(nl_val *arg_list);
 
 //array range
 //returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
-nl_val *nl_array_range();
+nl_val *nl_array_range(nl_val *arg_list);
 
 //output the given list of strings in sequence
 //returns NULL (a void function)

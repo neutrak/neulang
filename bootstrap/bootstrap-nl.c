@@ -105,8 +105,11 @@ const char *nl_type_name(nl_type t){
 		case EVALUATION:
 			return "EVALUATION";
 			break;
+		case BIND:
+			return "BIND";
+			break;
 		case NL_NULL:
-			return "NULL";
+			return "NL_NULL";
 			break;
 		default:
 			break;
@@ -2310,7 +2313,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-ins"),nl_primitive_wrap(nl_array_insert),env);
 	nl_bind_new(nl_sym_from_c_str("ar-chop"),nl_primitive_wrap(nl_array_chop),env);
 	nl_bind_new(nl_sym_from_c_str("ar-subar"),nl_primitive_wrap(nl_array_subarray),env);
-//	nl_bind_new(nl_sym_from_c_str("ar-range"),nl_primitive_wrap(nl_array_range),env);
+	nl_bind_new(nl_sym_from_c_str("ar-range"),nl_primitive_wrap(nl_array_range),env);
 	//TODO: make and bind additional array subroutines
 	
 	//TODO: list concatenation
