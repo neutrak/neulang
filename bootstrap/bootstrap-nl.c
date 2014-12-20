@@ -817,7 +817,7 @@ char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env){
 
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds){
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds, nl_val *named_args){
 	//if there was nothing to bind
 	if((symbols->t==PAIR) && (symbols->d.pair.f==nl_null) && (symbols->d.pair.r==nl_null)){
 		//we are successful at doing nothing (aren't you so proud?)
@@ -864,8 +864,15 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow
 			//TODO: in this case, if there are named arguments available to bind to, bind values to those symbols in order
 			// ^ this can be done by building up a symbol list here and re-setting the symbols pointer to its head, with a flag so we know to free it
 			
-			ERR(values->d.pair.f,"got too many arguments, no symbols left to bind to!",TRUE);
-			return FALSE;
+			if((named_args->t==PAIR) && (named_args->d.pair.f->t==BIND)){
+				if(!nl_bind(named_args->d.pair.f->d.bind.sym,values->d.pair.f,env)){
+					return FALSE;
+				}
+				named_args=named_args->d.pair.r;
+			}else{
+				ERR(values->d.pair.f,"got too many arguments, no symbols left to bind to!",TRUE);
+				return FALSE;
+			}
 		}
 		
 		if(symbols!=nl_null){
@@ -948,13 +955,13 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 		if(!nl_bind_dflt(sub->d.sub.dflt_args,apply_env)){
 			ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
 		}
-		if(!nl_bind_list(arg_syms,arg_vals,apply_env,TRUE)){
+		if(!nl_bind_list(arg_syms,arg_vals,apply_env,TRUE,sub->d.sub.dflt_args)){
 			ERR_EXIT(arg_vals,"could not bind arguments to application environment (call stack) from apply",TRUE);
 		}
 		
 		//also bind those same arguments to the closure environment
 		//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env,TRUE)){
+		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env,TRUE,sub->d.sub.dflt_args)){
 			//could not bind to closure scope
 		}
 		
@@ -1263,7 +1270,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			//let should never cause an early return to be passed up; (let a (return b)) will NOT return early
 //			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,early_ret);
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,NULL);
-			if(!nl_bind_list(arguments->d.pair.f,bound_value,env,FALSE)){
+			if(!nl_bind_list(arguments->d.pair.f,bound_value,env,FALSE,nl_null)){
 				ERR_EXIT(arguments->d.pair.f,"let couldn't bind list of symbols to list of values",TRUE);
 			}
 			
@@ -1911,13 +1918,13 @@ tailcall:
 					if(!nl_bind_dflt(sub->d.sub.dflt_args,env)){
 						ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
 					}
-					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env,TRUE)){
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env,TRUE,sub->d.sub.dflt_args)){
 						ERR_EXIT(exp->d.pair.r,"could not bind arguments to application environment (call stack) from apply",TRUE);
 					}
 					
 					//also bind those same arguments to the closure environment
 					//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env,TRUE)){
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env,TRUE,sub->d.sub.dflt_args)){
 						//could not bind to closure scope
 					}
 

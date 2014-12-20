@@ -280,7 +280,7 @@ char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env);
 
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds);
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds, nl_val *named_args);
 
 //apply a given subroutine to its arguments
 //note that returns are handled in eval_sequence

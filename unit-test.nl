@@ -308,8 +308,8 @@ $return-value
 //bind is magic (it's a separate type so it gets all sorts of special consideration here)
 (assert (= ($point-sub x:3 y:2 z:4) (list 3 2 4)))
 
-//TODO: named arguments are also bound if more values were given than required
-//(assert (= ($point-sub 1 2 3) (list 2 3 1)))
+//named arguments are also bound if more values were given than required
+(assert (= ($point-sub 1 2 3) (list 2 3 1)))
 
 //an error is given if required arguments are missing though
 //(assert (= ($point-sub x:3 y:2) (list 3 2 z)))
@@ -323,6 +323,8 @@ $return-value
 
 (assert (= ($named-only-sub) (list 2 5)))
 (assert (= ($named-only-sub y:0) (list 2 0)))
+
+(assert (= ((sub (x:1 y:2) (* $x $y)) 4 5) (* 4 5)))
 
 //(exit)
 
