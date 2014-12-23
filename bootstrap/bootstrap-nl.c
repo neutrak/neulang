@@ -132,7 +132,6 @@ nl_val *nl_val_malloc(nl_type t){
 	}
 	
 	ret->t=t;
-	ret->cnst=TRUE;
 	ret->ref=1;
 	ret->line=line_number;
 	switch(ret->t){
@@ -159,7 +158,6 @@ nl_val *nl_val_malloc(nl_type t){
 		case SUB:
 //			ret->d.sub.t=NUM;
 			ret->d.sub.args=nl_null;
-			ret->d.sub.req_arg_cnt=0;
 			ret->d.sub.dflt_args=nl_null;
 			ret->d.sub.body=nl_null;
 			ret->d.sub.env=NULL;
@@ -458,11 +456,6 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	free(symbol_c_str);
 //	nl_val_free(symbol);
 //	nl_val_free(value);
-	
-	if(value!=nl_null){
-		//once bound values are no longer constant
-		value->cnst=FALSE;
-	}
 	
 #ifdef _DEBUG
 //	printf("nl_bind debug 3, finished manging memory, returning...\n");
@@ -1104,7 +1097,7 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	
 	//save argument symbols for later (required AND optional named arguments)
 	char req_over=FALSE;
-	ret->d.sub.req_arg_cnt=0;
+	unsigned int req_arg_cnt=0;
 	nl_val *arg_iter=arguments->d.pair.f;
 	
 	//for each argument in the new closure
@@ -1118,7 +1111,7 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 				ERR_EXIT(arguments,"subroutine expects to take required argument AFTER named argument",TRUE);
 				break;
 			}
-			ret->d.sub.req_arg_cnt++;
+			req_arg_cnt++;
 		//binds are named arguments
 		}else if(arg_iter->d.pair.f->t==BIND){
 			req_over=TRUE;
@@ -1156,9 +1149,9 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	//separate named arguments from unnamed arguments
 	nl_val *req_args=arguments->d.pair.f;
 	ret->d.sub.args=req_args;
-	if(ret->d.sub.req_arg_cnt>0){
+	if(req_arg_cnt>0){
 		int n;
-		for(n=0;n<(ret->d.sub.req_arg_cnt-1);n++){
+		for(n=0;n<(req_arg_cnt-1);n++){
 			req_args=req_args->d.pair.r;
 		}
 		nl_val_free(req_args->d.pair.r);
@@ -1166,14 +1159,14 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	}
 	ret->d.sub.args->ref++;
 	
-	if(ret->d.sub.req_arg_cnt==0){
+	if(req_arg_cnt==0){
 		nl_val_free(ret->d.sub.args);
 		ret->d.sub.args=nl_null;
 	}
 	
 #ifdef _DEBUG
 	if(ret->d.sub.dflt_args!=nl_null){
-		printf("eval_sub debug 0, got sub with %u required arguments ",ret->d.sub.req_arg_cnt);
+		printf("eval_sub debug 0, got sub with %u required arguments ",req_arg_cnt);
 		nl_out(stdout,ret->d.sub.args);
 		printf(", default (named) arguments ");
 		nl_out(stdout,ret->d.sub.dflt_args);
@@ -1986,10 +1979,6 @@ tailcall:
 			//the reason this is a copy is so that pointer-equality won't be true, and changing one var doesn't change another
 			ret=nl_val_cp(nl_lookup(exp->d.eval.sym,env));
 			
-			//this data-wise copy is constant
-			if(!((ret->t==PRI) || (ret->t==SUB))){
-				ret->cnst=TRUE;
-			}
 			break;
 		//binds evaluate their value portion but not their symbols
 		case BIND:

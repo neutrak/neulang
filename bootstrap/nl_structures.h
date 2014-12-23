@@ -50,9 +50,6 @@ struct nl_val {
 	//type
 	nl_type t;
 	
-	//constant or not flag (default TRUE from nl_val_malloc, set false when value is bound to a variable)
-	char cnst;
-	
 	//count the references to this value
 	unsigned int ref;
 	
@@ -110,9 +107,6 @@ struct nl_val {
 			
 			//arguments (linked list of symbols to bind to values during apply)
 			nl_val *args;
-			
-			//number of required arguments (may be called with more arguments if named arguments are used)
-			unsigned int req_arg_cnt;
 			
 			//named arguments, a list of pairs with default values
 			nl_val *dflt_args;
