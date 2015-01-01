@@ -1102,9 +1102,6 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 	
 	//for each argument in the new closure
 	while(arg_iter->t==PAIR){
-		//first evaluate the argument (symbols self-evaluate)
-		arg_iter->d.pair.f=nl_eval(arg_iter->d.pair.f,env,FALSE,NULL);
-		
 		//normal symbols are required arguments
 		if(arg_iter->d.pair.f->t==SYMBOL){
 			if(req_over){
