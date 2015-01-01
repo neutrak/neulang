@@ -390,6 +390,99 @@ nl_val *nl_trie_associative_str(nl_trie_node *trie_root){
     return nl_trie_associative_recursive_str(trie_root,NULL,0,TRUE,nl_null);
 }
 
+//return as a list a trie as an associative mapping
+nl_val *nl_trie_associative_recursive_list(nl_trie_node *trie_root, char *history, int hist_length, char forget_node, nl_val *acc){
+	if(trie_root==NULL){
+		return nl_null;
+	}
+	
+	if(trie_root->end_node){
+		char buf[BUFFER_SIZE];
+		
+#ifdef _DEBUG
+//		printf("nl_trie_associative_recursive_list debug 0, acc is ");
+//		nl_out(stdout,acc);
+//		printf("\n");
+#endif
+		
+		//the +2 here is for the root node's name, and the null termination character
+		snprintf(buf,hist_length+2,"%s%c",history,trie_root->name);
+		nl_val *sym=nl_sym_from_c_str(buf);
+		
+		nl_val *val=nl_val_cp(trie_root->value);
+		
+		nl_val *acc_node=nl_val_malloc(PAIR);
+		acc_node->d.pair.f=sym;
+		acc_node->d.pair.r=val;
+		
+		nl_val *new_acc=nl_val_malloc(PAIR);
+		new_acc->d.pair.f=acc_node;
+		new_acc->d.pair.r=acc;
+		acc=new_acc;
+		
+#ifdef _DEBUG
+//		printf("nl_trie_associative_recursive_list debug 1, buf is %s, acc is ",buf);
+//		nl_out(stdout,acc);
+//		printf("\n");
+#endif
+	}
+	
+	int n;
+	for(n=0;n<trie_root->child_count;n++){
+		char *new_hist=malloc(sizeof(char)*(hist_length+2));
+		int hist_idx;
+		for(hist_idx=0;hist_idx<hist_length;hist_idx++){
+			new_hist[hist_idx]=history[hist_idx];
+		}
+		new_hist[hist_length]=trie_root->name;
+		new_hist[hist_length+1]='\0';
+		
+#ifdef _DEBUG
+//		printf("nl_trie_associative_recursive_list debug 3\n");
+#endif
+		
+		nl_val *tmp_list=nl_trie_associative_recursive_list(trie_root->children[n],new_hist,(forget_node)?hist_length:(hist_length+1),FALSE,nl_null);
+		
+#ifdef _DEBUG
+//		printf("nl_trie_associative_recursive_list debug 4, tmp_list=");
+//		nl_out(stdout,tmp_list);
+//		printf("\n");
+#endif
+		nl_val *tmp_list_start=tmp_list;
+		
+		while(tmp_list->t==PAIR){
+			//nulls mark the end of tree nodes, and do not correspond to bindings
+			//therefore they get ignored here
+			if(tmp_list->d.pair.f!=nl_null){
+				nl_val *new_acc=nl_val_malloc(PAIR);
+				new_acc->d.pair.r=acc;
+				new_acc->d.pair.f=nl_val_cp(tmp_list->d.pair.f);
+				acc=new_acc;
+			}
+			
+			tmp_list=tmp_list->d.pair.r;
+		}
+		nl_val_free(tmp_list_start);
+
+#ifdef _DEBUG
+//		printf("nl_trie_associative_recursive_list debug 5, acc=");
+//		nl_out(stdout,acc);
+//		printf("\n");
+#endif
+	}
+	
+	if(history!=NULL){
+		free(history);
+	}
+	
+	return acc;
+}
+
+//return as a list a trie as an associative mapping (calls the recursive function that does same)
+nl_val *nl_trie_associative_list(nl_trie_node *trie_root){
+    return nl_trie_associative_recursive_list(trie_root,NULL,0,TRUE,nl_null);
+}
+
 //END TRIE LIBRARY SUBROUTINES ------------------------------------------------------------------------------------
 
 //BEGIN STRING<->EXP I/O SUBROUTINES  -----------------------------------------------------------------------------
@@ -1274,6 +1367,56 @@ nl_val *nl_list_to_array(nl_val *arg_list){
 	return ret;
 }
 
+//returns a list of pairs corresponding to the struct entries for the given struct(s)
+//if multiple structs are given they will be flattened into one sequential list
+nl_val *nl_struct_to_list(nl_val *arg_list){
+	nl_val *ret=nl_null;
+	if(nl_c_list_size(arg_list)<1){
+		ERR_EXIT(arg_list,"no arguments given to struct_to_list, can't convert NULL (returning NULL)",TRUE);
+		return nl_null;
+	}
+	
+	//create a list to return (starting on the last list element, the empty list aka NULL)
+	ret=nl_null;
+	
+	//for each argument
+	while(arg_list->t==PAIR){
+		nl_val *current_struct=arg_list->d.pair.f;
+		if((current_struct->t!=STRUCT)){
+			nl_val_free(ret);
+			ERR_EXIT(current_struct,"non-struct given to struct_to_list conversion",TRUE);
+			return nl_null;
+		}
+		
+		//convert this struct into a list
+//		nl_val *nl_trie_associative_list(nl_trie_node *trie_root);
+		nl_val *current_list=nl_trie_associative_list(current_struct->d.nl_struct.env->trie);
+		
+		nl_val *current_list_start=current_list;
+		
+		//go through each list element and add a copy to the list to return
+		while(current_list->t==PAIR){
+			//nulls mark the end of tree nodes, and do not correspond to bindings
+			//therefore they get ignored here
+			if(current_list->d.pair.f!=nl_null){
+				nl_val *new_ret=nl_val_malloc(PAIR);
+				new_ret->d.pair.f=nl_val_cp(current_list->d.pair.f);
+				new_ret->d.pair.r=ret;
+				ret=new_ret;
+			}
+			
+			current_list=current_list->d.pair.r;
+		}
+		
+		//free the temporary list
+		nl_val_free(current_list_start);
+		
+		arg_list=arg_list->d.pair.r;
+	}
+	
+	return ret;
+}
+
 //returns the string-encoded version of any given expression
 nl_val *nl_val_to_memstr(const nl_val *exp){
 	nl_val *ret=nl_val_malloc(ARRAY);
@@ -1384,29 +1527,6 @@ nl_val *nl_val_to_memstr(const nl_val *exp){
 		case STRUCT:
 			nl_str_push_cstr(ret,"<struct ");
 			{
-/*
-				unsigned int n;
-				for(n=0;n<(exp->d.nl_struct.env->symbol_array->d.array.size);n++){
-					nl_str_push_cstr(ret,"{");
-					
-					tmp_str=nl_val_to_memstr(exp->d.nl_struct.env->symbol_array->d.array.v[n]);
-					nl_str_push_nlstr(ret,tmp_str);
-					nl_val_free(tmp_str);
-					
-					nl_str_push_cstr(ret," ");
-					
-					tmp_str=nl_val_to_memstr(exp->d.nl_struct.env->value_array->d.array.v[n]);
-					nl_str_push_nlstr(ret,tmp_str);
-					nl_val_free(tmp_str);
-					
-					nl_str_push_cstr(ret,"}");
-					
-					if((n+1)<(exp->d.nl_struct.env->symbol_array->d.array.size)){
-						nl_str_push_cstr(ret," ");
-					}
-				}
-*/
-				//TODO: implement pretty output for trie-based structs
 				nl_val *trie_str=nl_trie_associative_str(exp->d.nl_struct.env->trie);
 				nl_str_push_nlstr(ret,trie_str);
 				nl_val_free(trie_str);

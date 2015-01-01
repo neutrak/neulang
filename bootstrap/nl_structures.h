@@ -178,7 +178,7 @@ struct nl_env_frame {
 	nl_trie_node *trie;
 	
 	//the environment above this one (THIS MUST BE FREE'D SEPERATELY)
-	nl_env_frame* up_scope;
+	nl_env_frame *up_scope;
 };
 
 //END DATA STRUCTURES ---------------------------------------------------------------------------------------------
@@ -420,6 +420,10 @@ nl_val *nl_array_to_list(nl_val *arg_list);
 //returns the array equivalent to the given list(s)
 //if multiple lists are given they will be flattened into one sequential array
 nl_val *nl_list_to_array(nl_val *arg_list);
+
+//returns a list of pairs corresponding to the struct entries for the given struct(s)
+//if multiple structs are given they will be flattened into one sequential list
+nl_val *nl_struct_to_list(nl_val *arg_list);
 
 //returns the string-encoded version of any given expression
 nl_val *nl_val_to_memstr(const nl_val *exp);

@@ -765,6 +765,9 @@ else
 (assert (not (= (struct (a 5)) (struct (b 5)))))
 (assert (= (struct (a 4) (b 5)) (struct (b 5) (a 4))))
 
+//ensure a struct can be converted to a list
+(assert (= (struct->list (struct (a 1))) (list (pair a 1))))
+
 //END proper struct testing -------------------------------------------------------------------------------
 
 /*
