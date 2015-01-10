@@ -1111,6 +1111,10 @@ nl_val *nl_eval_sub(nl_val *arguments, nl_env_frame *env){
 			req_arg_cnt++;
 		//binds are named arguments
 		}else if(arg_iter->d.pair.f->t==BIND){
+			//a bind needs to be evaluated here, because the scope will change later
+			//a symbol however does not
+			arg_iter->d.pair.f=nl_eval(arg_iter->d.pair.f,env,FALSE,NULL);
+			
 			req_over=TRUE;
 			
 			nl_val *n_arg=arg_iter->d.pair.f;
