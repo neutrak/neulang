@@ -44,7 +44,19 @@ nl_val *after_keyword;
 nl_val *array_keyword;
 nl_val *list_keyword;
 nl_val *struct_keyword;
+nl_val *type_keyword;
 
+nl_val *byte_t_keyword;
+nl_val *num_t_keyword;
+nl_val *pair_t_keyword;
+nl_val *array_t_keyword;
+nl_val *pri_t_keyword;
+nl_val *sub_t_keyword;
+nl_val *struct_t_keyword;
+nl_val *symbol_t_keyword;
+nl_val *evaluation_t_keyword;
+nl_val *bind_t_keyword;
+nl_val *null_t_keyword;
 
 //END GLOBAL DATA -------------------------------------------------------------------------------------------------
 
@@ -115,6 +127,41 @@ const char *nl_type_name(nl_type t){
 			break;
 	}
 	return "UNKNOWN";
+}
+
+//returns the type corresponding to the given symbol
+const nl_type nl_type_from_sym(nl_val *sym){
+	if(sym->t!=SYMBOL){
+		ERR_EXIT(sym,"cannot get a named type from a non-symbol",TRUE);
+		return NL_NULL;
+	}
+	
+	if(nl_val_cmp(sym,byte_t_keyword)==0){
+		return BYTE;
+	}else if(nl_val_cmp(sym,num_t_keyword)==0){
+		return NUM;
+	}else if(nl_val_cmp(sym,pair_t_keyword)==0){
+		return PAIR;
+	}else if(nl_val_cmp(sym,array_t_keyword)==0){
+		return ARRAY;
+	}else if(nl_val_cmp(sym,pri_t_keyword)==0){
+		return PRI;
+	}else if(nl_val_cmp(sym,sub_t_keyword)==0){
+		return SUB;
+	}else if(nl_val_cmp(sym,struct_t_keyword)==0){
+		return STRUCT;
+	}else if(nl_val_cmp(sym,symbol_t_keyword)==0){
+		return SYMBOL;
+	}else if(nl_val_cmp(sym,evaluation_t_keyword)==0){
+		return EVALUATION;
+	}else if(nl_val_cmp(sym,bind_t_keyword)==0){
+		return BIND;
+	}else if(nl_val_cmp(sym,null_t_keyword)==0){
+		return NL_NULL;
+	}
+	
+	ERR_EXIT(sym,"symbol doesn't correspond to a type name",TRUE);
+	return NL_NULL;
 }
 
 //BEGIN MEMORY MANAGEMENT SUBROUTINES -----------------------------------------------------------------------------
@@ -390,7 +437,7 @@ void nl_env_frame_free(nl_env_frame *env){
 //note that we do NOT change anything in the above scopes; this preserves referential transparency
 //^ there is one exception to that, which is for new vars in a non-shared env (an application frame, aka call stack entry)
 //returns TRUE for success, FALSE for failure
-char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
+char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env, const char chk_type){
 	//can't bind to a null environment
 	if(env==NULL){
 		ERR(symbol,"cannot bind to a null environment",TRUE);
@@ -425,7 +472,7 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 		//refcount the symbol because it will be free'd in the recursive call
 		//since for a trie we don't need to keep it around
 //		symbol->ref++;
-		if(!nl_bind(symbol,value,env->up_scope)){
+		if(!nl_bind(symbol,value,env->up_scope,chk_type)){
 			//could not bind in up_scope
 		}
 	}
@@ -441,8 +488,8 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 	
 	//bind this symbol in the internal trie structure
 	//note that the add_node handles reference counting for value
-//	char ret=nl_trie_add_node(env->trie,symbol_c_str,0,strlen(symbol_c_str),value);
-	char ret=nl_trie_add_node(env->trie,symbol_c_str,0,symbol->d.sym.name->d.array.size,value);
+//	char ret=nl_trie_add_node(env->trie,symbol_c_str,0,strlen(symbol_c_str),value,chk_type);
+	char ret=nl_trie_add_node(env->trie,symbol_c_str,0,symbol->d.sym.name->d.array.size,value,chk_type);
 	
 #ifdef _DEBUG
 //	printf("nl_bind debug 2, returned from nl_trie_add_node with ret %s...\n",ret?"TRUE":"FALSE");
@@ -799,7 +846,7 @@ nl_val *nl_eval_sequence(nl_val *body, nl_env_frame *env, char *early_ret){
 //returns TRUE on success, FALSE on failure
 char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env){
 	while(dflt_args->t==PAIR && dflt_args->d.pair.f->t==BIND){
-		if(!nl_bind(dflt_args->d.pair.f->d.bind.sym,dflt_args->d.pair.f->d.bind.v,env)){
+		if(!nl_bind(dflt_args->d.pair.f->d.bind.sym,dflt_args->d.pair.f->d.bind.v,env,FALSE)){
 			return FALSE;
 		}
 		dflt_args=dflt_args->d.pair.r;
@@ -809,7 +856,7 @@ char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env){
 
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds, nl_val *named_args){
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds, nl_val *named_args, const char chk_type){
 	//if there was nothing to bind
 	if((symbols->t==PAIR) && (symbols->d.pair.f==nl_null) && (symbols->d.pair.r==nl_null)){
 		//we are successful at doing nothing (aren't you so proud?)
@@ -838,13 +885,13 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow
 			printf("\n");
 #endif
 */
-			if(!nl_bind(values->d.pair.f->d.bind.sym,values->d.pair.f->d.bind.v,env)){
+			if(!nl_bind(values->d.pair.f->d.bind.sym,values->d.pair.f->d.bind.v,env,chk_type)){
 				return FALSE;
 			}
 			got_bind=TRUE;
 		//bind the argument to its associated symbol
 		}else if((!got_bind) && (symbols->t==PAIR) && (symbols->d.pair.f!=nl_null)){
-			if(!nl_bind(symbols->d.pair.f,values->d.pair.f,env)){
+			if(!nl_bind(symbols->d.pair.f,values->d.pair.f,env,chk_type)){
 				return FALSE;
 			}
 			//else isn't needed due to early return
@@ -857,7 +904,7 @@ char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow
 			// ^ this can be done by building up a symbol list here and re-setting the symbols pointer to its head, with a flag so we know to free it
 			
 			if((named_args->t==PAIR) && (named_args->d.pair.f->t==BIND)){
-				if(!nl_bind(named_args->d.pair.f->d.bind.sym,values->d.pair.f,env)){
+				if(!nl_bind(named_args->d.pair.f->d.bind.sym,values->d.pair.f,env,chk_type)){
 					return FALSE;
 				}
 				named_args=named_args->d.pair.r;
@@ -947,13 +994,13 @@ nl_val *nl_apply(nl_val *sub, nl_val *arguments, char *early_ret){
 		if(!nl_bind_dflt(sub->d.sub.dflt_args,apply_env)){
 			ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
 		}
-		if(!nl_bind_list(arg_syms,arg_vals,apply_env,TRUE,sub->d.sub.dflt_args)){
+		if(!nl_bind_list(arg_syms,arg_vals,apply_env,TRUE,sub->d.sub.dflt_args,FALSE)){
 			ERR_EXIT(arg_vals,"could not bind arguments to application environment (call stack) from apply",TRUE);
 		}
 		
 		//also bind those same arguments to the closure environment
 		//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env,TRUE,sub->d.sub.dflt_args)){
+		if(!nl_bind_list(arg_syms,arg_vals,sub->d.sub.env,TRUE,sub->d.sub.dflt_args,FALSE)){
 			//could not bind to closure scope
 		}
 		
@@ -1202,8 +1249,8 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 	
 	nl_val *ret=nl_null;
 	
-	//TODO: make let require a type argument? (maybe the first argument is just its own symbol which represents the type?)
-	// ^ for the moment we just check re-binds against first-bound type; this is closer to the strong inferred typing I initially envisioned anyway
+	//TODO: compile-time type checking? somehow?
+	//TODO: refactor this code so that eval_keyword isn't GIANT (move keyword cases to separate functions)
 	
 	//check for if statements
 	if(nl_val_cmp(keyword,if_keyword)==0){
@@ -1239,7 +1286,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			//let should never cause an early return to be passed up; (let a (return b)) will NOT return early
 //			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,early_ret);
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,NULL);
-			if(!nl_bind(arguments->d.pair.f,bound_value,env)){
+			if(!nl_bind(arguments->d.pair.f,bound_value,env,TRUE)){
 				ERR_EXIT(arguments->d.pair.f,"let couldn't bind symbol to value",TRUE);
 			}
 			
@@ -1263,7 +1310,7 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 			//let should never cause an early return to be passed up; (let a (return b)) will NOT return early
 //			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,early_ret);
 			nl_val *bound_value=nl_eval(arguments->d.pair.r->d.pair.f,env,last_exp,NULL);
-			if(!nl_bind_list(arguments->d.pair.f,bound_value,env,FALSE,nl_null)){
+			if(!nl_bind_list(arguments->d.pair.f,bound_value,env,FALSE,nl_null,TRUE)){
 				ERR_EXIT(arguments->d.pair.f,"let couldn't bind list of symbols to list of values",TRUE);
 			}
 			
@@ -1286,6 +1333,67 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 
 		}else{
 			ERR_EXIT(keyword_exp,"wrong syntax for let statement",TRUE);
+		}
+	//check for type keywords (declarations)
+	}else if(nl_val_cmp(keyword,type_keyword)==0){
+		if((arguments->t==PAIR) && (arguments->d.pair.f->t==SYMBOL) && (arguments->d.pair.r->t==PAIR)){
+			if(env==NULL){
+				ERR_EXIT(keyword_exp,"NULL environment used with type expression (we fucked up BAD)",TRUE);
+			}
+			
+			char enbld_types[NL_TYPE_CNT];
+			int n;
+			for(n=NL_TYPE_START;n<NL_TYPE_CNT;n++){
+				enbld_types[n]=FALSE;
+			}
+			
+			//create the array of enabled types based on given arguments
+			nl_val *next_type=arguments->d.pair.r;
+			while(next_type->t!=NL_NULL){
+				enbld_types[nl_type_from_sym(next_type->d.pair.f)]=TRUE;
+				
+				next_type=next_type->d.pair.r;
+			}
+			
+			//if the symbol isn't currently bound,
+			//then bind it to a default value of an enabled type
+			//note that we use nl_trie_match_node to find NODE, not value,
+			//and to avoid hitting higher scopes
+			char *sym_name=c_str_from_nl_str(arguments->d.pair.f->d.sym.name);
+			nl_trie_node *sym_node=nl_trie_match_node(env->trie,sym_name,0,(unsigned int)(arguments->d.pair.f->d.sym.name->d.array.size));
+			
+			if(sym_node==NULL){
+				//this symbol wasn't bound yet, so make it now,
+				//with an initial value of an allowed type
+				nl_type t=NL_NULL;
+				for(n=NL_TYPE_START;n<NL_TYPE_CNT;n++){
+					if(enbld_types[n]==TRUE){
+						t=n;
+						break;
+					}
+				}
+				nl_val *dflt_value=nl_val_malloc(t);
+				nl_bind(arguments->d.pair.f,dflt_value,env,TRUE);
+				nl_val_free(dflt_value);
+				
+				//now we KNOW the symbol exists
+				sym_node=nl_trie_match_node(env->trie,sym_name,0,(unsigned int)(arguments->d.pair.f->d.sym.name->d.array.size));
+			}
+			
+			free(sym_name);
+			
+			//set the allowed types in the trie to the array of enabled types
+			for(n=NL_TYPE_START;n<NL_TYPE_CNT;n++){
+				sym_node->t[n]=enbld_types[n];
+			}
+			
+			//assert that the value of the symbol is an enabled type
+			if(sym_node->t[sym_node->value->t]!=TRUE){
+				ERR_EXIT(keyword_exp,"value of symbol conflicts with declared type(s)",TRUE);
+			}
+			ret=nl_val_cp(sym_node->value);
+		}else{
+			ERR_EXIT(keyword_exp,"wrong syntax for type statement",TRUE);
 		}
 	//check for subroutine definitions (lambda expressions which are used as closures)
 	}else if(nl_val_cmp(keyword,sub_keyword)==0){
@@ -1742,7 +1850,8 @@ nl_val *nl_eval_keyword(nl_val *keyword_exp, nl_env_frame *env, char last_exp, c
 #endif
 */
 			//bind this in the struct
-			nl_bind(struct_elements->d.pair.f,struct_elements->d.pair.r->d.pair.f,ret->d.nl_struct.env);
+			//note we're not doing type checking in a struct
+			nl_bind(struct_elements->d.pair.f,struct_elements->d.pair.r->d.pair.f,ret->d.nl_struct.env,FALSE);
 			
 			arguments=arguments->d.pair.r;
 		}
@@ -1911,13 +2020,13 @@ tailcall:
 					if(!nl_bind_dflt(sub->d.sub.dflt_args,env)){
 						ERR_EXIT(sub->d.sub.dflt_args,"could not bind default (named) arguments to application environment (call stack)",TRUE);
 					}
-					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env,TRUE,sub->d.sub.dflt_args)){
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,env,TRUE,sub->d.sub.dflt_args,FALSE)){
 						ERR_EXIT(exp->d.pair.r,"could not bind arguments to application environment (call stack) from apply",TRUE);
 					}
 					
 					//also bind those same arguments to the closure environment
 					//(the body of the closure will always look them up in the apply env, but this keeps any references such as from returned closures safe)
-					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env,TRUE,sub->d.sub.dflt_args)){
+					if(!nl_bind_list(sub->d.sub.args,exp->d.pair.r,sub->d.sub.env,TRUE,sub->d.sub.dflt_args,FALSE)){
 						//could not bind to closure scope
 					}
 
@@ -2219,6 +2328,19 @@ void nl_keyword_malloc(){
 	array_keyword=nl_sym_from_c_str("array");
 	list_keyword=nl_sym_from_c_str("list");
 	struct_keyword=nl_sym_from_c_str("struct");
+	type_keyword=nl_sym_from_c_str("type");
+	
+	byte_t_keyword=nl_sym_from_c_str("BYTE_T");
+	num_t_keyword=nl_sym_from_c_str("NUM_T");
+	pair_t_keyword=nl_sym_from_c_str("PAIR_T");
+	array_t_keyword=nl_sym_from_c_str("ARRAY_T");
+	pri_t_keyword=nl_sym_from_c_str("PRI_T");
+	sub_t_keyword=nl_sym_from_c_str("SUB_T");
+	struct_t_keyword=nl_sym_from_c_str("STRUCT_T");
+	symbol_t_keyword=nl_sym_from_c_str("SYMBOL_T");
+	evaluation_t_keyword=nl_sym_from_c_str("EVALUATION_T");
+	bind_t_keyword=nl_sym_from_c_str("BIND_T");
+	null_t_keyword=nl_sym_from_c_str("NULL_T");
 }
 
 //free global symbol data for clean exit
@@ -2250,11 +2372,24 @@ void nl_keyword_free(){
 	nl_val_free(array_keyword);
 	nl_val_free(list_keyword);
 	nl_val_free(struct_keyword);
+	nl_val_free(type_keyword);
+
+	nl_val_free(byte_t_keyword);
+	nl_val_free(num_t_keyword);
+	nl_val_free(pair_t_keyword);
+	nl_val_free(array_t_keyword);
+	nl_val_free(pri_t_keyword);
+	nl_val_free(sub_t_keyword);
+	nl_val_free(struct_t_keyword);
+	nl_val_free(symbol_t_keyword);
+	nl_val_free(evaluation_t_keyword);
+	nl_val_free(bind_t_keyword);
+	nl_val_free(null_t_keyword);
 }
 
 //bind a newly alloc'd value (just removes an reference after bind to keep us memory-safe)
 void nl_bind_new(nl_val *symbol, nl_val *value, nl_env_frame *env){
-	nl_bind(symbol,value,env);
+	nl_bind(symbol,value,env,TRUE);
 	nl_val_free(symbol);
 	nl_val_free(value);
 }
@@ -2301,8 +2436,6 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-subar"),nl_primitive_wrap(nl_array_subarray),env);
 	nl_bind_new(nl_sym_from_c_str("ar-range"),nl_primitive_wrap(nl_array_range),env);
 	//TODO: make and bind additional array subroutines
-	
-	//TODO: list concatenation
 	
 	//same as for arrays; size and length mean the same thing, sz is the official/recommended one
 	nl_bind_new(nl_sym_from_c_str("list-sz"),nl_primitive_wrap(nl_list_size),env);
@@ -2400,7 +2533,7 @@ int nl_repl(FILE *fp, nl_val *argv){
 	//if we got arguments, bind those too
 	if(argv!=NULL){
 		nl_val *argv_symbol=nl_sym_from_c_str("argv");
-		nl_bind(argv_symbol,argv,global_env);
+		nl_bind(argv_symbol,argv,global_env,TRUE);
 		
 		//free the arguments and the symbol
 		nl_val_free(argv);

@@ -235,7 +235,7 @@ void nl_env_frame_free(nl_env_frame *env);
 //note that we do NOT change anything in the above scopes; this preserves referential transparency
 //^ there is one exception to that, which is for new vars in a non-shared env (an application frame, aka call stack entry)
 //returns TRUE for success, FALSE for failure
-char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env);
+char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env, const char chk_type);
 
 //look up the symbol in the given environment frame
 //note that this WILL go up to higher scopes, if there are any
@@ -279,7 +279,7 @@ char nl_bind_dflt(nl_val *dflt_args, nl_env_frame *env);
 
 //bind all the symbols to corresponding values in the given environment
 //returns TRUE on success, FALSE on failure
-char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds, nl_val *named_args);
+char nl_bind_list(nl_val *symbols, nl_val *values, nl_env_frame *env, char allow_delayed_binds, nl_val *named_args, const char chk_type);
 
 //apply a given subroutine to its arguments
 //note that returns are handled in eval_sequence
@@ -373,13 +373,16 @@ nl_trie_node *nl_trie_cp(nl_trie_node *from);
 
 //add a node to a trie that maps a c string to a value
 //returns TRUE on success, FALSE on failure
-char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value);
+char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value, const char chk_type);
 
 //check if a trie contains a given value; if so, return a pointer to the value
 //returns a pointer to the value if a match was found, else NULL
 //sets the memory at success to TRUE if successful, FALSE if not (because NULL is also a valid value)
 //if reorder is true, re-orders memory so the thing matched will be slightly quicker to find next time, if possible
 nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, char *success, char reorder);
+
+//find the NODE which contains the desired value (NULL if none is found)
+nl_trie_node *nl_trie_match_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length);
 
 //print out a trie structure
 void nl_trie_print(nl_trie_node *trie_root, int level);

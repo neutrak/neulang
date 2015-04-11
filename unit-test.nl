@@ -169,6 +169,9 @@ weird test */ 5)
 //EXPECT: "asdf"
 //$b
 
+//multi-type declaration
+(type bool BYTE_T NULL_T)
+
 //some special symbols evaluate to byte values, for boolean and char expressions
 //so test those
 (let bool TRUE)
@@ -553,8 +556,13 @@ after
 
 //BEGIN argument testing ----------------------------------------------------------------------------------
 
+(outexp $argv)
+(outs $newl)
+
 //output any arguments
 (let output-list (sub (l)
+	//note that type-checking is NOT done during argument binding (this may be changed at a later date)
+	
 	(if (not (null? $l))
 		(outs (f $l))
 		(outs " ")
@@ -564,7 +572,6 @@ after
 	)
 ))
 ($output-list $argv)
-//$argv
 
 //END argument testing ------------------------------------------------------------------------------------
 

@@ -13,8 +13,8 @@ endif
 "set iskeyword="@,65-90,97-122,63,_"
 
 " keywords
-syn keyword nl_keywords exit let if else and or not xor lit sub begin recur while for after array return outs outexp inexp inchar null? pair f r list assert
-syn keyword nl_symbols TRUE FALSE NULL
+syn keyword nl_keywords exit let if else and or not xor lit sub begin recur while for after array return outs outexp inexp inchar null? pair f r list assert type
+syn keyword nl_symbols TRUE FALSE NULL BYTE_T NUM_T PAIR_T ARRAY_T PRI_T SUB_T STRUCT_T SYMBOL_T EVALUATION_T BIND_T NULL_T
 
 " parens (highlighting included by matchgroup parameter)
 syn region nl_parens matchgroup=Delimiter start="(" end=")" contains=ALL transparent

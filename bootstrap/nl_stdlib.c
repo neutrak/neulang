@@ -24,7 +24,7 @@ nl_trie_node *nl_trie_malloc(){
 		ret->t[n]=FALSE;
 	}
 	//TODO: remove this; it's for backwards compatibility
-	ret->t[NL_NULL]=TRUE;
+//	ret->t[NL_NULL]=TRUE;
 	
 	return ret;
 }
@@ -93,7 +93,7 @@ nl_trie_node *nl_trie_cp(nl_trie_node *from){
 
 //add a node to a trie that maps a c string to a value
 //returns TRUE on success, FALSE on failure
-char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value){
+char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length, nl_val *value, const char chk_type){
 /*
 #ifdef _DEBUG
 	printf("nl_trie_add_node debug 0, got name %s, length %u, value ",name,length);
@@ -105,7 +105,7 @@ char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int st
 	//a value with length is already added
 	//(this is the base case to stop recursion)
 	if(length<1){
-		if((trie_root->end_node) && (trie_root->t[value->t]==FALSE)){
+		if((trie_root->end_node) && ((chk_type==TRUE) && (trie_root->t[value->t]==FALSE))){
 			fprintf(stderr,"Err [line %u]: re-binding %s",value->line,name);
 			fprintf(stderr," to value of wrong type (type %s not enabled) (symbol value unchanged)\n",nl_type_name(value->t));
 			nl_val_free(value);
@@ -132,7 +132,7 @@ char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int st
 	for(n=0;n<trie_root->child_count;n++){
 		//found the value, so go to the next character and return early
 		if(name[start_idx]==trie_root->children[n]->name){
-			return nl_trie_add_node(trie_root->children[n],name,start_idx+1,length-1,value);
+			return nl_trie_add_node(trie_root->children[n],name,start_idx+1,length-1,value,chk_type);
 		}
 	}
 	
@@ -150,7 +150,7 @@ char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int st
 	trie_root->children=new_children;
 	
 	//now go and try to add the next character to the newly-created child
-	return nl_trie_add_node(trie_root->children[trie_root->child_count-1],name,start_idx+1,length-1,value);
+	return nl_trie_add_node(trie_root->children[trie_root->child_count-1],name,start_idx+1,length-1,value,chk_type);
 }
 
 //check if a trie contains a given value; if so, return a pointer to the value
@@ -218,8 +218,37 @@ nl_val *nl_trie_match(nl_trie_node *trie_root, const char *name, unsigned int st
 		return result;
 	}
 	
-	//if the node wasn't found then return false
+	//if the node wasn't found then return NULL
 	return nl_null;
+}
+
+//find the NODE which contains the desired value (NULL if none is found)
+nl_trie_node *nl_trie_match_node(nl_trie_node *trie_root, const char *name, unsigned int start_idx, unsigned int length){
+	//a length of 0 indicates that we got to the end node already
+	//so just check if it's a valid end point (terminal)
+	if(length<1){
+		if(trie_root->end_node){
+			//we do NOT return a copy; copies are made by calling code if and when they are needed
+			return trie_root;
+		}else{
+			//signal the calling code so they know this failed
+			return NULL;
+		}
+	}
+	
+	nl_trie_node *result=NULL;
+	
+	int n;
+	for(n=0;(length>0) && (trie_root!=NULL) && (n<trie_root->child_count);n++){
+		//if this node matched, then start on its children (recursively)
+		if(trie_root->children[n]->name==(name[start_idx])){
+			result=nl_trie_match_node(trie_root->children[n],name,start_idx+1,length-1);
+			return result;
+		}
+	}
+	
+	//if the node wasn't found then return NULL
+	return NULL;
 }
 
 //print out a trie structure
@@ -2437,7 +2466,8 @@ nl_val *nl_struct_replace(nl_val *rqst_list){
 	nl_val *symbol=rqst_list->d.pair.r->d.pair.f;
 	nl_val *new_value=rqst_list->d.pair.r->d.pair.r->d.pair.f;
 	
-	if(!nl_bind(symbol,new_value,current_struct->d.nl_struct.env)){
+	//note we don't do type checking in structs
+	if(!nl_bind(symbol,new_value,current_struct->d.nl_struct.env,FALSE)){
 		ERR_EXIT(rqst_list,"could not bind symbol in struct",TRUE);
 		return nl_null;
 	}
