@@ -26,8 +26,10 @@
 
 //primitive data types; the user should be able to abstract these with a struct
 typedef enum {
+	NL_TYPE_START,
+	
 	//external (user-visible) types
-	BYTE, //single-byte value (characters, booleans)
+	BYTE=NL_TYPE_START, //single-byte value (characters, booleans)
 	NUM, //rational number support, consists of 2 bignum ints; for an integer the denominator portion will be 1
 	PAIR, //cons cell
 	ARRAY, //contiguous memory section
@@ -40,6 +42,8 @@ typedef enum {
 	EVALUATION, //to-be-evaluated symbol, denoted $symbol
 	BIND, //delayed variable binding
 	NL_NULL, //null type
+	
+	NL_TYPE_CNT,
 } nl_type;
 
 typedef struct nl_env_frame nl_env_frame;
@@ -164,8 +168,9 @@ struct nl_trie_node {
 	//the value that's bound to this symbol (NULL for unbound)
 	nl_val *value;
 	
-	//the type of value that was first bound, so we can ensure re-binds don't change type
-	nl_type t;
+	//an array of booleans to define which types are allowed
+	//this is for the (as far as I know unique) neulang multitype behavior
+	char t[NL_TYPE_CNT];
 };
 
 //environment frame (one global, then one per closure)

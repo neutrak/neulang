@@ -405,10 +405,6 @@ char nl_bind(nl_val *symbol, nl_val *value, nl_env_frame *env){
 */
 	}
 	
-	if(symbol==nl_null){
-		ERR_EXIT(symbol,"cannot bind a null symbol",TRUE);
-		return FALSE;
-	}
 	if(symbol->t!=SYMBOL){
 		ERR_EXIT(symbol,"cannot bind a non-symbol type",TRUE);
 		return FALSE;

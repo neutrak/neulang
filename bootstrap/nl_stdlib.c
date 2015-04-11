@@ -18,7 +18,13 @@ nl_trie_node *nl_trie_malloc(){
 	ret->name='\0';
 	ret->end_node=FALSE;
 	ret->value=nl_null;
-	ret->t=SYMBOL;
+	
+	int n;
+	for(n=NL_TYPE_START;n<NL_TYPE_CNT;n++){
+		ret->t[n]=FALSE;
+	}
+	//TODO: remove this; it's for backwards compatibility
+	ret->t[NL_NULL]=TRUE;
 	
 	return ret;
 }
@@ -66,7 +72,10 @@ nl_trie_node *nl_trie_cp(nl_trie_node *from){
 	to->end_node=from->end_node;
 	if(from->end_node){
 		to->value=nl_val_cp(from->value);
-		to->t=from->t;
+		int n;
+		for(n=NL_TYPE_START;n<NL_TYPE_CNT;n++){
+			to->t[n]=from->t[n];
+		}
 	}
 	
 	//recurse to children, if there are any
@@ -96,9 +105,9 @@ char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int st
 	//a value with length is already added
 	//(this is the base case to stop recursion)
 	if(length<1){
-		if((trie_root->end_node) && ((value!=nl_null) && (trie_root->t!=value->t))){
+		if((trie_root->end_node) && (trie_root->t[value->t]==FALSE)){
 			fprintf(stderr,"Err [line %u]: re-binding %s",value->line,name);
-			fprintf(stderr," to value of wrong type (type %s != type %s) (symbol value unchanged)\n",nl_type_name(value->t),nl_type_name(trie_root->t));
+			fprintf(stderr," to value of wrong type (type %s not enabled) (symbol value unchanged)\n",nl_type_name(value->t));
 			nl_val_free(value);
 #ifdef _STRICT
 			exit(1);
@@ -111,15 +120,10 @@ char nl_trie_add_node(nl_trie_node *trie_root, const char *name, unsigned int st
 			}
 			trie_root->end_node=TRUE;
 			trie_root->value=value;
-			trie_root->t=SYMBOL;
+			trie_root->t[value->t]=TRUE;
 			
-			//manage memory and type for non-null values
-			if(value!=nl_null){
-				trie_root->t=value->t;
-				
-				//this is a new reference to this value
-				value->ref++;
-			}
+			//this is a new reference to this value
+			value->ref++;
 		}
 		return TRUE;
 	}
@@ -291,7 +295,19 @@ int nl_trie_cmp(nl_trie_node *a, nl_trie_node *b){
 	if(a->end_node){
 		if(b->end_node){
 			//if we got through all matching children with no failures
-			//then the tries (or sub-tries) are equal symbol-wise, so check their component values
+			//then the tries (or sub-tries) are equal symbol-wise
+			
+			//check their allowed types
+			int n;
+			for(n=NL_TYPE_START;n<NL_TYPE_CNT;n++){
+				if(a->t[n]<b->t[n]){
+					return -1;
+				}else if(a->t[n]>b->t[n]){
+					return 1;
+				}
+			}
+			
+			//check their component values
 			return nl_val_cmp(a->value,b->value);
 		}
 		//a had an end node where b did not, so a is "greater" than b
