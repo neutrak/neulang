@@ -1,4 +1,4 @@
-#!/usr/bin/nl
+#!/usr/bin/neul
 
 //this makes us search the $PATH environment variable when a function isn't found
 //we will define the function as taking one string as an argument

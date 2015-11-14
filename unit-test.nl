@@ -1,4 +1,4 @@
-#!/usr/bin/nl
+#!/usr/bin/neul
 
 //a unit test ensuring compliance to the neulang spec
 //please run this in valgrind to ensure there are no memory leaks kthnx

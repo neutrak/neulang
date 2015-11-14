@@ -1,4 +1,4 @@
-#!/usr/bin/nl
+#!/usr/bin/neul
 
 //neulang, like the 4th attempt?
 //at the moment I'm just playing with syntax and figuring out how I want it to be
