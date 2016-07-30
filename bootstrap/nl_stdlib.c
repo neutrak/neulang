@@ -2208,10 +2208,16 @@ nl_val *nl_outstr(nl_val *array_list){
 	while(array_list->t==PAIR){
 		nl_val *output_str=array_list->d.pair.f;
 		
-		int n;
-		for(n=0;n<output_str->d.array.size;n++){
-//			nl_out(stdout,&(output_str->d.array.v[n]));
-			nl_out(stdout,output_str->d.array.v[n]);
+		//non-array types are ignored in non-strict mode
+		//but cause a hard error in strict mode
+		if(output_str->t!=ARRAY){
+			ERR_EXIT(output_str,"argument to outs is of non-array type",TRUE);
+		}else{
+			int n;
+			for(n=0;n<output_str->d.array.size;n++){
+//				nl_out(stdout,&(output_str->d.array.v[n]));
+				nl_out(stdout,output_str->d.array.v[n]);
+			}
 		}
 		
 		array_list=array_list->d.pair.r;
