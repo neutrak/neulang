@@ -12,14 +12,11 @@
 
 //BEGIN GLOBAL DATA -----------------------------------------------------------------------------------------------
 
-//bookkeeping
-//char end_program;
-//unsigned int line_number;
-
 //keywords
 nl_val *true_keyword;
 nl_val *false_keyword;
 nl_val *null_keyword;
+//nl_val *line_num_keyword;
 
 nl_val *pair_keyword;
 nl_val *f_keyword;
@@ -1963,6 +1960,13 @@ tailcall:
 				//NULL keyword
 				}else if(nl_val_cmp(exp,null_keyword)==0){
 					ret=nl_null;
+				//LINE-NUM keyword
+/*
+				}else if(nl_val_cmp(exp,line_num_keyword)==0){
+					ret=nl_val_malloc(NUM);
+					ret->d.num.n=line_number;
+					ret->d.num.d=1;
+*/
 				}else{
 					exp->ref++;
 					ret=exp;
@@ -2125,8 +2129,6 @@ char nl_is_whitespace(char c){
 //TODO: (cont) this interactive mode should also be user-accessable via an argument to inexp
 //read an expression from the given input stream
 nl_val *nl_read_exp(FILE *fp){
-//	unsigned int old_line_number=line_number;
-	
 	//read in a string until non-whitespace followed by whitespace is found
 	//also if we're in a list, keep reading until the end of it (and care about comments insomuch as nest level doesn't change within comments)
 	nl_val *input_string=nl_val_malloc(ARRAY);
@@ -2304,6 +2306,7 @@ void nl_keyword_malloc(){
 	true_keyword=nl_sym_from_c_str("TRUE");
 	false_keyword=nl_sym_from_c_str("FALSE");
 	null_keyword=nl_sym_from_c_str("NULL");
+//	line_num_keyword=nl_sym_from_c_str("LINE_NUM");
 	
 	pair_keyword=nl_sym_from_c_str("pair");
 	f_keyword=nl_sym_from_c_str("f");
@@ -2348,6 +2351,7 @@ void nl_keyword_free(){
 	nl_val_free(true_keyword);
 	nl_val_free(false_keyword);
 	nl_val_free(null_keyword);
+//	nl_val_free(line_num_keyword);
 	
 	nl_val_free(pair_keyword);
 	nl_val_free(f_keyword);
@@ -2530,6 +2534,10 @@ int nl_repl(FILE *fp, nl_val *argv){
 	//bind the standard library functions in the global environment
 	nl_bind_stdlib(global_env);
 	
+	//initialize the line number
+//	line_number=0;
+	line_number=1;
+	
 	//if we got arguments, bind those too
 	if(argv!=NULL){
 		nl_val *argv_symbol=nl_sym_from_c_str("argv");
@@ -2555,10 +2563,6 @@ int nl_repl(FILE *fp, nl_val *argv){
 	//peek a character after that, for two-char tokens
 	char next_c=getc(fp);
 	ungetc(next_c,fp);
-	
-	//initialize the line number
-//	line_number=0;
-	line_number=1;
 	
 	//ignore shebang (#!) line, if there is one
 	if(c=='#' && next_c=='!'){
