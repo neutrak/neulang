@@ -1,0 +1,4 @@
+#ignore the compiled binary and vim swap files
+bootstrap-neul
+.*.swp
+

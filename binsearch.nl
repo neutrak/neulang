@@ -3,30 +3,29 @@
 //return the index of the needle if found
 //return -1 if the needle (search parameter) is not in the haystack (array)
 (let ar-binsearch (sub (needle haystack)
-	(if (= (ar-sz $haystack) 0)
-		-1
-	else (if (= (ar-sz $haystack) 1)
-		(if (= $needle (ar-idx $haystack 0))
-			0
-		else
+	//tail recursive implementation requires a start idx
+	(let iter-ar-binsearch (sub (needle haystack start-idx)
+		(if (= (ar-sz $haystack) 0)
 			-1
-		)
-	else
-		(let cmp-idx (floor (/ (ar-sz $haystack) 2)))
-		(let cmp (ar-idx $haystack $cmp-idx))
-		(if (< $needle $cmp)
-			($ar-binsearch $needle (ar-subar $haystack 0 $cmp-idx))
-		else (if (> $needle $cmp)
-			(let subsearch-idx ($ar-binsearch $needle (ar-subar $haystack $cmp-idx (- (ar-sz $haystack) $cmp-idx))))
-			(if (< $subsearch-idx 0)
-				$subsearch-idx
+		else (if (= (ar-sz $haystack) 1)
+			(if (= $needle (ar-idx $haystack 0))
+				$start-idx
 			else
-				(+ $cmp-idx $subsearch-idx)
+				-1
 			)
 		else
-			$cmp-idx
+			(let cmp-idx (floor (/ (ar-sz $haystack) 2)))
+			(let cmp (ar-idx $haystack $cmp-idx))
+			(if (< $needle $cmp)
+				($iter-ar-binsearch $needle (ar-subar $haystack 0 $cmp-idx) $start-idx)
+			else (if (> $needle $cmp)
+				($iter-ar-binsearch $needle (ar-subar $haystack $cmp-idx (- (ar-sz $haystack) $cmp-idx)) (+ $start-idx $cmp-idx))
+			else
+				(+ $start-idx $cmp-idx)
+			))
 		))
 	))
+	($iter-ar-binsearch $needle $haystack 0)
 ))
 
 //test to ensure ar-binsearch works properly
