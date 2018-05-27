@@ -2439,6 +2439,7 @@ void nl_bind_stdlib(nl_env_frame *env){
 	nl_bind_new(nl_sym_from_c_str("ar-chop"),nl_primitive_wrap(nl_array_chop),env);
 	nl_bind_new(nl_sym_from_c_str("ar-subar"),nl_primitive_wrap(nl_array_subarray),env);
 	nl_bind_new(nl_sym_from_c_str("ar-range"),nl_primitive_wrap(nl_array_range),env);
+	nl_bind_new(nl_sym_from_c_str("ar-map"),nl_primitive_wrap(nl_array_map),env);
 	//TODO: make and bind additional array subroutines
 	
 	//same as for arrays; size and length mean the same thing, sz is the official/recommended one

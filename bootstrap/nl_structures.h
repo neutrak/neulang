@@ -494,6 +494,11 @@ nl_val *nl_array_subarray(nl_val *arg_list);
 //returns a new array consisting of a subset of the given array (all elements within the given inclusive range)
 nl_val *nl_array_range(nl_val *arg_list);
 
+//array map
+//returns a new array consisting of each original value in the array "mapped" by the given function to the new array
+//i.e. the return value of this is the array of return values of the given subroutine applied to each of the original array arguments
+nl_val *nl_array_map(nl_val *arg_list);
+
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list);

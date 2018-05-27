@@ -607,6 +607,9 @@ Arrays are the preferred means of combining pieces of data to form larger struct
 	<li>
 	<b>ar-range</b> - returns a new array which is a subset of the given array limited to the given min and max indices (let array (ar-range $array $min $max))
 	</li>
+	<li>
+	<b>ar-map</b> - returns a new array which is contains the contents given array mapped by the given mapping function to a new array (let array (ar-map $array (sub (element) (* $element 2))))
+	</li>
 <!-- TODO: implement these in the interpreter -->
 	<li>
 	<b>ar-ins</b> - returns a new array with the given element included at the given index, pushing later elements down (let array (ar-ins $array $index $new))

@@ -2202,6 +2202,48 @@ nl_val *nl_array_range(nl_val *arg_list){
 	return ret;
 }
 
+//array map
+//returns a new array consisting of each original value in the array "mapped" by the given function to the new array
+//i.e. the return value of this is the array of return values of the given subroutine applied to each of the original array arguments
+nl_val *nl_array_map(nl_val *arg_list){
+	nl_val *ret=nl_null;
+	
+	int argc=nl_c_list_size(arg_list);
+	if(argc!=2){
+		ERR_EXIT(arg_list,"wrong number of arguments given to array map (takes exactly 2 arguments: array, mapping-sub)",TRUE);
+		return nl_null;
+	}
+	
+	if((arg_list->d.pair.f->t!=ARRAY)){
+		ERR_EXIT(arg_list,"wrong argument type given to subarray operation (require array as first operand)",TRUE);
+		return nl_null;
+	}
+	if(!((arg_list->d.pair.r->d.pair.f->t==SUB) || (arg_list->d.pair.r->d.pair.f->t==PRI))){
+		ERR_EXIT(arg_list,"wrong argument type given to subarray operation (require subroutine or primitive function as second operand)",TRUE);
+		return nl_null;
+	}
+	
+	nl_val *full_array=arg_list->d.pair.f;
+	nl_val *map=arg_list->d.pair.r->d.pair.f;
+	
+	ret=nl_val_malloc(ARRAY);
+	
+	unsigned int n;
+	for(n=0;(n<full_array->d.array.size);n++){
+		//pass the value in the array as an argument to the mapping subroutine
+		nl_val *args=nl_val_malloc(PAIR);
+		args->d.pair.f=nl_val_cp(full_array->d.array.v[n]);
+		
+		//apply the mapping subroutine and store the result in the return array
+		nl_array_push(ret,nl_apply(map,args,NULL));
+		
+		//clean up the memory allocated for the subroutine argument
+		nl_val_free(args);
+	}
+	
+	return ret;
+}
+
 //output the given list of strings in sequence
 //returns NULL (a void function)
 nl_val *nl_outstr(nl_val *array_list){
