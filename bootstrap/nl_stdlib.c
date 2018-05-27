@@ -1691,6 +1691,30 @@ nl_val *nl_sym_to_str(nl_val *sym_list){
 }
 
 
+//returns the number equivilent of the given string, if possible
+//this uses the same parsing as the underlying interpreter parsing of numeric constants
+nl_val *nl_str_to_num(nl_val *str_list){
+	int argc=nl_c_list_size(str_list);
+	if(argc!=1){
+		ERR_EXIT(str_list,"incorrect number of arguments given to str->num (takes exactly one)",TRUE);
+		return nl_null;
+	}
+	
+	if(str_list->d.pair.f->t!=ARRAY){
+		ERR_EXIT(str_list->d.pair.f,"incorrect type given to str->num (expected ARRAY of BYTEs)",TRUE);
+		return nl_null;
+	}
+	
+	nl_val *ret;
+	
+	//read a number from a string
+	unsigned int persistent_pos=0;
+	ret=nl_str_read_num(str_list->d.pair.f, &persistent_pos);
+	
+	return ret;
+}
+
+
 //BEGIN C-NL-STDLIB-ARRAY SUBROUTINES  ----------------------------------------------------------------------------
 
 //TODO: write all array library functions

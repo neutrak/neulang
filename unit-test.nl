@@ -730,6 +730,10 @@ else
 //if end < start the indices get flipped
 (assert (= (ar-range "asdfasdf" 3 0) "asdf"))
 
+//ensure mapping works properly
+(assert (= (ar-map (array 0 1 2 3 4) (sub (n) (* $n 2))) (array 0 2 4 6 8)))
+(assert (= (ar-map (array 5 4 3 2 1) (sub (elem) (/ $elem 2))) (array 5/2 2 3/2 1 1/2)))
+
 //END standard library array testing ----------------------------------------------------------------------
 
 

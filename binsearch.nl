@@ -35,16 +35,8 @@
 (assert (= ($ar-binsearch 9) -1))
 (assert (= ($ar-binsearch 4.3) -1))
 
-//man I have got to add some proper string parsing functions; parsing command line arguments like this is a nightmare
-//at the very lease I need to bind nl_str_read_num to a neulang subroutine for converting strings to numbers
-(let needle (- (byte->num (ar-idx (f (r $argv)) 0)) (byte->num '0')))
-(let haystack-strs (ar-chop (f (r (r $argv))) " "))
-(let haystack "")
-(let haystack (for n 0 (< $n (ar-sz $haystack-strs)) (+ $n 1)
-	(let haystack (, $haystack (array (- (byte->num (ar-idx (ar-idx $haystack-strs $n) 0)) (byte->num '0')))))
-after
-	$haystack
-))
+(let needle (str->num (f (r $argv))))
+(let haystack (ar-map (ar-chop (f (r (r $argv))) " ") (sub (exp) (str->num $exp))))
 (outexp $needle)
 (outs $newl)
 (outexp $haystack)

@@ -445,6 +445,10 @@ nl_val *nl_str_to_sym(nl_val *str_list);
 //returns the string equivilent of the given symbol
 nl_val *nl_sym_to_str(nl_val *sym_list);
 
+//returns the number equivilent of the given string, if possible
+//this uses the same parsing as the underlying interpreter parsing of numeric constants
+nl_val *nl_str_to_num(nl_val *str_list);
+
 //push a value onto the end of an array
 void nl_array_push(nl_val *a, nl_val *v);
 
