@@ -36,6 +36,11 @@ interesting/important propreties in no particular order
 		(ar-size <array>) -> returns the size of the given array, in number of elements
 		(ar-idx <array> <index>) -> returns the element at given index in the array (we 0-index ALWAYS)
 		(, <string> <string> <string> ...) -> returns the concatenation of the given strings
+	
+	the following data structures are expected to be heavily used and will need to be VERY FAST!!!
+		strings (we may need to use an internal rope type for editing operations)
+		lists (these are actually fine in the implementation; just scheme style lists)
+		hash tables (we need something better than hash tries)
 
 "mod" branch - an alternate syntax I'm considering for the same internals
 	//outer-prefix denotation, built-ins having the symbol be a call but user-defined functions require an evaluation ($), so they can never be in conflict
@@ -56,4 +61,9 @@ interesting/important propreties in no particular order
 		//user-defined functions require an evaluation construct so it's not literally interpreted as a symbol
 		out($we-broke-math(">" 2 3))
 	)
+
+Tutorial -
+	I would like someone who has never heard of this language or programming in general to be able to type "help" or "tutorial" into the interactive prompt and be taught the language directly from the console
+		I feel this is important because computers may not always be internet-connected and a computer without the ability to write software for it is severely limited
+			To this end an editor and the abililty to read and save files directly from the console also needs to be bundled with the interpreter
 
